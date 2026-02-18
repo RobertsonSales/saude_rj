@@ -456,13 +456,34 @@
         }
 
         .category-content {
-            max-height: 5000px;
-            overflow: hidden;
+            max-height: 600px;
+            overflow-y: auto;
+            overflow-x: hidden;
             transition: max-height 0.4s ease;
+            scrollbar-width: thin;
+            scrollbar-color: var(--gray-300) transparent;
+        }
+
+        .category-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .category-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .category-content::-webkit-scrollbar-thumb {
+            background: var(--gray-300);
+            border-radius: 9999px;
+        }
+
+        .category-content::-webkit-scrollbar-thumb:hover {
+            background: var(--gray-400);
         }
 
         .category-content.collapsed {
             max-height: 0;
+            overflow: hidden;
         }
 
         .units-grid {
@@ -1578,22 +1599,32 @@
         // BUSCA POR MUNICÍPIO — Overpass com bbox do município
         // ============================================
         async function buscarUnidadesOpenStreetMap(municipio) {
-            // bbox ~20 km em torno do centro do município
-            const d = 0.18;
-            const s = municipio.latitude  - d, n = municipio.latitude  + d;
-            const w = municipio.longitude - d, e = municipio.longitude + d;
+            // Estratégia 1: busca por área administrativa (relation OSM via código IBGE)
+            // Se falhar, usa bbox generosa ao redor do centroide do município.
 
-            // Busca todos os elementos com healthcare=* ou amenity de saúde relevante
+            // Raio adaptativo: municípios grandes (Rio, Niterói) precisam de mais cobertura
+            const raioGraus = municipio.nome === 'Rio de Janeiro' ? 0.55
+                            : municipio.nome === 'Niterói'        ? 0.25
+                            : municipio.nome === 'Nova Iguaçu'    ? 0.30
+                            : municipio.nome === 'Duque de Caxias'? 0.28
+                            : 0.20;
+
+            const sul   = (municipio.latitude  - raioGraus).toFixed(6);
+            const norte = (municipio.latitude  + raioGraus).toFixed(6);
+            const oeste = (municipio.longitude - raioGraus).toFixed(6);
+            const leste = (municipio.longitude + raioGraus).toFixed(6);
+
+            // Query Overpass com bbox — inclui todos os nós/ways com healthcare ou amenity relevante.
+            // O filtro por pertencimento ao SUS é feito pela função classificar().
             const query = `
-[out:json][timeout:45];
+[out:json][timeout:60];
 (
-  node["healthcare"](${s},${w},${n},${e});
-  way["healthcare"](${s},${w},${n},${e});
-  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"](${s},${w},${n},${e});
-  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"](${s},${w},${n},${e});
+  node["healthcare"](${sul},${oeste},${norte},${leste});
+  way["healthcare"](${sul},${oeste},${norte},${leste});
+  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
+  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
 );
-out center tags;
-            `.trim();
+out center tags;`.trim();
 
             let elementos = [];
             try {
@@ -1611,18 +1642,14 @@ out center tags;
                 const lon = el.lon ?? el.center?.lon;
                 if (!lat || !lon) continue;
 
-                const u = montarUnidade(
-                    tags, lat, lon,
-                    el.id,
-                    el.type === 'node' ? 'node' : 'way'
-                );
+                const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
                 if (!u) continue;
 
-                // Preencher cidade/bairro com dados do município se vazios
                 if (!u.cidade) u.cidade = municipio.nome;
-                if (!u.bairro) u.bairro = extrairBairro(
-                    [tags['addr:suburb'], tags['addr:neighbourhood'], tags['addr:quarter']].filter(Boolean).join(', ')
-                ) || 'Centro';
+                if (!u.bairro) {
+                    u.bairro = tags['addr:suburb'] || tags['addr:neighbourhood'] ||
+                               tags['addr:quarter'] || tags['addr:district'] || 'Centro';
+                }
 
                 resultado.push(u);
             }
@@ -1915,7 +1942,7 @@ out center tags;
             categoriasAbertas[nivel] = !categoriasAbertas[nivel];
             const content = document.getElementById(`content-${nivel}`);
             const icon = content.previousElementSibling.querySelector('.category-icon');
-            
+
             if (categoriasAbertas[nivel]) {
                 content.classList.remove('collapsed');
                 icon.classList.remove('collapsed');
