@@ -1382,157 +1382,147 @@
          * Retorna false → privado (excluir)
          * Retorna null  → indeterminado (deixar para análise de nome/tipo)
          */
-        function analisarOperador(tags) {
-            const opType = (tags['operator:type'] || '').toLowerCase();
-            const operator = (tags['operator'] || '').toLowerCase();
-            const access   = (tags['access'] || '').toLowerCase();
-
-            // Explicitamente público
-            if (['public', 'government', 'municipal', 'state', 'federal'].includes(opType))
-                return true;
-
-            // Explicitamente privado
-            if (['private', 'commercial', 'ngo'].includes(opType))
-                return false;
-
-            // Operador com nome de rede pública conhecida
-            const redesPublicas = [
-                'sus', 'prefeitura', 'secretaria', 'municipal', 'estado', 'federal',
-                'governo', 'smsa', 'sms', 'sesau', 'sesab', 'sesap', 'upa ',
-                'sms-rio', 'rio saúde', 'rio saude', 'pmerj', 'bombeiro'
-            ];
-            if (redesPublicas.some(r => operator.includes(r))) return true;
-
-            // Operadores claramente privados
-            const redesPrivadas = [
-                'unimed', 'amil', 'hapvida', 'notredame', 'são lucas', 'sao lucas',
-                'santa casa', 'einstein', 'sírio', 'sirio', 'fleury', 'dasa', 'hermes pardini',
-                'rede d\'or', 'dor', 'ultra', 'cedimagem', 'clínica', 'clinica'
-            ];
-            if (redesPrivadas.some(r => operator.includes(r))) return false;
-
-            // Tag access=private descarta
-            if (access === 'private') return false;
-
-            return null; // indeterminado
+        // ── UTILITÁRIO ─────────────────────────────────────────────────────
+        function norm(s) {
+            return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         }
 
-        /**
-         * PASSO 2 — Classificar perfil e nível pelo tipo OSM (tags healthcare / amenity).
-         * Tipos excluídos por serem majoritariamente privados retornam null.
-         */
-        const TIPO_PARA_PERFIL = {
-            // healthcare=* (mais preciso)
-            'hospital':          { perfil: 'Hospital',                    nivel: 'Terciária'  },
-            'maternity':         { perfil: 'Maternidade',                 nivel: 'Terciária'  },
-            'birthing_centre':   { perfil: 'Maternidade',                 nivel: 'Terciária'  },
-            'birthing_center':   { perfil: 'Maternidade',                 nivel: 'Terciária'  },
-            'hospice':           { perfil: 'Cuidados Paliativos',         nivel: 'Terciária'  },
+        function analisarOperador(tags) {
+            const opType   = norm(tags['operator:type'] || '');
+            const operator = norm(tags['operator']      || '');
+            const access   = norm(tags['access']        || '');
 
-            'centre':            { perfil: 'Centro de Saúde',             nivel: 'Primária'   },
-            'health_centre':     { perfil: 'Centro de Saúde',             nivel: 'Primária'   },
-            'health_post':       { perfil: 'Posto de Saúde',              nivel: 'Primária'   },
+            // Explicitamente público
+            if (['public','government','municipal','state','federal'].includes(opType)) return true;
+            if (['private','commercial'].includes(opType)) return false;
+            if (access === 'private') return false;
 
-            'clinic':            { perfil: 'Clínica Especializada',       nivel: 'Secundária' },
-            'rehabilitation':    { perfil: 'Centro de Reabilitação',      nivel: 'Secundária' },
-            'blood_bank':        { perfil: 'Banco de Sangue',             nivel: 'Secundária' },
-            'dialysis':          { perfil: 'Centro de Diálise',           nivel: 'Secundária' },
-            'nursing_home':      { perfil: 'Casa de Repouso',             nivel: 'Secundária' },
+            const pub = ['prefeitura','secretaria','sus','municipal','governo','estado','federal',
+                         'smsa','sms','sesau','sesab','sesap','smsdc','sms-rio','rio saude',
+                         'pmerj','bombeiro','ministerio da saude'];
+            if (pub.some(p => operator.includes(p))) return true;
 
-            // amenity=* (menos preciso; alguns têm chance razoável de ser públicos)
-            'amenity_hospital':  { perfil: 'Hospital',                    nivel: 'Terciária'  },
-            'amenity_clinic':    { perfil: 'Clínica Especializada',       nivel: 'Secundária' },
-            'amenity_health_post':   { perfil: 'Posto de Saúde',          nivel: 'Primária'   },
-            'amenity_health_centre': { perfil: 'Centro de Saúde',         nivel: 'Primária'   },
-        };
+            const priv = ['unimed','amil','hapvida','notredame','einstein','sirio','fleury',
+                          'dasa','hermes pardini','rede dor','rede d\'or','ultra','cedimagem',
+                          'santa casa','sao lucas','sao rafael','prevent senior','gndi','intermedica'];
+            if (priv.some(p => operator.includes(p))) return false;
 
-        // Tipos OSM tipicamente privados — descartados salvo confirmação de operador público
+            return null;
+        }
+
+        // Tipos OSM quase exclusivamente privados
         const TIPOS_PRIVADOS = new Set([
-            'pharmacy', 'dentist', 'doctors', 'optometrist', 'psychotherapist',
-            'audiologist', 'alternative', 'physiotherapist', 'laboratory',
-            'sample_collection', 'medical_imaging', 'urgent_care'
+            'pharmacy','dentist','doctors','optometrist','psychotherapist',
+            'audiologist','alternative','physiotherapist','laboratory',
+            'sample_collection','medical_imaging'
         ]);
 
+        // Tags OSM inequívocas (não inclui "clinic" que é ambígua)
+        const TIPO_INEQUIVOCO = {
+            'hospital':        { perfil: 'Hospital',              nivel: 'Terciária'  },
+            'maternity':       { perfil: 'Maternidade',           nivel: 'Terciária'  },
+            'birthing_centre': { perfil: 'Maternidade',           nivel: 'Terciária'  },
+            'birthing_center': { perfil: 'Maternidade',           nivel: 'Terciária'  },
+            'hospice':         { perfil: 'Cuidados Paliativos',   nivel: 'Terciária'  },
+            'rehabilitation':  { perfil: 'Centro de Reabilitação',nivel: 'Secundária' },
+            'blood_bank':      { perfil: 'Banco de Sangue',       nivel: 'Secundária' },
+            'dialysis':        { perfil: 'Centro de Diálise',     nivel: 'Secundária' },
+            'nursing_home':    { perfil: 'Casa de Repouso',       nivel: 'Secundária' },
+            'health_post':     { perfil: 'Posto de Saúde',        nivel: 'Primária'   },
+            'health_centre':   { perfil: 'Centro de Saúde',       nivel: 'Primária'   },
+        };
+
         /**
-         * PASSO 3 — Análise do nome como última instância.
-         * Usada quando os passos anteriores não foram conclusivos.
+         * Classifica pelo NOME — fonte mais confiável para o vocabulário SUS.
+         * Recebe o nome já normalizado (sem acentos, minúsculas).
+         * Retorna { perfil, nivel } ou null (excluir).
          */
-        function classificarPorNome(nome) {
-            const n = nome.toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // sem acentos
+        function classificarPorNome(n) {
+            // ── EXCLUIR ──────────────────────────────────────────────────────
+            if (/farmac|drogaria|\bdroga\b|otica\b|optica\b/.test(n))        return null;
+            if (/odonto|dental\b|dentist|ortodont/.test(n))                  return null;
+            if (/\bvet(erinari)?\b/.test(n))                                 return null;
+            if (/laboratorio\s+particular|clinica\s+particular/.test(n))     return null;
 
-            // — Excluir definitivamente —
-            if (/farmac|drogaria|droga\b|otica\b|optica|laboratorio\s+particular|clinica\s+particular/.test(n)) return null;
-            if (/odonto|dental\b|dentist|ortodont/.test(n)) return null;
-            if (/\bvet(erinari)?\b/.test(n)) return null;
+            // ── TERCIÁRIA ────────────────────────────────────────────────────
+            if (/\bhospital\b/.test(n))
+                return { perfil: 'Hospital',                  nivel: 'Terciária' };
+            if (/maternidade/.test(n))
+                return { perfil: 'Maternidade',               nivel: 'Terciária' };
+            if (/instituto\s+(nacional|estadual|municipal|de\s+puericultura)/.test(n))
+                return { perfil: 'Hospital / Instituto',      nivel: 'Terciária' };
 
-            // — Terciária —
-            if (/\bhospital\b/.test(n))                    return { perfil: 'Hospital',                nivel: 'Terciária'  };
-            if (/maternidade/.test(n))                     return { perfil: 'Maternidade',             nivel: 'Terciária'  };
+            // ── SECUNDÁRIA ───────────────────────────────────────────────────
+            if (/\bupa\b|pronto[\s\-]?atendimento|pronto[\s\-]?socorro/.test(n))
+                return { perfil: 'UPA / Pronto Atendimento',  nivel: 'Secundária' };
+            if (/\bcaps\b/.test(n))
+                return { perfil: 'CAPS',                      nivel: 'Secundária' };
+            if (/policlin/.test(n))
+                return { perfil: 'Policlínica',               nivel: 'Secundária' };
+            if (/reabilitac/.test(n))
+                return { perfil: 'Centro de Reabilitação',    nivel: 'Secundária' };
+            if (/\bceo\b|centro\s+de\s+especialidade|clinica\s+de\s+especialidade/.test(n))
+                return { perfil: 'Centro de Especialidades',  nivel: 'Secundária' };
+            if (/ambulatorio\s+de\s+especialidade/.test(n))
+                return { perfil: 'Ambulatório de Especialidades', nivel: 'Secundária' };
 
-            // — Secundária —
-            if (/\bupa\b|pronto.?atendimento|pronto.?socorro/.test(n))
-                                                           return { perfil: 'UPA / Pronto Atendimento', nivel: 'Secundária' };
-            if (/\bcaps\b/.test(n))                        return { perfil: 'CAPS',                    nivel: 'Secundária' };
-            if (/policlinica|policlínica/.test(n))         return { perfil: 'Policlínica',             nivel: 'Secundária' };
-            if (/reabilitac/.test(n))                      return { perfil: 'Centro de Reabilitação',  nivel: 'Secundária' };
-            if (/clinica.+especialidade|especialidade/.test(n)) return { perfil: 'Clínica Especializada', nivel: 'Secundária' };
+            // ── PRIMÁRIA ─────────────────────────────────────────────────────
+            if (/\bubs\b/.test(n))
+                return { perfil: 'Unidade Básica de Saúde',   nivel: 'Primária' };
+            if (/\baps\b/.test(n))
+                return { perfil: 'Unidade Básica de Saúde',   nivel: 'Primária' };
+            if (/posto\s+de\s+saude/.test(n))
+                return { perfil: 'Posto de Saúde',            nivel: 'Primária' };
+            if (/unidade\s+basica/.test(n))
+                return { perfil: 'Unidade Básica de Saúde',   nivel: 'Primária' };
+            if (/\busf\b|unidade\s+de\s+saude\s+da\s+familia/.test(n))
+                return { perfil: 'Unidade de Saúde da Família', nivel: 'Primária' };
+            if (/clinica\s+da\s+familia/.test(n))
+                return { perfil: 'Clínica da Família',         nivel: 'Primária' };
+            if (/\besf\b|equipe\s+de\s+saude\s+da\s+familia/.test(n))
+                return { perfil: 'Unidade de Saúde da Família', nivel: 'Primária' };
+            if (/centro\s+municipal\s+de\s+saude|\bcms\b/.test(n))
+                return { perfil: 'Centro Municipal de Saúde',  nivel: 'Primária' };
+            if (/centro\s+de\s+saude/.test(n))
+                return { perfil: 'Centro de Saúde',            nivel: 'Primária' };
 
-            // — Primária —
-            if (/\bubs\b|\baps\b|posto.de.saude|unidade.basica/.test(n))
-                                                           return { perfil: 'Posto de Saúde',          nivel: 'Primária'   };
-            if (/centro.de.saude/.test(n))                 return { perfil: 'Centro de Saúde',         nivel: 'Primária'   };
+            // ── GENÉRICO PÚBLICO ─────────────────────────────────────────────
+            if (/\bsus\b|municipal|prefeitura|secretaria|saude\s+publica|\bsms\b/.test(n))
+                return { perfil: 'Unidade de Saúde',           nivel: 'Primária' };
 
-            // — Genérico público (nome com marcador explícito de rede pública) —
-            if (/\bsus\b|municipal|prefeitura|secretaria|saude.publica|sms\b/.test(n))
-                                                           return { perfil: 'Unidade de Saúde',        nivel: 'Primária'   };
-
-            // Sem evidência suficiente → descartar
-            return null;
+            return null; // sem evidência suficiente
         }
 
         /**
          * Função principal de classificação.
-         * Recebe as tags OSM completas do elemento e retorna { perfil, nivel } ou null.
+         * Prioridade: operador privado → tipos privados → NOME → tag inequívoca.
          */
         function classificar(tags, nomeBruto) {
             const nome = nomeBruto || tags.name || tags['name:pt'] || '';
             if (!nome) return null;
 
-            const healthcare = (tags.healthcare || '').toLowerCase();
-            const amenity    = (tags.amenity    || '').toLowerCase();
+            const nNorm      = norm(nome);
+            const healthcare = norm(tags.healthcare || '');
+            const amenity    = norm(tags.amenity    || '');
+            const tipoOSM    = healthcare || amenity;
 
-            // 1. Tipos explicitamente privados na tag OSM
-            if (TIPOS_PRIVADOS.has(healthcare) || TIPOS_PRIVADOS.has(amenity)) {
-                // Só inclui se o operador confirmar que é público
-                const opPub = analisarOperador(tags);
-                if (opPub !== true) return null;
-                // É público mas tem tipo ambíguo → classificar pelo nome
-                return classificarPorNome(nome);
-            }
+            // 1. Operador privado confirmado → descartar
+            const opStatus = analisarOperador(tags);
+            if (opStatus === false) return null;
 
-            // 2. Tipo OSM reconhecido → usa tabela
-            const chaveHC = healthcare ? healthcare : null;
-            const chaveAM = amenity ? `amenity_${amenity}` : null;
-            const perfilPorTipo = TIPO_PARA_PERFIL[chaveHC] || TIPO_PARA_PERFIL[chaveAM] || null;
+            // 2. Tipo OSM tipicamente privado sem confirmação pública → descartar
+            if (TIPOS_PRIVADOS.has(tipoOSM) && opStatus !== true) return null;
 
-            if (perfilPorTipo) {
-                // Tipo reconhecido: verificar se operador contradiz (privado explícito)
-                const opPub = analisarOperador(tags);
-                if (opPub === false) return null; // operador privado confirmado
-                return perfilPorTipo;
-            }
+            // 3. Nome tem prioridade (mais confiável que tag genérica)
+            const porNome = classificarPorNome(nNorm);
+            if (porNome) return porNome;
 
-            // 3. Tipo não reconhecido → analisar operador + nome
-            const opPub = analisarOperador(tags);
-            if (opPub === false) return null;
+            // 4. Nome inconclusivo: tag OSM inequívoca como desempate
+            const porTipo = TIPO_INEQUIVOCO[tipoOSM] || null;
+            if (porTipo) return porTipo;
 
-            const porNome = classificarPorNome(nome);
-            if (!porNome) return null;
-
-            // Se operador for público, confiar no nome; caso indeterminado, só incluir
-            // se o nome tiver sinal explícito (classificarPorNome já garante isso)
-            return porNome;
+            // 5. Sem evidência suficiente → descartar
+            return null;
         }
 
         // ============================================
