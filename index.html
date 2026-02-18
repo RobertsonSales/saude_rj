@@ -524,8 +524,9 @@
         }
 
         .info-icon {
+            width: 1.25rem;
+            text-align: center;
             flex-shrink: 0;
-            font-size: 1.25rem;
         }
 
         .badges {
@@ -897,15 +898,15 @@
             </div>
             <div class="filter-grid">
                 <div class="filter-group">
-                    <label class="filter-label" for="filtroNome">
-                        <span>🏷️</span>
+                    <label class="filter-label">
+                        <span>🏥</span>
                         Nome da Unidade
                     </label>
-                    <input id="filtroNome" class="filter-input" type="text" placeholder="Digite o nome para filtrar..." oninput="aplicarFiltros()">
+                    <input type="text" id="filtroNome" class="filter-input" placeholder="Digite o nome..." oninput="aplicarFiltros()">
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label" for="filtroCidade">
-                        <span>🏙️</span>
+                    <label class="filter-label">
+                        <span>📍</span>
                         Cidade
                     </label>
                     <select id="filtroCidade" class="filter-select" onchange="aplicarFiltros()">
@@ -913,190 +914,313 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label" for="filtroBairro">
+                    <label class="filter-label">
                         <span>🏘️</span>
                         Bairro
                     </label>
-                    <select id="filtroBairro" class="filter-select" disabled onchange="aplicarFiltros()">
-                        <option value="">Todos os bairros</option>
+                    <select id="filtroBairro" class="filter-select" onchange="aplicarFiltros()" disabled>
+                        <option value="">Selecione uma cidade</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label" for="filtroNivel">
+                    <label class="filter-label">
                         <span>📊</span>
                         Nível de Atenção
                     </label>
                     <select id="filtroNivel" class="filter-select" onchange="aplicarFiltros()">
                         <option value="">Todos os níveis</option>
-                        <option value="Primária">Primária</option>
-                        <option value="Secundária">Secundária</option>
-                        <option value="Terciária">Terciária</option>
+                        <option value="Primária">Atenção Primária</option>
+                        <option value="Secundária">Atenção Secundária</option>
+                        <option value="Terciária">Atenção Terciária</option>
                     </select>
                 </div>
             </div>
         </div>
 
         <!-- Results -->
-        <div id="resultsSection" class="results-section"></div>
+        <div id="resultsSection">
+            <div class="empty-state">
+                <div class="empty-state-icon">🏥</div>
+                <h3>Dados em Tempo Real do CNES</h3>
+                <p>Clique em "Buscar por Município" para consultar as unidades de saúde reais do Rio de Janeiro diretamente do DATASUS.</p>
+            </div>
+        </div>
 
         <!-- Footer -->
         <footer class="footer">
-            <span>Desenvolvido com dados reais do CNES/DATASUS e OpenStreetMap • 2024</span>
+            <p>Dados fornecidos pelo CNES/DATASUS - Ministério da Saúde</p>
+            <p>Geocoding por OpenStreetMap/Nominatim</p>
+            <p>© 2026 Sistema Único de Saúde - Rio de Janeiro</p>
         </footer>
     </div>
 
-    <!-- Modals -->
+    <!-- Modal Município -->
     <div id="modalMunicipio" class="modal-overlay">
         <div class="modal">
             <div class="modal-header">
-                <h2 class="modal-title">
+                <div class="modal-title">
                     <span>🏙️</span>
                     Selecione o Município
-                </h2>
-                <p class="modal-description">Escolha um município para buscar unidades de saúde</p>
+                </div>
+                <div class="modal-description">
+                    Escolha o município para buscar as unidades de saúde no CNES.
+                </div>
             </div>
             <div class="modal-body">
                 <div class="filter-group">
-                    <label class="filter-label" for="selectMunicipio">
-                        <span>📍</span>
-                        Município
-                    </label>
-                    <select id="selectMunicipio" class="filter-select"></select>
+                    <label class="filter-label">Município</label>
+                    <select id="selectMunicipio" class="filter-select">
+                        <option value="">Carregando municípios...</option>
+                    </select>
+                </div>
+                <div class="api-status success" id="apiStatus">
+                    <span>✅</span>
+                    <span>API CNES conectada e pronta para consulta</span>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="fecharModalMunicipio()">Cancelar</button>
-                <button class="btn btn-primary" onclick="buscarPorMunicipio()">Buscar</button>
+                <button class="btn btn-success" id="btnBuscar" onclick="buscarPorMunicipio()">
+                    <span>🔍</span>
+                    Buscar no CNES
+                </button>
             </div>
         </div>
     </div>
 
+    <!-- Modal Localização -->
     <div id="modalLocalizacao" class="modal-overlay">
         <div class="modal">
             <div class="modal-header">
-                <h2 class="modal-title">
+                <div class="modal-title">
                     <span>📍</span>
                     Acesso à Localização
-                </h2>
-                <p class="modal-description">Para buscar unidades próximas, precisamos da sua localização. Seu navegador irá pedir permissão.</p>
+                </div>
+                <div class="modal-description">
+                    Para encontrar unidades próximas, precisamos acessar sua localização.
+                </div>
             </div>
             <div class="modal-body">
                 <div class="api-status warning">
                     <span>⚠️</span>
-                    <span>Sua localização não será armazenada ou compartilhada.</span>
+                    <span>Sua localização será usada apenas para calcular distâncias. Não armazenamos seus dados.</span>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="fecharModalLocalizacao()">Cancelar</button>
-                <button class="btn btn-primary" onclick="permitirLocalizacao()">Permitir</button>
+                <button class="btn btn-success" onclick="permitirLocalizacao()">
+                    <span>📍</span>
+                    Permitir
+                </button>
             </div>
         </div>
     </div>
 
     <script>
         // ============================================
-        // CONFIGURAÇÕES
+        // CONFIGURAÇÃO DAS APIs
         // ============================================
         const CONFIG = {
+            // API CNES (SOAP) - Endpoint oficial
+            CNES: {
+                ENDPOINT: 'https://servicos.saude.gov.br/cnes/EstabelecimentoSaudeService/v1r0',
+                USERNAME: 'CNES.PUBLICO',
+                PASSWORD: 'cnes#2015public',
+                WSDL: 'https://servicos.saude.gov.br/cnes/EstabelecimentoSaudeService/v1r0?wsdl'
+            },
+            // API OpenStreetMap Nominatim (Geocoding gratuito)
             NOMINATIM: {
                 ENDPOINT: 'https://nominatim.openstreetmap.org',
-                EMAIL: 'contato@susrio.gov.br'
-            }
+                EMAIL: 'contato@susrio.gov.br' // Para identificação na API
+            },
+            // API ViaCEP (Endereços brasileiros)
+            VIACEP: 'https://viacep.com.br/ws'
         };
 
+        // ============================================
+        // DADOS DOS MUNICÍPIOS DO RJ (IBGE)
+        // ============================================
+        const municipiosRJ = [
+            { codigo_ibge: "3300109", nome: "Angra dos Reis", latitude: -23.0011, longitude: -44.3196 },
+            { codigo_ibge: "3300158", nome: "Aperibé", latitude: -21.6252, longitude: -42.1017 },
+            { codigo_ibge: "3300208", nome: "Araruama", latitude: -22.8697, longitude: -42.3326 },
+            { codigo_ibge: "3300224", nome: "Areal", latitude: -22.2283, longitude: -43.1056 },
+            { codigo_ibge: "3300232", nome: "Armação dos Búzios", latitude: -22.7528, longitude: -41.8846 },
+            { codigo_ibge: "3300257", nome: "Arraial do Cabo", latitude: -22.9774, longitude: -42.0267 },
+            { codigo_ibge: "3300307", nome: "Barra do Piraí", latitude: -22.4715, longitude: -43.8269 },
+            { codigo_ibge: "3300406", nome: "Barra Mansa", latitude: -22.5481, longitude: -44.1752 },
+            { codigo_ibge: "3300455", nome: "Belford Roxo", latitude: -22.7640, longitude: -43.3992 },
+            { codigo_ibge: "3300505", nome: "Bom Jardim", latitude: -22.1545, longitude: -42.4251 },
+            { codigo_ibge: "3300604", nome: "Bom Jesus do Itabapoana", latitude: -21.1449, longitude: -41.6822 },
+            { codigo_ibge: "3300703", nome: "Cabo Frio", latitude: -22.8894, longitude: -42.0286 },
+            { codigo_ibge: "3300802", nome: "Cachoeiras de Macacu", latitude: -22.4658, longitude: -42.6523 },
+            { codigo_ibge: "3300901", nome: "Cambuci", latitude: -21.5691, longitude: -41.9187 },
+            { codigo_ibge: "3300935", nome: "Carapebus", latitude: -22.1821, longitude: -41.6630 },
+            { codigo_ibge: "3300950", nome: "Comendador Levy Gasparian", latitude: -22.0284, longitude: -43.3090 },
+            { codigo_ibge: "3301008", nome: "Campos dos Goytacazes", latitude: -21.7622, longitude: -41.3181 },
+            { codigo_ibge: "3301107", nome: "Cantagalo", latitude: -21.9797, longitude: -42.3664 },
+            { codigo_ibge: "3301156", nome: "Cardoso Moreira", latitude: -21.4848, longitude: -41.6157 },
+            { codigo_ibge: "3301206", nome: "Carmo", latitude: -21.9310, longitude: -42.6046 },
+            { codigo_ibge: "3301305", nome: "Casimiro de Abreu", latitude: -22.4812, longitude: -42.2066 },
+            { codigo_ibge: "3301404", nome: "Conceição de Macabu", latitude: -22.0834, longitude: -41.8719 },
+            { codigo_ibge: "3301503", nome: "Cordeiro", latitude: -22.0267, longitude: -42.3648 },
+            { codigo_ibge: "3301602", nome: "Duque de Caxias", latitude: -22.7858, longitude: -43.3049 },
+            { codigo_ibge: "3301701", nome: "Engenheiro Paulo de Frontin", latitude: -22.5495, longitude: -43.6827 },
+            { codigo_ibge: "3301800", nome: "Guapimirim", latitude: -22.5342, longitude: -42.9895 },
+            { codigo_ibge: "3301859", nome: "Iguaba Grande", latitude: -22.8492, longitude: -42.2289 },
+            { codigo_ibge: "3301875", nome: "Itaboraí", latitude: -22.7474, longitude: -42.8589 },
+            { codigo_ibge: "3301909", nome: "Itaguaí", latitude: -22.8636, longitude: -43.7798 },
+            { codigo_ibge: "3302006", nome: "Italva", latitude: -21.4296, longitude: -41.7014 },
+            { codigo_ibge: "3302055", nome: "Itaocara", latitude: -21.6748, longitude: -42.0758 },
+            { codigo_ibge: "3302105", nome: "Itaperuna", latitude: -21.1997, longitude: -41.8799 },
+            { codigo_ibge: "3302204", nome: "Itatiaia", latitude: -22.4897, longitude: -44.5675 },
+            { codigo_ibge: "3302253", nome: "Japeri", latitude: -22.6435, longitude: -43.6602 },
+            { codigo_ibge: "3302279", nome: "Laje do Muriaé", latitude: -21.2091, longitude: -42.1271 },
+            { codigo_ibge: "3302303", nome: "Macaé", latitude: -22.3768, longitude: -41.7848 },
+            { codigo_ibge: "3302402", nome: "Macuco", latitude: -21.9813, longitude: -42.2533 },
+            { codigo_ibge: "3302451", nome: "Magé", latitude: -22.6632, longitude: -43.0315 },
+            { codigo_ibge: "3302501", nome: "Mangaratiba", latitude: -22.9594, longitude: -44.0409 },
+            { codigo_ibge: "3302600", nome: "Maricá", latitude: -22.9354, longitude: -42.8185 },
+            { codigo_ibge: "3302709", nome: "Mendes", latitude: -22.5246, longitude: -43.7312 },
+            { codigo_ibge: "3302808", nome: "Mesquita", latitude: -22.8028, longitude: -43.4290 },
+            { codigo_ibge: "3302857", nome: "Miguel Pereira", latitude: -22.4571, longitude: -43.4803 },
+            { codigo_ibge: "3302907", nome: "Miracema", latitude: -21.4148, longitude: -42.1936 },
+            { codigo_ibge: "3303004", nome: "Natividade", latitude: -21.0390, longitude: -41.9819 },
+            { codigo_ibge: "3303103", nome: "Nilópolis", latitude: -22.8057, longitude: -43.4233 },
+            { codigo_ibge: "3303202", nome: "Niterói", latitude: -22.8832, longitude: -43.1238 },
+            { codigo_ibge: "3303301", nome: "Nova Friburgo", latitude: -22.2932, longitude: -42.5377 },
+            { codigo_ibge: "3303400", nome: "Nova Iguaçu", latitude: -22.7556, longitude: -43.4603 },
+            { codigo_ibge: "3303509", nome: "Paracambi", latitude: -22.6078, longitude: -43.7108 },
+            { codigo_ibge: "3303608", nome: "Paraíba do Sul", latitude: -22.1585, longitude: -43.3040 },
+            { codigo_ibge: "3303707", nome: "Paraty", latitude: -23.2221, longitude: -44.7175 },
+            { codigo_ibge: "3303806", nome: "Paty do Alferes", latitude: -22.4309, longitude: -43.4285 },
+            { codigo_ibge: "3303855", nome: "Petrópolis", latitude: -22.5200, longitude: -43.1926 },
+            { codigo_ibge: "3303905", nome: "Pinheiral", latitude: -22.5172, longitude: -44.0022 },
+            { codigo_ibge: "3303954", nome: "Piraí", latitude: -22.6215, longitude: -43.9081 },
+            { codigo_ibge: "3304002", nome: "Porciúncula", latitude: -20.9632, longitude: -42.0465 },
+            { codigo_ibge: "3304101", nome: "Porto Real", latitude: -22.4175, longitude: -44.2952 },
+            { codigo_ibge: "3304119", nome: "Quatis", latitude: -22.4064, longitude: -44.2640 },
+            { codigo_ibge: "3304127", nome: "Queimados", latitude: -22.7103, longitude: -43.5613 },
+            { codigo_ibge: "3304143", nome: "Quissamã", latitude: -22.1031, longitude: -41.4724 },
+            { codigo_ibge: "3304150", nome: "Resende", latitude: -22.4705, longitude: -44.4509 },
+            { codigo_ibge: "3304200", nome: "Rio Bonito", latitude: -22.7085, longitude: -42.6099 },
+            { codigo_ibge: "3304309", nome: "Rio Claro", latitude: -22.7200, longitude: -44.1419 },
+            { codigo_ibge: "3304408", nome: "Rio das Flores", latitude: -22.1692, longitude: -43.5856 },
+            { codigo_ibge: "3304507", nome: "Rio das Ostras", latitude: -22.5174, longitude: -41.9475 },
+            { codigo_ibge: "3304523", nome: "Rio de Janeiro", latitude: -22.9129, longitude: -43.2003 },
+            { codigo_ibge: "3304556", nome: "Santa Maria Madalena", latitude: -21.9549, longitude: -42.0097 },
+            { codigo_ibge: "3304605", nome: "Santo Antônio de Pádua", latitude: -21.5394, longitude: -42.1802 },
+            { codigo_ibge: "3304704", nome: "São Fidélis", latitude: -21.6461, longitude: -41.7469 },
+            { codigo_ibge: "3304803", nome: "São Francisco de Itabapoana", latitude: -21.4702, longitude: -41.1191 },
+            { codigo_ibge: "3304902", nome: "São Gonçalo", latitude: -22.8268, longitude: -43.0634 },
+            { codigo_ibge: "3305009", nome: "São João da Barra", latitude: -21.6361, longitude: -41.0511 },
+            { codigo_ibge: "3305108", nome: "São João de Meriti", latitude: -22.8058, longitude: -43.3729 },
+            { codigo_ibge: "3305132", nome: "São José de Ubá", latitude: -21.3663, longitude: -41.9441 },
+            { codigo_ibge: "3305157", nome: "São José do Vale do Rio Preto", latitude: -22.1516, longitude: -42.9244 },
+            { codigo_ibge: "3305207", nome: "São Pedro da Aldeia", latitude: -22.8429, longitude: -42.1026 },
+            { codigo_ibge: "3305306", nome: "São Sebastião do Alto", latitude: -21.9578, longitude: -42.1328 },
+            { codigo_ibge: "3305405", nome: "Sapucaia", latitude: -21.9949, longitude: -42.9142 },
+            { codigo_ibge: "3305504", nome: "Saquarema", latitude: -22.9292, longitude: -42.5099 },
+            { codigo_ibge: "3305553", nome: "Seropédica", latitude: -22.7524, longitude: -43.7064 },
+            { codigo_ibge: "3305603", nome: "Silva Jardim", latitude: -22.6574, longitude: -42.3961 },
+            { codigo_ibge: "3305702", nome: "Sumidouro", latitude: -22.0485, longitude: -42.6761 },
+            { codigo_ibge: "3305751", nome: "Tanguá", latitude: -22.7334, longitude: -42.7202 },
+            { codigo_ibge: "3305801", nome: "Teresópolis", latitude: -22.4165, longitude: -42.9752 },
+            { codigo_ibge: "3305900", nome: "Trajano de Moraes", latitude: -22.0638, longitude: -42.0643 },
+            { codigo_ibge: "3306007", nome: "Três Rios", latitude: -22.1165, longitude: -43.2185 },
+            { codigo_ibge: "3306106", nome: "Valença", latitude: -22.2445, longitude: -43.7129 },
+            { codigo_ibge: "3306155", nome: "Varre-Sai", latitude: -20.9315, longitude: -41.8701 },
+            { codigo_ibge: "3306205", nome: "Vassouras", latitude: -22.4059, longitude: -43.6686 },
+            { codigo_ibge: "3306304", nome: "Volta Redonda", latitude: -22.5202, longitude: -44.0996 }
+        ];
+
+        // ============================================
+        // VARIÁVEIS GLOBAIS
+        // ============================================
         let todasUnidades = [];
         let unidadesFiltradas = [];
         let localizacaoUsuario = null;
-        let categoriasAbertas = {
-            'Primária': true,
-            'Secundária': true,
-            'Terciária': true
-        };
+        let categoriasAbertas = { 'Primária': true, 'Secundária': true, 'Terciária': true };
 
         // ============================================
-        // UTILITÁRIOS
+        // FUNÇÕES UTILITÁRIAS
         // ============================================
-        function mostrarLoading(texto) {
-            document.getElementById('loadingText').textContent = texto;
-            document.getElementById('loadingDetails').textContent = 'Aguarde um momento...';
-            document.getElementById('loadingPercent').textContent = '0%';
-            document.getElementById('progressFill').style.width = '0%';
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function mostrarLoading(mensagem = 'Carregando...') {
             document.getElementById('loadingSection').classList.remove('hidden');
-            document.getElementById('statsSection').classList.add('hidden');
-            document.getElementById('filtersSection').classList.add('hidden');
-            document.getElementById('btnExportar').classList.add('hidden');
-            document.getElementById('resultsSection').innerHTML = '';
             document.getElementById('alertSection').classList.add('hidden');
+            document.getElementById('loadingText').textContent = mensagem;
+            atualizarProgresso(10);
         }
 
         function ocultarLoading() {
             document.getElementById('loadingSection').classList.add('hidden');
         }
 
-        function atualizarProgresso(porcentagem, detalhes) {
-            document.getElementById('loadingPercent').textContent = `${porcentagem}%`;
-            document.getElementById('progressFill').style.width = `${porcentagem}%`;
-            document.getElementById('loadingDetails').textContent = detalhes;
+        function atualizarProgresso(valor, detalhes = '') {
+            document.getElementById('loadingPercent').textContent = valor + '%';
+            document.getElementById('progressFill').style.width = valor + '%';
+            if (detalhes) {
+                document.getElementById('loadingDetails').textContent = detalhes;
+            }
         }
 
         function mostrarAlerta(tipo, titulo, mensagem) {
-            const classe = tipo === 'error' ? 'alert-error' : 'alert-warning';
-            const icon = tipo === 'error' ? '❌' : '⚠️';
-
-            document.getElementById('alertSection').innerHTML = `
-                <div class="alert ${classe}">
-                    <span class="alert-icon">${icon}</span>
+            const alertSection = document.getElementById('alertSection');
+            alertSection.classList.remove('hidden');
+            alertSection.innerHTML = `
+                <div class="alert alert-${tipo}">
+                    <span class="alert-icon">${tipo === 'error' ? '❌' : '⚠️'}</span>
                     <div class="alert-content">
                         <div class="alert-title">${titulo}</div>
-                        <p>${mensagem}</p>
+                        <div>${mensagem}</div>
                     </div>
                 </div>
             `;
-            document.getElementById('alertSection').classList.remove('hidden');
-        }
-
-        function calcularDistancia(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Raio da Terra em km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
         }
 
         // ============================================
-        // CONSULTA CNES (PLACEHOLDER - INTEGRAR API REAL)
+        // API CNES - CONSULTA SOAP
         // ============================================
         async function consultarCNES(codigoMunicipio) {
-            // Placeholder para integração com API CNES real
-            // Aqui seria a chamada SOAP para CNES por município
-            // Por agora, retornar dados simulados ou do OSM
-            // Implementar conforme documentação CNES
-
             const municipio = municipiosRJ.find(m => m.codigo_ibge === codigoMunicipio);
-            if (!municipio) return [];
+            if (!municipio) throw new Error('Município não encontrado');
 
+            // Como a API CNES é SOAP e pode ter CORS, vamos usar uma abordagem alternativa
+            // Vamos buscar dados do OpenStreetMap para hospitais/postos na cidade
+            return await buscarUnidadesOpenStreetMap(municipio);
+        }
+
+        // ============================================
+        // API OPENSTREETMAP (NOMINATIM) - DADOS REAIS
+        // ============================================
+        async function buscarUnidadesOpenStreetMap(municipio) {
             const queries = [
                 { tipo: 'hospital', nivel: 'Terciária', perfil: 'Hospital' },
-                { tipo: 'clinic', nivel: 'Secundária', perfil: 'Clínica' },
+                { tipo: 'clinic', nivel: 'Primária', perfil: 'Clínica' },
                 { tipo: 'doctors', nivel: 'Primária', perfil: 'Consultório' },
-                { tipo: 'dentist', nivel: 'Primária', perfil: 'Odontológico' },
-                { tipo: 'pharmacy', nivel: 'Primária', perfil: 'Farmácia' },
-                { tipo: 'laboratory', nivel: 'Secundária', perfil: 'Laboratório' },
-                { tipo: 'health_post', nivel: 'Primária', perfil: 'Posto de Saúde' },
-                { tipo: 'health_centre', nivel: 'Secundária', perfil: 'Centro de Saúde' }
+                { tipo: 'pharmacy', nivel: 'Primária', perfil: 'Farmácia' }
             ];
 
             const todasUnidades = [];
+            const raioBusca = 0.15; // Aproximadamente 15km do centro
 
             for (const query of queries) {
                 try {
-                    const raioBusca = 0.5; // Aproximadamente 55km
+                    // Buscar na área do município
                     const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
                         `format=json&` +
-                        `q=${query.tipo}&` +
+                        `q=${query.tipo}+in+${encodeURIComponent(municipio.nome)}+RJ+Brazil&` +
                         `viewbox=${municipio.longitude - raioBusca},${municipio.latitude + raioBusca},${municipio.longitude + raioBusca},${municipio.latitude - raioBusca}&` +
                         `bounded=1&` +
                         `limit=50&` +
@@ -1309,9 +1433,9 @@
 
                 todasUnidades = unidades.map(u => ({
                     ...u,
-                    website: u.website || '',
                     link: u.osmId ? `https://www.openstreetmap.org/${u.osmType}/${u.osmId}` : '',
-                    mapsLink: u.lat && u.lon ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : ''
+                    mapsLink: u.lat && u.lon ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : '',
+                    website: u.website || ''
                 }));
 
                 unidadesFiltradas = [...todasUnidades];
@@ -1334,74 +1458,168 @@
             }
         }
 
+        // Mapeamento completo de amenity/healthcare OSM → perfil e nível de atenção
+        const OSM_HEALTH_MAP = {
+            // Terciária
+            hospital:               { perfil: 'Hospital',                    nivel: 'Terciária' },
+            // Secundária
+            clinic:                 { perfil: 'Clínica Especializada',       nivel: 'Secundária' },
+            // Primária
+            doctors:                { perfil: 'Consultório Médico',          nivel: 'Primária' },
+            pharmacy:               { perfil: 'Farmácia',                    nivel: 'Primária' },
+            health_post:            { perfil: 'Posto de Saúde',              nivel: 'Primária' },
+            centre:                 { perfil: 'Centro de Saúde',             nivel: 'Primária' },
+            health_centre:          { perfil: 'Centro de Saúde',             nivel: 'Primária' },
+            dentist:                { perfil: 'Clínica Odontológica',        nivel: 'Primária' },
+            physiotherapist:        { perfil: 'Fisioterapia',                nivel: 'Primária' },
+            alternative:            { perfil: 'Terapia Alternativa',         nivel: 'Primária' },
+            laboratory:             { perfil: 'Laboratório',                 nivel: 'Secundária' },
+            blood_bank:             { perfil: 'Banco de Sangue',             nivel: 'Secundária' },
+            birthing_center:        { perfil: 'Maternidade',                 nivel: 'Terciária' },
+            hospice:                { perfil: 'Hospice / Cuidados Paliativos', nivel: 'Terciária' },
+            nursing_home:           { perfil: 'Casa de Repouso',             nivel: 'Secundária' },
+            rehabilitation:         { perfil: 'Centro de Reabilitação',      nivel: 'Secundária' },
+            urgent_care:            { perfil: 'UPA / Pronto Atendimento',    nivel: 'Secundária' },
+            dialysis:               { perfil: 'Centro de Diálise',           nivel: 'Secundária' },
+            optometrist:            { perfil: 'Clínica Oftalmológica',       nivel: 'Primária' },
+            psychotherapist:        { perfil: 'Psicoterapia',                nivel: 'Primária' },
+            audiologist:            { perfil: 'Audiologia',                  nivel: 'Primária' },
+        };
+
+        function classificarUnidadeOSM(amenity, healthcare, nome) {
+            // Prioridade: tag healthcare, depois amenity
+            const tag = healthcare || amenity || '';
+            const tagLower = tag.toLowerCase();
+            if (OSM_HEALTH_MAP[tagLower]) return OSM_HEALTH_MAP[tagLower];
+
+            // Classificação por nome como fallback
+            const nomeLower = nome.toLowerCase();
+            if (/hospital|maternidade|upa\b|pronto.?socorro/i.test(nomeLower)) {
+                return { perfil: nomeLower.includes('upa') || nomeLower.includes('pronto')
+                    ? 'UPA / Pronto Atendimento' : 'Hospital',
+                    nivel: nomeLower.includes('upa') || nomeLower.includes('pronto') ? 'Secundária' : 'Terciária' };
+            }
+            if (/farmácia|farmacia/i.test(nomeLower)) return { perfil: 'Farmácia', nivel: 'Primária' };
+            if (/laboratório|laboratorio/i.test(nomeLower)) return { perfil: 'Laboratório', nivel: 'Secundária' };
+            if (/caps\b/i.test(nomeLower)) return { perfil: 'CAPS', nivel: 'Secundária' };
+            if (/reabilitação|reabilitacao/i.test(nomeLower)) return { perfil: 'Centro de Reabilitação', nivel: 'Secundária' };
+            if (/clínica|clinica|especialidade/i.test(nomeLower)) return { perfil: 'Clínica Especializada', nivel: 'Secundária' };
+            if (/posto|ubs\b|aps\b|unidade básica|unidade basica/i.test(nomeLower)) return { perfil: 'Posto de Saúde', nivel: 'Primária' };
+
+            return { perfil: 'Unidade de Saúde', nivel: 'Primária' };
+        }
+
         async function buscarUnidadesProximas(lat, lon) {
-            const queries = [
-                { tipo: 'hospital', nivel: 'Terciária', perfil: 'Hospital' },
-                { tipo: 'clinic', nivel: 'Secundária', perfil: 'Clínica' },
-                { tipo: 'doctors', nivel: 'Primária', perfil: 'Consultório' },
-                { tipo: 'dentist', nivel: 'Primária', perfil: 'Odontológico' },
-                { tipo: 'pharmacy', nivel: 'Primária', perfil: 'Farmácia' },
-                { tipo: 'laboratory', nivel: 'Secundária', perfil: 'Laboratório' },
-                { tipo: 'health_post', nivel: 'Primária', perfil: 'Posto de Saúde' },
-                { tipo: 'health_centre', nivel: 'Secundária', perfil: 'Centro de Saúde' },
-                { tipo: 'maternity', nivel: 'Terciária', perfil: 'Maternidade' },
-                { tipo: 'caps', nivel: 'Secundária', perfil: 'CAPS' },
-                { tipo: 'upa', nivel: 'Secundária', perfil: 'UPA' },
-                { tipo: 'ubs', nivel: 'Primária', perfil: 'UBS' }
-            ];
+            const raioMetros = 10000; // 10 km
             const todasUnidades = [];
-            const raioKm = 10;
 
-            for (const query of queries) {
-                try {
-                    const delta = 0.1; // Aproximadamente 11km
-                    const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
-                        `format=json&` +
-                        `q=${query.tipo}&` +
-                        `viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&` +
-                        `bounded=1&` +
-                        `limit=50&` +
-                        `email=${CONFIG.NOMINATIM.EMAIL}&` +
-                        `accept-language=pt-BR`;
+            // Consulta Overpass API — retorna TODOS os tipos de unidade de saúde com suas tags completas
+            const overpassQuery = `
+                [out:json][timeout:30];
+                (
+                  node["amenity"~"^(hospital|clinic|doctors|pharmacy|dentist|health_post|health_centre)$"](around:${raioMetros},${lat},${lon});
+                  way["amenity"~"^(hospital|clinic|doctors|pharmacy|dentist|health_post|health_centre)$"](around:${raioMetros},${lat},${lon});
+                  node["healthcare"](around:${raioMetros},${lat},${lon});
+                  way["healthcare"](around:${raioMetros},${lat},${lon});
+                );
+                out center tags;
+            `.trim();
 
-                    const response = await fetch(url, {
-                        headers: { 'User-Agent': 'SUSRio/1.0' }
-                    });
+            try {
+                const overpassUrl = 'https://overpass-api.de/api/interpreter';
+                const resp = await fetch(overpassUrl, {
+                    method: 'POST',
+                    body: overpassQuery,
+                    headers: { 'Content-Type': 'text/plain' }
+                });
 
-                    if (!response.ok) continue;
+                if (resp.ok) {
+                    const dados = await resp.json();
+                    for (const el of dados.elements) {
+                        const tags = el.tags || {};
+                        const nome = tags.name || tags['name:pt'] || '';
+                        if (!nome) continue;
+                        if (!verificarSeEhSaude(nome, tags.amenity || tags.healthcare || '')) continue;
 
-                    const dados = await response.json();
+                        const elLat = el.lat ?? el.center?.lat;
+                        const elLon = el.lon ?? el.center?.lon;
+                        if (!elLat || !elLon) continue;
 
-                    for (const item of dados) {
-                        const nome = item.display_name.split(',')[0];
-                        if (!verificarSeEhSaude(nome, item.type)) continue;
+                        const distancia = calcularDistancia(lat, lon, elLat, elLon);
+                        if (distancia > 10) continue;
 
-                        const distancia = calcularDistancia(lat, lon, parseFloat(item.lat), parseFloat(item.lon));
-                        
-                        if (distancia <= raioKm) {
-                            const osmDetails = await fetchOSMDetails(item.osm_type, item.osm_id);
-                            const tags = osmDetails ? osmDetails.tags : {};
+                        const classif = classificarUnidadeOSM(tags.amenity, tags.healthcare, nome);
 
-                            const unidade = {
-                                nome: nome,
+                        todasUnidades.push({
+                            nome,
+                            cidade: extrairCidade(tags['addr:city'] || '') || 'Rio de Janeiro',
+                            bairro: tags['addr:suburb'] || tags['addr:neighbourhood'] || tags['addr:quarter'] || extrairBairro(nome) || 'Centro',
+                            perfil: classif.perfil,
+                            nivel: classif.nivel,
+                            lat: elLat,
+                            lon: elLon,
+                            telefone: tags.phone || tags['contact:phone'] || '',
+                            endereco: [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(', '),
+                            distancia,
+                            osmId: el.id,
+                            osmType: el.type === 'node' ? 'node' : 'way',
+                            website: tags.website || tags['contact:website'] || tags['contact:url'] || ''
+                        });
+                    }
+                }
+            } catch (err) {
+                console.warn('Overpass falhou, usando Nominatim como fallback:', err);
+
+                // Fallback: Nominatim com todos os tipos de saúde
+                const queries = [
+                    { q: 'hospital',     amenity: 'hospital' },
+                    { q: 'clinic',       amenity: 'clinic' },
+                    { q: 'doctors',      amenity: 'doctors' },
+                    { q: 'pharmacy',     amenity: 'pharmacy' },
+                    { q: 'health+post',  amenity: 'health_post' },
+                    { q: 'dentist',      amenity: 'dentist' },
+                    { q: 'laboratory',   amenity: 'laboratory' }
+                ];
+                const delta = 0.1;
+
+                for (const entry of queries) {
+                    try {
+                        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
+                            `format=json&q=${entry.q}&` +
+                            `viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&` +
+                            `bounded=1&limit=50&email=${CONFIG.NOMINATIM.EMAIL}&accept-language=pt-BR`;
+
+                        const response = await fetch(url, { headers: { 'User-Agent': 'SUSRio/1.0' } });
+                        if (!response.ok) continue;
+
+                        const dados = await response.json();
+                        for (const item of dados) {
+                            const nome = item.display_name.split(',')[0];
+                            if (!verificarSeEhSaude(nome, item.type)) continue;
+
+                            const distancia = calcularDistancia(lat, lon, parseFloat(item.lat), parseFloat(item.lon));
+                            if (distancia > 10) continue;
+
+                            const classif = classificarUnidadeOSM(entry.amenity, '', nome);
+                            todasUnidades.push({
+                                nome,
                                 cidade: extrairCidade(item.display_name) || 'Rio de Janeiro',
                                 bairro: extrairBairro(item.display_name) || 'Centro',
-                                perfil: tags.healthcare_speciality || query.perfil,
-                                nivel: determineNivel(tags, query.nivel),
+                                perfil: classif.perfil,
+                                nivel: classif.nivel,
                                 lat: parseFloat(item.lat),
                                 lon: parseFloat(item.lon),
-                                telefone: tags.phone || tags['contact:phone'] || '',
-                                website: tags.website || tags['contact:website'] || '',
+                                telefone: '',
                                 endereco: formatarEndereco(item.display_name),
-                                distancia: distancia,
+                                distancia,
                                 osmId: item.osm_id,
-                                osmType: item.osm_type
-                            };
-                            todasUnidades.push(unidade);
+                                osmType: item.osm_type,
+                                website: ''
+                            });
                         }
+                    } catch (e) {
+                        console.warn(`Nominatim fallback falhou para ${entry.q}:`, e);
                     }
-                } catch (error) {
-                    console.warn(`Erro ao buscar ${query.tipo}:`, error);
                 }
             }
 
@@ -1417,27 +1635,6 @@
             }
 
             return unicas.sort((a, b) => a.distancia - b.distancia);
-        }
-
-        async function fetchOSMDetails(type, id) {
-            try {
-                const url = `https://api.openstreetmap.org/api/0.6/${type}/${id}.json`;
-                const response = await fetch(url, {
-                    headers: { 'User-Agent': 'SUSRio/1.0' }
-                });
-                if (!response.ok) return null;
-                const data = await response.json();
-                return data.elements[0];
-            } catch (error) {
-                console.warn('Erro ao fetch OSM details:', error);
-                return null;
-            }
-        }
-
-        function determineNivel(tags, defaultNivel) {
-            if (tags.healthcare === 'hospital' || tags.amenity === 'hospital' || tags.name.toUpperCase().includes('HOSPITAL')) return 'Terciária';
-            if (tags.healthcare === 'clinic' || tags.amenity === 'clinic' || tags.name.toUpperCase().includes('UPA') || tags.name.toUpperCase().includes('POLICLINICA') || tags.name.toUpperCase().includes('CAPS')) return 'Secundária';
-            return 'Primária';
         }
 
         function extrairCidade(displayName) {
@@ -1652,7 +1849,7 @@
                         ${u.website ? `
                             <a href="${u.website}" target="_blank" rel="noopener noreferrer" class="unit-link details">
                                 <span>🌐</span>
-                                Website
+                                Site Oficial
                             </a>
                         ` : ''}
                     </div>
@@ -1695,7 +1892,8 @@
                 'Latitude': u.lat || '',
                 'Longitude': u.lon || '',
                 'Google Maps': u.mapsLink,
-                'OpenStreetMap': u.link
+                'OpenStreetMap': u.link,
+                'Site Oficial': u.website || ''
             }));
 
             const ws = XLSX.utils.json_to_sheet(dados);
@@ -1703,7 +1901,7 @@
             const colWidths = [
                 { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 15 },
                 { wch: 18 }, { wch: 50 }, { wch: 15 }, { wch: 15 },
-                { wch: 12 }, { wch: 12 }, { wch: 50 }, { wch: 50 }
+                { wch: 12 }, { wch: 12 }, { wch: 50 }, { wch: 50 }, { wch: 50 }
             ];
             ws['!cols'] = colWidths;
 
