@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        /* ESTILOS ORIGINAIS – NENHUMA ALTERAÇÃO */
         :root {
             --primary: #059669;
             --primary-dark: #047857;
@@ -1021,20 +1022,10 @@
         // CONFIGURAÇÃO DAS APIs
         // ============================================
         const CONFIG = {
-            // API CNES (SOAP) - Endpoint oficial
-            CNES: {
-                ENDPOINT: 'https://servicos.saude.gov.br/cnes/EstabelecimentoSaudeService/v1r0',
-                USERNAME: 'CNES.PUBLICO',
-                PASSWORD: 'cnes#2015public',
-                WSDL: 'https://servicos.saude.gov.br/cnes/EstabelecimentoSaudeService/v1r0?wsdl'
-            },
-            // API OpenStreetMap Nominatim (Geocoding gratuito)
             NOMINATIM: {
                 ENDPOINT: 'https://nominatim.openstreetmap.org',
-                EMAIL: 'contato@susrio.gov.br' // Para identificação na API
-            },
-            // API ViaCEP (Endereços brasileiros)
-            VIACEP: 'https://viacep.com.br/ws'
+                EMAIL: 'contato@susrio.gov.br'
+            }
         };
 
         // ============================================
@@ -1190,129 +1181,107 @@
         }
 
         // ============================================
-        // API CNES - CONSULTA SOAP
+        // CONSULTA AO OPENSTREETMAP (NOMINATIM)
         // ============================================
-        async function consultarCNES(codigoMunicipio) {
-            const municipio = municipiosRJ.find(m => m.codigo_ibge === codigoMunicipio);
-            if (!municipio) throw new Error('Município não encontrado');
+        async function buscarUnidadesOSM(queryParams) {
+            const { lat, lon, municipio, raio = 10 } = queryParams;
+            let url;
 
-            // Como a API CNES é SOAP e pode ter CORS, vamos usar uma abordagem alternativa
-            // Vamos buscar dados do OpenStreetMap para hospitais/postos na cidade
-            return await buscarUnidadesOpenStreetMap(municipio);
-        }
-
-        // ============================================
-        // API OPENSTREETMAP (NOMINATIM) - DADOS REAIS
-        // ============================================
-        async function buscarUnidadesOpenStreetMap(municipio) {
-            const queries = [
-                { tipo: 'hospital', nivel: 'Terciária', perfil: 'Hospital' },
-                { tipo: 'clinic', nivel: 'Primária', perfil: 'Clínica' },
-                { tipo: 'doctors', nivel: 'Primária', perfil: 'Consultório' },
-                { tipo: 'pharmacy', nivel: 'Primária', perfil: 'Farmácia' }
-            ];
-
-            const todasUnidades = [];
-            const raioBusca = 0.15; // Aproximadamente 15km do centro
-
-            for (const query of queries) {
-                try {
-                    // Buscar na área do município
-                    const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
-                        `format=json&` +
-                        `q=${query.tipo}+in+${encodeURIComponent(municipio.nome)}+RJ+Brazil&` +
-                        `viewbox=${municipio.longitude - raioBusca},${municipio.latitude + raioBusca},${municipio.longitude + raioBusca},${municipio.latitude - raioBusca}&` +
-                        `bounded=1&` +
-                        `limit=50&` +
-                        `email=${CONFIG.NOMINATIM.EMAIL}&` +
-                        `accept-language=pt-BR`;
-
-                    const response = await fetch(url, {
-                        headers: { 'User-Agent': 'SUSRio/1.0 (contato@susrio.gov.br)' }
-                    });
-
-                    if (!response.ok) continue;
-
-                    const dados = await response.json();
-
-                    for (const item of dados) {
-                        // Verificar se é um estabelecimento de saúde válido
-                        const nome = item.display_name.split(',')[0];
-                        const ehSaude = verificarSeEhSaude(nome, item.type);
-                        
-                        if (!ehSaude) continue;
-
-                        const endereco = formatarEndereco(item.display_name);
-                        const unidade = {
-                            nome: nome,
-                            cidade: municipio.nome,
-                            bairro: extrairBairro(item.display_name) || 'Centro',
-                            perfil: query.perfil,
-                            nivel: query.nivel,
-                            lat: parseFloat(item.lat),
-                            lon: parseFloat(item.lon),
-                            telefone: '', // OSM não tem telefone na maioria dos casos
-                            endereco: endereco,
-                            cep: '',
-                            codigoCNES: '',
-                            osmId: item.osm_id,
-                            osmType: item.osm_type,
-                            tipoOSM: item.type,
-                            categoriaOSM: item.class
-                        };
-
-                        todasUnidades.push(unidade);
-                    }
-                } catch (error) {
-                    console.warn(`Erro ao buscar ${query.tipo}:`, error);
-                }
+            if (lat && lon) {
+                // Busca por proximidade (círculo)
+                const delta = raio / 111; // ~1 grau = 111 km
+                url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
+                    `format=json&` +
+                    `q=healthcare|hospital|clinic|doctors|pharmacy|dentist&` +
+                    `viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&` +
+                    `bounded=1&` +
+                    `limit=100&` +
+                    `email=${CONFIG.NOMINATIM.EMAIL}&` +
+                    `accept-language=pt-BR`;
+            } else if (municipio) {
+                // Busca por município
+                url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
+                    `format=json&` +
+                    `q=healthcare|hospital|clinic|doctors|pharmacy|dentist+in+${encodeURIComponent(municipio.nome)}+RJ+Brazil&` +
+                    `viewbox=${municipio.longitude - 0.2},${municipio.latitude + 0.2},${municipio.longitude + 0.2},${municipio.latitude - 0.2}&` +
+                    `bounded=1&` +
+                    `limit=100&` +
+                    `email=${CONFIG.NOMINATIM.EMAIL}&` +
+                    `accept-language=pt-BR`;
+            } else {
+                return [];
             }
 
-            // Remover duplicatas pelo nome
-            const unicas = [];
-            const nomes = new Set();
-            for (const u of todasUnidades) {
-                const chave = u.nome.toLowerCase().trim();
-                if (!nomes.has(chave)) {
-                    nomes.add(chave);
-                    unicas.push(u);
-                }
+            try {
+                const response = await fetch(url, {
+                    headers: { 'User-Agent': 'SUSRio/1.0 (contato@susrio.gov.br)' }
+                });
+                if (!response.ok) return [];
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.warn('Erro na consulta OSM:', error);
+                return [];
+            }
+        }
+
+        function classificarNivel(item) {
+            const tipo = item.type;
+            const classe = item.class;
+            const nome = item.display_name.toLowerCase();
+
+            // Regras baseadas nas tags do OSM
+            if (classe === 'amenity') {
+                if (tipo === 'hospital') return { nivel: 'Terciária', perfil: 'Hospital' };
+                if (tipo === 'clinic') return { nivel: 'Primária', perfil: 'Clínica' };
+                if (tipo === 'doctors') return { nivel: 'Primária', perfil: 'Consultório' };
+                if (tipo === 'pharmacy') return { nivel: 'Primária', perfil: 'Farmácia' };
+                if (tipo === 'dentist') return { nivel: 'Primária', perfil: 'Odontologia' };
+            }
+            if (classe === 'healthcare') {
+                if (tipo === 'hospital') return { nivel: 'Terciária', perfil: 'Hospital' };
+                if (tipo === 'clinic') return { nivel: 'Primária', perfil: 'Clínica' };
+                if (tipo === 'doctor') return { nivel: 'Primária', perfil: 'Consultório' };
+                if (tipo === 'pharmacy') return { nivel: 'Primária', perfil: 'Farmácia' };
+                if (tipo === 'dentist') return { nivel: 'Primária', perfil: 'Odontologia' };
+                return { nivel: 'Primária', perfil: 'Serviço de Saúde' };
             }
 
-            return unicas;
+            // Fallback: tentar identificar pelo nome
+            if (nome.includes('hospital')) return { nivel: 'Terciária', perfil: 'Hospital' };
+            if (nome.includes('upa') || nome.includes('pronto')) return { nivel: 'Secundária', perfil: 'Pronto Atendimento' };
+            if (nome.includes('ubs') || nome.includes('posto')) return { nivel: 'Primária', perfil: 'UBS' };
+            if (nome.includes('clínica') || nome.includes('clinica')) return { nivel: 'Primária', perfil: 'Clínica' };
+            if (nome.includes('farmácia') || nome.includes('farmacia')) return { nivel: 'Primária', perfil: 'Farmácia' };
+
+            return { nivel: 'Primária', perfil: 'Unidade de Saúde' };
         }
 
-        function verificarSeEhSaude(nome, tipo) {
-            const palavrasSaude = [
-                'hospital', 'clínica', 'clinica', 'posto', 'saúde', 'saude', 'médico', 'medico',
-                'dentista', 'laboratório', 'laboratorio', 'farmacêutica', 'farmaceutica', 'farmácia',
-                'farmacia', 'pronto', 'atendimento', 'upa', 'ubs', 'caps', 'maternidade',
-                'ortopedia', 'cardiologia', 'pediatria', 'dermatologia', 'ginecologia',
-                'oftalmologia', 'otorrino', 'fisioterapia', 'psicologia', 'nutrição', 'nutricao'
-            ];
-            
-            const nomeLower = nome.toLowerCase();
-            return palavrasSaude.some(palavra => nomeLower.includes(palavra));
-        }
-
-        function formatarEndereco(displayName) {
+        function extrairCidade(displayName) {
             const partes = displayName.split(',').map(p => p.trim());
-            // Remover o nome do estabelecimento (primeira parte) e o país (última parte)
-            return partes.slice(1, -1).join(', ');
+            for (const parte of partes) {
+                for (const mun of municipiosRJ) {
+                    if (parte.includes(mun.nome)) return mun.nome;
+                }
+            }
+            return 'Rio de Janeiro';
         }
 
         function extrairBairro(displayName) {
             const partes = displayName.split(',').map(p => p.trim());
-            // Tentar encontrar o bairro (geralmente está antes da cidade)
+            // Tenta encontrar um padrão de bairro (geralmente a segunda ou terceira parte)
             for (let i = 1; i < partes.length; i++) {
-                const parte = partes[i];
-                if (parte.includes('bairro') || parte.includes('Bairro') || 
-                    parte.includes('district') || parte.includes('suburb')) {
-                    return parte.replace(/bairro|Bairro|district|suburb/gi, '').trim();
+                const p = partes[i];
+                if (p.includes('bairro') || p.includes('Bairro') || p.includes('district') || p.includes('suburb')) {
+                    return p.replace(/bairro|Bairro|district|suburb/gi, '').trim();
                 }
             }
-            // Se não encontrar, retornar a segunda parte (geralmente é o bairro/área)
             return partes[1] || 'Centro';
+        }
+
+        function formatarEndereco(displayName) {
+            const partes = displayName.split(',').map(p => p.trim());
+            return partes.slice(1, -1).join(', ');
         }
 
         // ============================================
@@ -1321,14 +1290,12 @@
         function abrirModalMunicipio() {
             const select = document.getElementById('selectMunicipio');
             select.innerHTML = '<option value="">Selecione um município</option>';
-            
             municipiosRJ.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(m => {
                 const option = document.createElement('option');
                 option.value = m.codigo_ibge;
                 option.textContent = m.nome;
                 select.appendChild(option);
             });
-            
             document.getElementById('modalMunicipio').classList.add('active');
         }
 
@@ -1343,43 +1310,63 @@
                 return;
             }
 
+            const municipio = municipiosRJ.find(m => m.codigo_ibge === codigoMunicipio);
+            if (!municipio) return;
+
             fecharModalMunicipio();
             mostrarLoading('Buscando unidades de saúde...');
 
             try {
                 atualizarProgresso(30, 'Consultando OpenStreetMap...');
-                
-                const unidades = await consultarCNES(codigoMunicipio);
-                
-                atualizarProgresso(80, 'Processando resultados...');
+                const resultados = await buscarUnidadesOSM({ municipio });
 
-                if (unidades.length === 0) {
-                    mostrarAlerta('warning', 'Nenhuma unidade encontrada', 
-                        'Não foram encontradas unidades de saúde para este município no OpenStreetMap.');
-                    ocultarLoading();
-                    return;
+                atualizarProgresso(60, 'Processando dados...');
+                const unidades = [];
+
+                for (const item of resultados) {
+                    const { nivel, perfil } = classificarNivel(item);
+                    const unidade = {
+                        nome: item.display_name.split(',')[0],
+                        cidade: extrairCidade(item.display_name),
+                        bairro: extrairBairro(item.display_name),
+                        perfil: perfil,
+                        nivel: nivel,
+                        lat: parseFloat(item.lat),
+                        lon: parseFloat(item.lon),
+                        telefone: '',
+                        endereco: formatarEndereco(item.display_name),
+                        cep: '',
+                        codigoCNES: '',
+                        osmId: item.osm_id,
+                        osmType: item.osm_type,
+                        mapsLink: item.lat && item.lon ? `https://www.google.com/maps?q=${item.lat},${item.lon}` : '',
+                        link: item.osm_id ? `https://www.openstreetmap.org/${item.osm_type}/${item.osm_id}` : ''
+                    };
+                    unidades.push(unidade);
                 }
 
-                todasUnidades = unidades.map(u => ({
-                    ...u,
-                    website: '',
-                    link: u.osmId ? `https://www.openstreetmap.org/${u.osmType}/${u.osmId}` : '',
-                    mapsLink: u.lat && u.lon ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : ''
-                }));
+                // Remove duplicatas (pelo nome e coordenadas aproximadas)
+                const unique = [];
+                const seen = new Set();
+                for (const u of unidades) {
+                    const key = `${u.nome}-${u.lat.toFixed(4)}-${u.lon.toFixed(4)}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        unique.push(u);
+                    }
+                }
 
+                todasUnidades = unique;
                 unidadesFiltradas = [...todasUnidades];
-                
-                atualizarProgresso(100, `${unidades.length} unidades encontradas!`);
-                
+
+                atualizarProgresso(100, `${todasUnidades.length} unidades encontradas!`);
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
                 }, 500);
-
             } catch (error) {
-                console.error('Erro na busca:', error);
-                mostrarAlerta('error', 'Erro na busca', 
-                    'Não foi possível consultar os dados. Tente novamente mais tarde.');
+                console.error('Erro:', error);
+                mostrarAlerta('error', 'Erro na busca', 'Não foi possível consultar os dados. Tente novamente mais tarde.');
                 ocultarLoading();
             }
         }
@@ -1418,128 +1405,62 @@
                 localizacaoUsuario = { lat: latitude, lon: longitude };
 
                 atualizarProgresso(40, 'Buscando unidades próximas...');
+                const resultados = await buscarUnidadesOSM({ lat: latitude, lon: longitude, raio: 10 });
 
-                // Buscar unidades próximas usando Nominatim Reverse + Nearby
-                const unidades = await buscarUnidadesProximas(latitude, longitude);
-                
-                atualizarProgresso(80, 'Processando resultados...');
+                atualizarProgresso(70, 'Calculando distâncias...');
+                const unidades = [];
 
-                if (unidades.length === 0) {
-                    mostrarAlerta('warning', 'Nenhuma unidade encontrada', 
-                        'Não foram encontradas unidades de saúde próximas à sua localização.');
-                    ocultarLoading();
-                    return;
+                for (const item of resultados) {
+                    const { nivel, perfil } = classificarNivel(item);
+                    const distancia = calcularDistancia(latitude, longitude, parseFloat(item.lat), parseFloat(item.lon));
+                    if (distancia > 10) continue; // raio máximo 10 km
+
+                    const unidade = {
+                        nome: item.display_name.split(',')[0],
+                        cidade: extrairCidade(item.display_name),
+                        bairro: extrairBairro(item.display_name),
+                        perfil: perfil,
+                        nivel: nivel,
+                        lat: parseFloat(item.lat),
+                        lon: parseFloat(item.lon),
+                        telefone: '',
+                        endereco: formatarEndereco(item.display_name),
+                        distancia: distancia,
+                        osmId: item.osm_id,
+                        osmType: item.osm_type,
+                        mapsLink: `https://www.google.com/maps?q=${item.lat},${item.lon}`,
+                        link: item.osm_id ? `https://www.openstreetmap.org/${item.osm_type}/${item.osm_id}` : ''
+                    };
+                    unidades.push(unidade);
                 }
 
-                todasUnidades = unidades.map(u => ({
-                    ...u,
-                    website: '',
-                    link: u.osmId ? `https://www.openstreetmap.org/${u.osmType}/${u.osmId}` : '',
-                    mapsLink: u.lat && u.lon ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : ''
-                }));
+                // Remove duplicatas
+                const unique = [];
+                const seen = new Set();
+                for (const u of unidades.sort((a, b) => a.distancia - b.distancia)) {
+                    const key = `${u.nome}-${u.lat.toFixed(4)}-${u.lon.toFixed(4)}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        unique.push(u);
+                    }
+                }
 
+                todasUnidades = unique;
                 unidadesFiltradas = [...todasUnidades];
-                
-                atualizarProgresso(100, `${unidades.length} unidades encontradas!`);
-                
+
+                atualizarProgresso(100, `${todasUnidades.length} unidades encontradas!`);
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
                 }, 500);
-
             } catch (error) {
                 let mensagem = 'Erro ao obter localização.';
                 if (error.code === 1) mensagem = 'Permissão de localização negada.';
                 else if (error.code === 2) mensagem = 'Localização indisponível.';
                 else if (error.code === 3) mensagem = 'Tempo de busca esgotado.';
-                
                 mostrarAlerta('error', 'Erro', mensagem);
                 ocultarLoading();
             }
-        }
-
-        async function buscarUnidadesProximas(lat, lon) {
-            const queries = ['hospital', 'clinic', 'doctors', 'pharmacy'];
-            const todasUnidades = [];
-            const raioKm = 10;
-
-            for (const query of queries) {
-                try {
-                    // Usar a API de busca com viewbox ao redor da localização
-                    const delta = 0.1; // Aproximadamente 11km
-                    const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
-                        `format=json&` +
-                        `q=${query}&` +
-                        `viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&` +
-                        `bounded=1&` +
-                        `limit=50&` +
-                        `email=${CONFIG.NOMINATIM.EMAIL}&` +
-                        `accept-language=pt-BR`;
-
-                    const response = await fetch(url, {
-                        headers: { 'User-Agent': 'SUSRio/1.0' }
-                    });
-
-                    if (!response.ok) continue;
-
-                    const dados = await response.json();
-
-                    for (const item of dados) {
-                        const nome = item.display_name.split(',')[0];
-                        if (!verificarSeEhSaude(nome, item.type)) continue;
-
-                        const distancia = calcularDistancia(lat, lon, parseFloat(item.lat), parseFloat(item.lon));
-                        
-                        if (distancia <= raioKm) {
-                            const unidade = {
-                                nome: nome,
-                                cidade: extrairCidade(item.display_name) || 'Rio de Janeiro',
-                                bairro: extrairBairro(item.display_name) || 'Centro',
-                                perfil: query === 'hospital' ? 'Hospital' : 
-                                        query === 'pharmacy' ? 'Farmácia' : 'Clínica',
-                                nivel: query === 'hospital' ? 'Terciária' : 'Primária',
-                                lat: parseFloat(item.lat),
-                                lon: parseFloat(item.lon),
-                                telefone: '',
-                                endereco: formatarEndereco(item.display_name),
-                                distancia: distancia,
-                                osmId: item.osm_id,
-                                osmType: item.osm_type
-                            };
-                            todasUnidades.push(unidade);
-                        }
-                    }
-                } catch (error) {
-                    console.warn(`Erro ao buscar ${query}:`, error);
-                }
-            }
-
-            // Remover duplicatas e ordenar por distância
-            const unicas = [];
-            const nomes = new Set();
-            for (const u of todasUnidades) {
-                const chave = u.nome.toLowerCase().trim();
-                if (!nomes.has(chave)) {
-                    nomes.add(chave);
-                    unicas.push(u);
-                }
-            }
-
-            return unicas.sort((a, b) => a.distancia - b.distancia);
-        }
-
-        function extrairCidade(displayName) {
-            const partes = displayName.split(',').map(p => p.trim());
-            // Procurar por "Rio de Janeiro" ou outra cidade do RJ
-            for (const parte of partes) {
-                const parteLower = parte.toLowerCase();
-                for (const mun of municipiosRJ) {
-                    if (parteLower.includes(mun.nome.toLowerCase())) {
-                        return mun.nome;
-                    }
-                }
-            }
-            return 'Rio de Janeiro';
         }
 
         // ============================================
@@ -1565,8 +1486,6 @@
         function popularFiltros() {
             const cidades = [...new Set(todasUnidades.map(u => u.cidade))].sort();
             const selectCidade = document.getElementById('filtroCidade');
-            const valorAtual = selectCidade.value;
-            
             selectCidade.innerHTML = '<option value="">Todas as cidades</option>';
             cidades.forEach(cidade => {
                 const option = document.createElement('option');
@@ -1574,15 +1493,17 @@
                 option.textContent = cidade;
                 selectCidade.appendChild(option);
             });
-            selectCidade.value = valorAtual;
 
+            // Se já havia uma cidade selecionada, mantém
+            if (selectCidade.dataset.ultimaCidade) {
+                selectCidade.value = selectCidade.dataset.ultimaCidade;
+            }
             atualizarBairros();
         }
 
         function atualizarBairros() {
             const cidadeSelecionada = document.getElementById('filtroCidade').value;
             const selectBairro = document.getElementById('filtroBairro');
-            
             const bairros = [...new Set(todasUnidades
                 .filter(u => !cidadeSelecionada || u.cidade === cidadeSelecionada)
                 .map(u => u.bairro)
@@ -1610,8 +1531,8 @@
             const nivel = document.getElementById('filtroNivel').value;
 
             if (cidade !== document.getElementById('filtroCidade').dataset.ultimaCidade) {
-                atualizarBairros();
                 document.getElementById('filtroCidade').dataset.ultimaCidade = cidade;
+                atualizarBairros();
             }
 
             unidadesFiltradas = todasUnidades.filter(u => {
@@ -1632,7 +1553,8 @@
             document.getElementById('filtroBairro').value = '';
             document.getElementById('filtroNivel').value = '';
             document.getElementById('filtroBairro').disabled = true;
-            
+            document.getElementById('filtroCidade').dataset.ultimaCidade = '';
+
             unidadesFiltradas = [...todasUnidades];
             atualizarEstatisticas();
             renderizarUnidades();
@@ -1662,7 +1584,7 @@
             };
 
             let html = '';
-            
+
             Object.entries(porNivel).forEach(([nivel, unidades]) => {
                 if (unidades.length === 0) return;
 
@@ -1737,6 +1659,13 @@
                                 OpenStreetMap
                             </a>
                         ` : ''}
+                        <!-- Link adicional para a página da unidade (se houver) -->
+                        ${u.codigoCNES ? `
+                            <a href="https://cnes.datasus.gov.br/pages/estabelecimentos/ficha/${u.codigoCNES}" target="_blank" class="unit-link details">
+                                <span>🔗</span>
+                                Ficha CNES
+                            </a>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -1746,7 +1675,6 @@
             categoriasAbertas[nivel] = !categoriasAbertas[nivel];
             const content = document.getElementById(`content-${nivel}`);
             const icon = content.previousElementSibling.querySelector('.category-icon');
-            
             if (categoriasAbertas[nivel]) {
                 content.classList.remove('collapsed');
                 icon.classList.remove('collapsed');
@@ -1781,7 +1709,6 @@
             }));
 
             const ws = XLSX.utils.json_to_sheet(dados);
-            
             const colWidths = [
                 { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 15 },
                 { wch: 18 }, { wch: 50 }, { wch: 15 }, { wch: 15 },
@@ -1791,7 +1718,6 @@
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Unidades SUS RJ');
-
             const dataAtual = new Date().toISOString().split('T')[0];
             XLSX.writeFile(wb, `Unidades_SUS_RJ_${dataAtual}.xlsx`);
         }
