@@ -1599,62 +1599,106 @@
         // BUSCA POR MUNICÍPIO — Overpass com bbox do município
         // ============================================
         async function buscarUnidadesOpenStreetMap(municipio) {
-            // Estratégia 1: busca por área administrativa (relation OSM via código IBGE)
-            // Se falhar, usa bbox generosa ao redor do centroide do município.
+            const ibge      = municipio.codigo_ibge;
+            const nomeNorm  = norm(municipio.nome);
 
-            // Raio adaptativo: municípios grandes (Rio, Niterói) precisam de mais cobertura
-            const raioGraus = municipio.nome === 'Rio de Janeiro' ? 0.55
-                            : municipio.nome === 'Niterói'        ? 0.25
-                            : municipio.nome === 'Nova Iguaçu'    ? 0.30
-                            : municipio.nome === 'Duque de Caxias'? 0.28
-                            : 0.20;
+            // ── ESTRATÉGIA 1: polígono OSM via ref:IBGE ─────────────────────
+            // Sem filtro de admin_level para maximizar a chance de encontrar a area.
+            // A Overpass converte a relation OSM no polígono real do município.
+            let elementos = await tentarQueryArea(ibge);
 
-            const sul   = (municipio.latitude  - raioGraus).toFixed(6);
-            const norte = (municipio.latitude  + raioGraus).toFixed(6);
-            const oeste = (municipio.longitude - raioGraus).toFixed(6);
-            const leste = (municipio.longitude + raioGraus).toFixed(6);
+            // ── ESTRATÉGIA 2: admin_level explícito caso a 1ª não retorne ───
+            if (elementos.length === 0) {
+                elementos = await tentarQueryArea(ibge, true);
+            }
 
-            // Query Overpass com bbox — inclui todos os nós/ways com healthcare ou amenity relevante.
-            // O filtro por pertencimento ao SUS é feito pela função classificar().
-            const query = `
-[out:json][timeout:60];
+            // ── ESTRATÉGIA 3: bbox conservadora como último recurso ──────────
+            // Raio de 0.10° (~11 km) — deliberadamente pequeno para municípios
+            // compactos. A filtragem geográfica por centroide mais próximo abaixo
+            // corrige qualquer vazamento residual.
+            if (elementos.length === 0) {
+                const r     = 0.10;
+                const sul   = (municipio.latitude  - r).toFixed(6);
+                const norte = (municipio.latitude  + r).toFixed(6);
+                const oeste = (municipio.longitude - r).toFixed(6);
+                const leste = (municipio.longitude + r).toFixed(6);
+                const qBbox = `[out:json][timeout:60];
 (
   node["healthcare"](${sul},${oeste},${norte},${leste});
   way["healthcare"](${sul},${oeste},${norte},${leste});
   node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
   way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
 );
-out center tags;`.trim();
-
-            let elementos = [];
-            try {
-                const dados = await consultarOverpass(query);
-                elementos = dados.elements || [];
-            } catch (err) {
-                console.warn('Overpass (município) falhou:', err);
-                return [];
+out center tags;`;
+                try { elementos = (await consultarOverpass(qBbox)).elements || []; }
+                catch (e) { console.warn('Bbox falhou:', e); return []; }
             }
 
             const resultado = [];
             for (const el of elementos) {
                 const tags = el.tags || {};
-                const lat = el.lat ?? el.center?.lat;
-                const lon = el.lon ?? el.center?.lon;
+                const lat  = el.lat ?? el.center?.lat;
+                const lon  = el.lon ?? el.center?.lon;
                 if (!lat || !lon) continue;
+
+                // ── CAMADA A: addr:city contradiz o município → rejeitar ─────
+                const addrCity = norm(tags['addr:city'] || tags['is_in:city'] || '');
+                if (addrCity && !addrCity.includes(nomeNorm) && !nomeNorm.includes(addrCity)) continue;
+
+                // ── CAMADA B: centroide mais próximo ─────────────────────────
+                // O município cujo centroide está mais perto do elemento deve ser
+                // o municipio selecionado. Caso contrário, o elemento pertence
+                // geograficamente a um vizinho.
+                if (!municipioMaisProximo(lat, lon, municipio)) continue;
 
                 const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
                 if (!u) continue;
 
-                if (!u.cidade) u.cidade = municipio.nome;
+                u.cidade = municipio.nome;
                 if (!u.bairro) {
                     u.bairro = tags['addr:suburb'] || tags['addr:neighbourhood'] ||
                                tags['addr:quarter'] || tags['addr:district'] || 'Centro';
                 }
-
                 resultado.push(u);
             }
 
             return deduplicar(resultado);
+        }
+
+        /** Tenta query area por ref:IBGE. Com admin_level restrito ou livre. */
+        async function tentarQueryArea(ibge, comAdminLevel = false) {
+            const filtroAdmin = comAdminLevel ? '["admin_level"~"^(8|9)$"]' : '';
+            const q = `[out:json][timeout:60];
+area["ref:IBGE"="${ibge}"]${filtroAdmin}->.mun;
+(
+  node["healthcare"](area.mun);
+  way["healthcare"](area.mun);
+  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
+  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
+);
+out center tags;`;
+            try {
+                const dados = await consultarOverpass(q);
+                return dados.elements || [];
+            } catch (e) {
+                console.warn(`Overpass area (ibge=${ibge}, adminLevel=${comAdminLevel}) falhou:`, e);
+                return [];
+            }
+        }
+
+        /**
+         * Retorna true se o município selecionado for o municipio cujo centroide
+         * está mais próximo do ponto (lat, lon).
+         * Usa a lista global municipiosRJ para comparar todos os municípios.
+         */
+        function municipioMaisProximo(lat, lon, municipioSelecionado) {
+            let distMin = Infinity;
+            let maisProximo = null;
+            for (const m of municipiosRJ) {
+                const d = calcularDistancia(lat, lon, m.latitude, m.longitude);
+                if (d < distMin) { distMin = d; maisProximo = m; }
+            }
+            return maisProximo && maisProximo.codigo_ibge === municipioSelecionado.codigo_ibge;
         }
 
         // ============================================
