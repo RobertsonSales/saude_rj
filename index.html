@@ -1204,81 +1204,8 @@
         async function consultarCNES(codigoMunicipio) {
             const municipio = municipiosRJ.find(m => m.codigo_ibge === codigoMunicipio);
             if (!municipio) throw new Error('Município não encontrado');
-
-            // Como a API CNES é SOAP e pode ter CORS, vamos usar uma abordagem alternativa
-            // Vamos buscar dados do OpenStreetMap para hospitais/postos na cidade
+            // Busca via Overpass API (OpenStreetMap) com tags reais
             return await buscarUnidadesOpenStreetMap(municipio);
-        }
-
-        // ============================================
-        // API OPENSTREETMAP (NOMINATIM) - DADOS REAIS
-        // ============================================
-        async function buscarUnidadesOpenStreetMap(municipio) {
-            // Apenas tipos que pertencem à rede pública SUS
-            // (pharmacy, doctors, dentist excluídos intencionalmente)
-            const tiposBusca = ['hospital', 'clinic', 'health+post', 'health+centre'];
-
-            const todasUnidades = [];
-            const raioBusca = 0.15; // ~15 km do centro
-
-            for (const tipo of tiposBusca) {
-                try {
-                    const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
-                        `format=json&` +
-                        `q=${tipo}+in+${encodeURIComponent(municipio.nome)}+RJ+Brazil&` +
-                        `viewbox=${municipio.longitude - raioBusca},${municipio.latitude + raioBusca},${municipio.longitude + raioBusca},${municipio.latitude - raioBusca}&` +
-                        `bounded=1&limit=50&` +
-                        `email=${CONFIG.NOMINATIM.EMAIL}&accept-language=pt-BR`;
-
-                    const response = await fetch(url, {
-                        headers: { 'User-Agent': 'SUSRio/1.0 (contato@susrio.gov.br)' }
-                    });
-
-                    if (!response.ok) continue;
-
-                    const dados = await response.json();
-
-                    for (const item of dados) {
-                        const nome = item.display_name.split(',')[0];
-
-                        // Classificação integrada (retorna null para excluídos)
-                        const classif = classificarUnidadeOSM(item.class, item.type, nome, {});
-                        if (!classif) continue;
-
-                        // Barreira extra: rejeitar nomes de estabelecimentos privados conhecidos
-                        if (ehEstabelecimentoPrivado(nome)) continue;
-
-                        todasUnidades.push({
-                            nome,
-                            cidade: municipio.nome,
-                            bairro: extrairBairro(item.display_name) || 'Centro',
-                            perfil: classif.perfil,
-                            nivel: classif.nivel,
-                            lat: parseFloat(item.lat),
-                            lon: parseFloat(item.lon),
-                            telefone: '',
-                            endereco: formatarEndereco(item.display_name),
-                            cep: '',
-                            codigoCNES: '',
-                            osmId: item.osm_id,
-                            osmType: item.osm_type,
-                            website: ''
-                        });
-                    }
-                } catch (error) {
-                    console.warn(`Erro ao buscar ${tipo}:`, error);
-                }
-            }
-
-            // Remover duplicatas pelo nome
-            const unicas = [];
-            const nomes = new Set();
-            for (const u of todasUnidades) {
-                const chave = u.nome.toLowerCase().trim();
-                if (!nomes.has(chave)) { nomes.add(chave); unicas.push(u); }
-            }
-
-            return unicas;
         }
 
         function formatarEndereco(displayName) {
@@ -1348,7 +1275,7 @@
 
                 todasUnidades = unidades.map(u => ({
                     ...u,
-                    website: '',
+                    website: u.website || '',
                     link: u.osmId ? `https://www.openstreetmap.org/${u.osmType}/${u.osmId}` : '',
                     mapsLink: u.lat && u.lon ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : ''
                 }));
@@ -1446,217 +1373,324 @@
 
         // ============================================
         // CLASSIFICAÇÃO OSM → PERFIL / NÍVEL SUS
-        // null = excluído (estabelecimento tipicamente privado / não-SUS)
         // ============================================
-        const OSM_HEALTH_MAP = {
-            // ── Terciária ──────────────────────────────────────────────────
-            hospital:           { perfil: 'Hospital',                     nivel: 'Terciária'  },
-            birthing_center:    { perfil: 'Maternidade',                  nivel: 'Terciária'  },
-            hospice:            { perfil: 'Hospice / Cuidados Paliativos',nivel: 'Terciária'  },
-            // ── Secundária ─────────────────────────────────────────────────
-            clinic:             { perfil: 'Clínica Especializada',        nivel: 'Secundária' },
-            laboratory:         { perfil: 'Laboratório Clínico',          nivel: 'Secundária' },
-            blood_bank:         { perfil: 'Banco de Sangue',              nivel: 'Secundária' },
-            nursing_home:       { perfil: 'Casa de Repouso',              nivel: 'Secundária' },
-            rehabilitation:     { perfil: 'Centro de Reabilitação',       nivel: 'Secundária' },
-            urgent_care:        { perfil: 'UPA / Pronto Atendimento',     nivel: 'Secundária' },
-            dialysis:           { perfil: 'Centro de Diálise',            nivel: 'Secundária' },
-            // ── Primária (somente SUS) ─────────────────────────────────────
-            health_post:        { perfil: 'Posto de Saúde',               nivel: 'Primária'   },
-            health_centre:      { perfil: 'Centro de Saúde',              nivel: 'Primária'   },
-            centre:             { perfil: 'Centro de Saúde',              nivel: 'Primária'   },
-            physiotherapist:    { perfil: 'Fisioterapia',                  nivel: 'Primária'   },
-            // ── Excluídos: tipicamente privados / não-SUS ─────────────────
-            pharmacy:           null,   // farmácias são estabelecimentos privados
-            dentist:            null,   // consultórios odontológicos privados
-            doctors:            null,   // consultórios médicos particulares
-            optometrist:        null,
-            psychotherapist:    null,
-            audiologist:        null,
-            alternative:        null,
-        };
 
         /**
-         * Retorna { perfil, nivel } para a unidade, ou null se deve ser excluída.
-         * A tag OSM tem prioridade; o nome é usado como fallback.
+         * PASSO 1 — Verificar se o operador é público (SUS).
+         * Usa as tags `operator:type`, `operator` e `access` presentes nas tags OSM completas.
+         * Retorna true  → público/SUS (incluir)
+         * Retorna false → privado (excluir)
+         * Retorna null  → indeterminado (deixar para análise de nome/tipo)
          */
-        function classificarUnidadeOSM(amenity, healthcare, nome, tags) {
-            const tag = (healthcare || amenity || '').toLowerCase();
+        function analisarOperador(tags) {
+            const opType = (tags['operator:type'] || '').toLowerCase();
+            const operator = (tags['operator'] || '').toLowerCase();
+            const access   = (tags['access'] || '').toLowerCase();
 
-            // Verificação explícita por tag OSM
-            if (tag && tag in OSM_HEALTH_MAP) {
-                return OSM_HEALTH_MAP[tag]; // pode ser null → excluída
-            }
+            // Explicitamente público
+            if (['public', 'government', 'municipal', 'state', 'federal'].includes(opType))
+                return true;
 
-            // Fallback por palavras-chave no nome
-            const n = nome.toLowerCase();
+            // Explicitamente privado
+            if (['private', 'commercial', 'ngo'].includes(opType))
+                return false;
 
-            // Excluídos primeiro (antes de qualquer match positivo)
-            if (/farmácia|farmacia|\bdroga\b|drogaria/i.test(n))              return null;
-            if (/\bdentist|\bodonto|clínica dental|clinic dental/i.test(n))   return null;
-            if (/consultório particular|clínica particular/i.test(n))         return null;
+            // Operador com nome de rede pública conhecida
+            const redesPublicas = [
+                'sus', 'prefeitura', 'secretaria', 'municipal', 'estado', 'federal',
+                'governo', 'smsa', 'sms', 'sesau', 'sesab', 'sesap', 'upa ',
+                'sms-rio', 'rio saúde', 'rio saude', 'pmerj', 'bombeiro'
+            ];
+            if (redesPublicas.some(r => operator.includes(r))) return true;
 
-            // Terciária
-            if (/\bhospital\b/i.test(n))        return { perfil: 'Hospital',                    nivel: 'Terciária'  };
-            if (/maternidade/i.test(n))          return { perfil: 'Maternidade',                 nivel: 'Terciária'  };
+            // Operadores claramente privados
+            const redesPrivadas = [
+                'unimed', 'amil', 'hapvida', 'notredame', 'são lucas', 'sao lucas',
+                'santa casa', 'einstein', 'sírio', 'sirio', 'fleury', 'dasa', 'hermes pardini',
+                'rede d\'or', 'dor', 'ultra', 'cedimagem', 'clínica', 'clinica'
+            ];
+            if (redesPrivadas.some(r => operator.includes(r))) return false;
 
-            // Secundária
-            if (/upa\b|pronto.?atendimento|pronto.?socorro/i.test(n))
-                                                 return { perfil: 'UPA / Pronto Atendimento',   nivel: 'Secundária' };
-            if (/\bcaps\b/i.test(n))             return { perfil: 'CAPS',                        nivel: 'Secundária' };
-            if (/laboratório|laboratorio/i.test(n)) return { perfil: 'Laboratório Clínico',     nivel: 'Secundária' };
-            if (/reabilitação|reabilitacao/i.test(n)) return { perfil: 'Centro de Reabilitação', nivel: 'Secundária' };
-            if (/clínica|clinica|policlínica|policlinica|especialidade/i.test(n))
-                                                 return { perfil: 'Clínica Especializada',       nivel: 'Secundária' };
+            // Tag access=private descarta
+            if (access === 'private') return false;
 
-            // Primária (SUS)
-            if (/\bubs\b|\baps\b|posto de saúde|posto de saude|unidade básica|unidade basica/i.test(n))
-                                                 return { perfil: 'Posto de Saúde',              nivel: 'Primária'   };
-            if (/centro de saúde|centro de saude/i.test(n))
-                                                 return { perfil: 'Centro de Saúde',             nivel: 'Primária'   };
+            return null; // indeterminado
+        }
 
-            // Genérico — manter apenas se tiver indicativo de público
-            if (/\bsus\b|municipal|prefeitura|secretaria|saúde pública|saude publica/i.test(n))
-                                                 return { perfil: 'Unidade de Saúde',            nivel: 'Primária'   };
+        /**
+         * PASSO 2 — Classificar perfil e nível pelo tipo OSM (tags healthcare / amenity).
+         * Tipos excluídos por serem majoritariamente privados retornam null.
+         */
+        const TIPO_PARA_PERFIL = {
+            // healthcare=* (mais preciso)
+            'hospital':          { perfil: 'Hospital',                    nivel: 'Terciária'  },
+            'maternity':         { perfil: 'Maternidade',                 nivel: 'Terciária'  },
+            'birthing_centre':   { perfil: 'Maternidade',                 nivel: 'Terciária'  },
+            'birthing_center':   { perfil: 'Maternidade',                 nivel: 'Terciária'  },
+            'hospice':           { perfil: 'Cuidados Paliativos',         nivel: 'Terciária'  },
 
-            // Sem sinal suficiente de pertencer ao SUS → excluir
+            'centre':            { perfil: 'Centro de Saúde',             nivel: 'Primária'   },
+            'health_centre':     { perfil: 'Centro de Saúde',             nivel: 'Primária'   },
+            'health_post':       { perfil: 'Posto de Saúde',              nivel: 'Primária'   },
+
+            'clinic':            { perfil: 'Clínica Especializada',       nivel: 'Secundária' },
+            'rehabilitation':    { perfil: 'Centro de Reabilitação',      nivel: 'Secundária' },
+            'blood_bank':        { perfil: 'Banco de Sangue',             nivel: 'Secundária' },
+            'dialysis':          { perfil: 'Centro de Diálise',           nivel: 'Secundária' },
+            'nursing_home':      { perfil: 'Casa de Repouso',             nivel: 'Secundária' },
+
+            // amenity=* (menos preciso; alguns têm chance razoável de ser públicos)
+            'amenity_hospital':  { perfil: 'Hospital',                    nivel: 'Terciária'  },
+            'amenity_clinic':    { perfil: 'Clínica Especializada',       nivel: 'Secundária' },
+            'amenity_health_post':   { perfil: 'Posto de Saúde',          nivel: 'Primária'   },
+            'amenity_health_centre': { perfil: 'Centro de Saúde',         nivel: 'Primária'   },
+        };
+
+        // Tipos OSM tipicamente privados — descartados salvo confirmação de operador público
+        const TIPOS_PRIVADOS = new Set([
+            'pharmacy', 'dentist', 'doctors', 'optometrist', 'psychotherapist',
+            'audiologist', 'alternative', 'physiotherapist', 'laboratory',
+            'sample_collection', 'medical_imaging', 'urgent_care'
+        ]);
+
+        /**
+         * PASSO 3 — Análise do nome como última instância.
+         * Usada quando os passos anteriores não foram conclusivos.
+         */
+        function classificarPorNome(nome) {
+            const n = nome.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // sem acentos
+
+            // — Excluir definitivamente —
+            if (/farmac|drogaria|droga\b|otica\b|optica|laboratorio\s+particular|clinica\s+particular/.test(n)) return null;
+            if (/odonto|dental\b|dentist|ortodont/.test(n)) return null;
+            if (/\bvet(erinari)?\b/.test(n)) return null;
+
+            // — Terciária —
+            if (/\bhospital\b/.test(n))                    return { perfil: 'Hospital',                nivel: 'Terciária'  };
+            if (/maternidade/.test(n))                     return { perfil: 'Maternidade',             nivel: 'Terciária'  };
+
+            // — Secundária —
+            if (/\bupa\b|pronto.?atendimento|pronto.?socorro/.test(n))
+                                                           return { perfil: 'UPA / Pronto Atendimento', nivel: 'Secundária' };
+            if (/\bcaps\b/.test(n))                        return { perfil: 'CAPS',                    nivel: 'Secundária' };
+            if (/policlinica|policlínica/.test(n))         return { perfil: 'Policlínica',             nivel: 'Secundária' };
+            if (/reabilitac/.test(n))                      return { perfil: 'Centro de Reabilitação',  nivel: 'Secundária' };
+            if (/clinica.+especialidade|especialidade/.test(n)) return { perfil: 'Clínica Especializada', nivel: 'Secundária' };
+
+            // — Primária —
+            if (/\bubs\b|\baps\b|posto.de.saude|unidade.basica/.test(n))
+                                                           return { perfil: 'Posto de Saúde',          nivel: 'Primária'   };
+            if (/centro.de.saude/.test(n))                 return { perfil: 'Centro de Saúde',         nivel: 'Primária'   };
+
+            // — Genérico público (nome com marcador explícito de rede pública) —
+            if (/\bsus\b|municipal|prefeitura|secretaria|saude.publica|sms\b/.test(n))
+                                                           return { perfil: 'Unidade de Saúde',        nivel: 'Primária'   };
+
+            // Sem evidência suficiente → descartar
             return null;
         }
 
         /**
-         * Filtragem final: exclui pelo nome estabelecimentos sabidamente privados,
-         * independente de como foram classificados.
+         * Função principal de classificação.
+         * Recebe as tags OSM completas do elemento e retorna { perfil, nivel } ou null.
          */
-        function ehEstabelecimentoPrivado(nome) {
-            return /farmácia|farmacia|\bdroga\b|drogaria|\bdentist|\bodonto|ótica|otica|\blab\b laboratório particular/i.test(nome.toLowerCase());
+        function classificar(tags, nomeBruto) {
+            const nome = nomeBruto || tags.name || tags['name:pt'] || '';
+            if (!nome) return null;
+
+            const healthcare = (tags.healthcare || '').toLowerCase();
+            const amenity    = (tags.amenity    || '').toLowerCase();
+
+            // 1. Tipos explicitamente privados na tag OSM
+            if (TIPOS_PRIVADOS.has(healthcare) || TIPOS_PRIVADOS.has(amenity)) {
+                // Só inclui se o operador confirmar que é público
+                const opPub = analisarOperador(tags);
+                if (opPub !== true) return null;
+                // É público mas tem tipo ambíguo → classificar pelo nome
+                return classificarPorNome(nome);
+            }
+
+            // 2. Tipo OSM reconhecido → usa tabela
+            const chaveHC = healthcare ? healthcare : null;
+            const chaveAM = amenity ? `amenity_${amenity}` : null;
+            const perfilPorTipo = TIPO_PARA_PERFIL[chaveHC] || TIPO_PARA_PERFIL[chaveAM] || null;
+
+            if (perfilPorTipo) {
+                // Tipo reconhecido: verificar se operador contradiz (privado explícito)
+                const opPub = analisarOperador(tags);
+                if (opPub === false) return null; // operador privado confirmado
+                return perfilPorTipo;
+            }
+
+            // 3. Tipo não reconhecido → analisar operador + nome
+            const opPub = analisarOperador(tags);
+            if (opPub === false) return null;
+
+            const porNome = classificarPorNome(nome);
+            if (!porNome) return null;
+
+            // Se operador for público, confiar no nome; caso indeterminado, só incluir
+            // se o nome tiver sinal explícito (classificarPorNome já garante isso)
+            return porNome;
         }
 
-        async function buscarUnidadesProximas(lat, lon) {
-            const raioMetros = 10000; // 10 km
-            const todasUnidades = [];
+        // ============================================
+        // MONTAGEM DO OBJETO UNIDADE A PARTIR DE TAGS OSM
+        // ============================================
+        function montarUnidade(tags, lat, lon, osmId, osmType, distancia) {
+            const nome = tags.name || tags['name:pt'] || '';
+            const classif = classificar(tags, nome);
+            if (!classif) return null;
 
-            // Consulta Overpass API — retorna TODOS os tipos de unidade de saúde com tags completas.
-            // Farmácias (amenity=pharmacy), dentistas e consultórios particulares são filtrados
-            // pela lógica de classificarUnidadeOSM (retornam null) e por ehEstabelecimentoPrivado().
-            const overpassQuery = `
-                [out:json][timeout:30];
-                (
-                  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raioMetros},${lat},${lon});
-                  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raioMetros},${lat},${lon});
-                  node["healthcare"](around:${raioMetros},${lat},${lon});
-                  way["healthcare"](around:${raioMetros},${lat},${lon});
-                );
-                out center tags;
+            return {
+                nome,
+                cidade: tags['addr:city'] || '',
+                bairro: tags['addr:suburb'] || tags['addr:neighbourhood'] ||
+                        tags['addr:quarter'] || tags['addr:district'] || '',
+                perfil: classif.perfil,
+                nivel:  classif.nivel,
+                lat, lon,
+                telefone: tags.phone || tags['contact:phone'] || '',
+                endereco: [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(', '),
+                osmId,
+                osmType,
+                website: tags.website || tags['contact:website'] || tags['contact:url'] || '',
+                distancia
+            };
+        }
+
+        // ============================================
+        // OVERPASS — CONSULTA GENÉRICA
+        // ============================================
+        async function consultarOverpass(query) {
+            const url = 'https://overpass-api.de/api/interpreter';
+            const resp = await fetch(url, {
+                method: 'POST',
+                body: query,
+                headers: { 'Content-Type': 'text/plain' }
+            });
+            if (!resp.ok) throw new Error(`Overpass HTTP ${resp.status}`);
+            return resp.json();
+        }
+
+        function deduplicar(lista) {
+            const vistos = new Set();
+            return lista.filter(u => {
+                const chave = u.nome.toLowerCase().trim();
+                if (vistos.has(chave)) return false;
+                vistos.add(chave);
+                return true;
+            });
+        }
+
+        // ============================================
+        // BUSCA POR MUNICÍPIO — Overpass com bbox do município
+        // ============================================
+        async function buscarUnidadesOpenStreetMap(municipio) {
+            // bbox ~20 km em torno do centro do município
+            const d = 0.18;
+            const s = municipio.latitude  - d, n = municipio.latitude  + d;
+            const w = municipio.longitude - d, e = municipio.longitude + d;
+
+            // Busca todos os elementos com healthcare=* ou amenity de saúde relevante
+            const query = `
+[out:json][timeout:45];
+(
+  node["healthcare"](${s},${w},${n},${e});
+  way["healthcare"](${s},${w},${n},${e});
+  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"](${s},${w},${n},${e});
+  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"](${s},${w},${n},${e});
+);
+out center tags;
             `.trim();
 
+            let elementos = [];
             try {
-                const overpassUrl = 'https://overpass-api.de/api/interpreter';
-                const resp = await fetch(overpassUrl, {
-                    method: 'POST',
-                    body: overpassQuery,
-                    headers: { 'Content-Type': 'text/plain' }
-                });
-
-                if (resp.ok) {
-                    const dados = await resp.json();
-                    for (const el of dados.elements) {
-                        const tags = el.tags || {};
-                        const nome = tags.name || tags['name:pt'] || '';
-                        if (!nome) continue;
-
-                        const elLat = el.lat ?? el.center?.lat;
-                        const elLon = el.lon ?? el.center?.lon;
-                        if (!elLat || !elLon) continue;
-
-                        const distancia = calcularDistancia(lat, lon, elLat, elLon);
-                        if (distancia > 10) continue;
-
-                        // Classificação integrada; null = excluir (privado / não-SUS)
-                        const classif = classificarUnidadeOSM(tags.amenity, tags.healthcare, nome, tags);
-                        if (!classif) continue;
-                        if (ehEstabelecimentoPrivado(nome)) continue;
-
-                        todasUnidades.push({
-                            nome,
-                            cidade: extrairCidade(tags['addr:city'] || '') || 'Rio de Janeiro',
-                            bairro: tags['addr:suburb'] || tags['addr:neighbourhood'] || tags['addr:quarter'] || extrairBairro(nome) || 'Centro',
-                            perfil: classif.perfil,
-                            nivel: classif.nivel,
-                            lat: elLat,
-                            lon: elLon,
-                            telefone: tags.phone || tags['contact:phone'] || '',
-                            endereco: [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(', '),
-                            distancia,
-                            osmId: el.id,
-                            osmType: el.type === 'node' ? 'node' : 'way',
-                            website: tags.website || tags['contact:website'] || tags['contact:url'] || ''
-                        });
-                    }
-                }
+                const dados = await consultarOverpass(query);
+                elementos = dados.elements || [];
             } catch (err) {
-                console.warn('Overpass falhou, usando Nominatim como fallback:', err);
-
-                // Fallback: Nominatim — apenas tipos SUS (sem pharmacy, dentist, doctors)
-                const queries = [
-                    { q: 'hospital',      amenity: 'hospital'      },
-                    { q: 'clinic',        amenity: 'clinic'        },
-                    { q: 'health+post',   amenity: 'health_post'   },
-                    { q: 'health+centre', amenity: 'health_centre' }
-                ];
-                const delta = 0.1;
-
-                for (const entry of queries) {
-                    try {
-                        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?` +
-                            `format=json&q=${entry.q}&` +
-                            `viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}&` +
-                            `bounded=1&limit=50&email=${CONFIG.NOMINATIM.EMAIL}&accept-language=pt-BR`;
-
-                        const response = await fetch(url, { headers: { 'User-Agent': 'SUSRio/1.0' } });
-                        if (!response.ok) continue;
-
-                        const dados = await response.json();
-                        for (const item of dados) {
-                            const nome = item.display_name.split(',')[0];
-
-                            const classif = classificarUnidadeOSM(entry.amenity, '', nome, {});
-                            if (!classif) continue;
-                            if (ehEstabelecimentoPrivado(nome)) continue;
-
-                            const distancia = calcularDistancia(lat, lon, parseFloat(item.lat), parseFloat(item.lon));
-                            if (distancia > 10) continue;
-
-                            todasUnidades.push({
-                                nome,
-                                cidade: extrairCidade(item.display_name) || 'Rio de Janeiro',
-                                bairro: extrairBairro(item.display_name) || 'Centro',
-                                perfil: classif.perfil,
-                                nivel: classif.nivel,
-                                lat: parseFloat(item.lat),
-                                lon: parseFloat(item.lon),
-                                telefone: '',
-                                endereco: formatarEndereco(item.display_name),
-                                distancia,
-                                osmId: item.osm_id,
-                                osmType: item.osm_type,
-                                website: ''
-                            });
-                        }
-                    } catch (e) {
-                        console.warn(`Nominatim fallback falhou para ${entry.q}:`, e);
-                    }
-                }
+                console.warn('Overpass (município) falhou:', err);
+                return [];
             }
 
-            // Remover duplicatas e ordenar por distância
-            const unicas = [];
-            const nomes = new Set();
-            for (const u of todasUnidades) {
-                const chave = u.nome.toLowerCase().trim();
-                if (!nomes.has(chave)) { nomes.add(chave); unicas.push(u); }
+            const resultado = [];
+            for (const el of elementos) {
+                const tags = el.tags || {};
+                const lat = el.lat ?? el.center?.lat;
+                const lon = el.lon ?? el.center?.lon;
+                if (!lat || !lon) continue;
+
+                const u = montarUnidade(
+                    tags, lat, lon,
+                    el.id,
+                    el.type === 'node' ? 'node' : 'way'
+                );
+                if (!u) continue;
+
+                // Preencher cidade/bairro com dados do município se vazios
+                if (!u.cidade) u.cidade = municipio.nome;
+                if (!u.bairro) u.bairro = extrairBairro(
+                    [tags['addr:suburb'], tags['addr:neighbourhood'], tags['addr:quarter']].filter(Boolean).join(', ')
+                ) || 'Centro';
+
+                resultado.push(u);
             }
 
-            return unicas.sort((a, b) => a.distancia - b.distancia);
+            return deduplicar(resultado);
+        }
+
+        // ============================================
+        // BUSCA POR PROXIMIDADE — Overpass around
+        // ============================================
+        async function buscarUnidadesProximas(lat, lon) {
+            const raio = 10000; // 10 km
+
+            const query = `
+[out:json][timeout:45];
+(
+  node["healthcare"](around:${raio},${lat},${lon});
+  way["healthcare"](around:${raio},${lat},${lon});
+  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raio},${lat},${lon});
+  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raio},${lat},${lon});
+);
+out center tags;
+            `.trim();
+
+            let elementos = [];
+            try {
+                const dados = await consultarOverpass(query);
+                elementos = dados.elements || [];
+            } catch (err) {
+                console.warn('Overpass (proximidade) falhou:', err);
+                return [];
+            }
+
+            const resultado = [];
+            for (const el of elementos) {
+                const tags = el.tags || {};
+                const elLat = el.lat ?? el.center?.lat;
+                const elLon = el.lon ?? el.center?.lon;
+                if (!elLat || !elLon) continue;
+
+                const distancia = calcularDistancia(lat, lon, elLat, elLon);
+                if (distancia > 10) continue;
+
+                const u = montarUnidade(
+                    tags, elLat, elLon,
+                    el.id,
+                    el.type === 'node' ? 'node' : 'way',
+                    distancia
+                );
+                if (!u) continue;
+
+                if (!u.cidade) u.cidade = extrairCidade(tags['addr:city'] || '') || 'Rio de Janeiro';
+                if (!u.bairro) u.bairro = 'Centro';
+
+                resultado.push(u);
+            }
+
+            return deduplicar(resultado).sort((a, b) => a.distancia - b.distancia);
         }
 
         function extrairCidade(displayName) {
