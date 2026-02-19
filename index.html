@@ -1855,7 +1855,7 @@ out center tags;`;
         // BUSCA POR PROXIMIDADE — Overpass around
         // ============================================
         async function buscarUnidadesProximas(lat, lon) {
-            const raio = 6000; // 6 km
+            const raio = 20000; // 20 km
 
             const excl = OVERPASS_EXCLUIR;
             const query = `
