@@ -1311,12 +1311,11 @@
                 
                 atualizarProgresso(100, `${unidades.length} unidades encontradas!`);
                 
-                const nomeMun = municipiosRJ.find(m => m.codigo_ibge === codigoMunicipio)?.nome || null;
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
-                    // Iniciar geocoding reverso para obter bairros corretos
-                    iniciarGeoReverso(nomeMun);
+                    // Iniciar geocoding reverso para obter município e bairro corretos
+                    iniciarGeoReverso();
                 }, 500);
 
             } catch (error) {
@@ -1389,7 +1388,7 @@
                     exibirResultados();
                     ocultarLoading();
                     // Iniciar geocoding reverso para obter município e bairro corretos
-                    iniciarGeoReverso(null);
+                    iniciarGeoReverso();
                 }, 500);
 
             } catch (error) {
@@ -1800,7 +1799,6 @@ out center tags;
         // ============================================
         const _geoQueue   = [];          // fila de requisições pendentes
         let   _geoRunning = false;       // semáforo
-        let   _modoMunicipio = null;     // município fixado na busca por município
 
         /**
          * Encaminha uma unidade para reverse geocoding.
@@ -1822,7 +1820,7 @@ out center tags;
 
                 try {
                     const url = `https://nominatim.openstreetmap.org/reverse` +
-                        `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=18` +
+                        `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=14` +
                         `&addressdetails=1&accept-language=pt-BR`;
                     const resp = await fetch(url, {
                         headers: { 'User-Agent': 'SUSRio/1.0 (contato@susrio.gov.br)' }
@@ -1839,28 +1837,23 @@ out center tags;
                             addr.quarter       || '';
 
                         // ── Cidade ───────────────────────────────────────────
-                        // Na busca por município, mantemos o município selecionado.
-                        // Na busca por proximidade, usamos o que o Nominatim retorna.
-                        let cidade;
-                        if (_modoMunicipio) {
-                            cidade = _modoMunicipio;
-                        } else {
-                            cidade =
-                                addr.city         ||
-                                addr.town         ||
-                                addr.municipality ||
-                                addr.county       ||
-                                u.cidade          || 'Rio de Janeiro';
+                        // Sempre determinada pelas coordenadas reais (Nominatim).
+                        // Funciona igual para busca por município e por proximidade.
+                        let cidade =
+                            addr.city         ||
+                            addr.town         ||
+                            addr.municipality ||
+                            addr.county       ||
+                            u.cidade          || 'Rio de Janeiro';
 
-                            // Verificar se é um município do RJ conhecido
-                            const cidNorm = norm(cidade);
-                            const munMatch = municipiosRJ.find(m =>
-                                norm(m.nome) === cidNorm ||
-                                cidNorm.includes(norm(m.nome)) ||
-                                norm(m.nome).includes(cidNorm)
-                            );
-                            if (munMatch) cidade = munMatch.nome;
-                        }
+                        // Normalizar para o nome canônico do município do RJ
+                        const cidNorm = norm(cidade);
+                        const munMatch = municipiosRJ.find(m =>
+                            norm(m.nome) === cidNorm ||
+                            cidNorm.includes(norm(m.nome)) ||
+                            norm(m.nome).includes(cidNorm)
+                        );
+                        if (munMatch) cidade = munMatch.nome;
 
                         // Atualizar o objeto
                         u.cidade = cidade;
@@ -1912,11 +1905,9 @@ out center tags;
 
         /**
          * Inicia o geocoding reverso de todas as unidades carregadas.
-         * @param {string|null} municipioFixo  Nome do município (busca por município)
-         *                                     ou null (busca por proximidade)
+         * Cidade e bairro sempre determinados pelas coordenadas (Nominatim).
          */
-        function iniciarGeoReverso(municipioFixo) {
-            _modoMunicipio = municipioFixo || null;
+        function iniciarGeoReverso() {
             _geoQueue.length = 0; // limpar fila anterior
             todasUnidades.forEach((u, idx) => {
                 if (u.lat && u.lon) agendarGeoReverso(idx);
@@ -2095,7 +2086,7 @@ out center tags;
                     <div class="unit-info">
                         <div class="info-row">
                             <span class="info-icon">📍</span>
-                            <span class="info-loc-text">${u.cidade}${u.bairro ? " – " + u.bairro : "Carregando localização…"}</span>
+                            <span class="info-loc-text">${u.cidade ? u.cidade + (u.bairro ? " – " + u.bairro : " – carregando bairro…") : "Carregando localização…"}</span>
                         </div>
                         ${u.endereco ? `
                             <div class="info-row">
