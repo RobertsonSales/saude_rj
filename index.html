@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SUS Rio - Unidades de Saúde do Rio de Janeiro (Dados Reais)</title>
+    <title>Saúde Rio - Unidades de Saúde do Rio de Janeiro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -846,23 +846,15 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Info Banner -->
-        <div class="info-banner">
-            <span>ℹ️</span>
-            <span>Este sistema busca dados em <strong>tempo real</strong> da API CNES (DATASUS) e OpenStreetMap. 
-            <a href="https://cnes.datasus.gov.br" target="_blank">Acesse o CNES oficial →</a></span>
-        </div>
-
-        <!-- Hero Header -->
+    <div class="container">        <!-- Hero Header -->
         <header class="hero">
             <div class="hero-content">
                 <div class="badge-sus">
                     <span>🏥</span>
-                    <span>Sistema Único de Saúde - SUS</span>
+                    <span>Unidades do Sistema Único de Saúde - SUS</span>
                 </div>
                 <h1>Unidades de Saúde Pública do Rio de Janeiro</h1>
-                <p>Busca em tempo real no CNES/DATASUS. Encontre unidades reais com endereços, telefones e localização no mapa.</p>
+                <p>Busca em tempo real no CNES/DATASUS. Encontre unidades com canais de contato e localização na WEB.</p>
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="abrirModalMunicipio()">
                         <span>🔍</span>
@@ -991,8 +983,8 @@
         <!-- Footer -->
         <footer class="footer">
             <p>Dados fornecidos pelo CNES/DATASUS - Ministério da Saúde</p>
-            <p>Geocoding por OpenStreetMap/Nominatim</p>
-            <p>© 2026 Sistema Único de Saúde - Rio de Janeiro</p>
+           
+            <p>© 2026 Saúde Rio - Todos os direitos reservados</p>
         </footer>
     </div>
 
@@ -1856,7 +1848,7 @@ out center tags;`;
         // BUSCA POR PROXIMIDADE — Overpass around
         // ============================================
         async function buscarUnidadesProximas(lat, lon) {
-            const raio = 10000; // 10 km
+            const raio = 6000; // 6 km
 
             const excl = OVERPASS_EXCLUIR;
             const query = `
