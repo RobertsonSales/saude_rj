@@ -1484,11 +1484,9 @@
 
         // Tipos OSM quase exclusivamente privados
         const TIPOS_PRIVADOS = new Set([
-            'pharmacy','dentist','optometrist',
-            'audiologist','alternative',
+            'pharmacy','dentist','doctors','optometrist','psychotherapist',
+            'audiologist','alternative','physiotherapist','laboratory',
             'sample_collection','medical_imaging'
-            // 'doctors','physiotherapist','laboratory','psychotherapist' removidos:
-            // podem ser usados em unidades públicas do SUS
         ]);
 
         // Tags OSM inequívocas (não inclui "clinic" que é ambígua)
@@ -1537,26 +1535,12 @@
                 return { perfil: 'CAPS',                      nivel: 'Secundária' };
             if (/policlin/.test(n))
                 return { perfil: 'Policlínica',               nivel: 'Secundária' };
-            if (/reabilitac|\bcefir\b|\bcreab\b|\bnaf\b/.test(n))
+            if (/reabilitac/.test(n))
                 return { perfil: 'Centro de Reabilitação',    nivel: 'Secundária' };
-            // Centros de Especialidades: CEO, CEM, CEMCAN, CEMCAD, CEMCON, etc.
             if (/\bceo\b|centro\s+de\s+especialidade|clinica\s+de\s+especialidade/.test(n))
                 return { perfil: 'Centro de Especialidades',  nivel: 'Secundária' };
-            if (/\bcem(can|cam|cad|ces|con|coi|cri|mca)?\b/.test(n))
-                return { perfil: 'Centro de Especialidades',  nivel: 'Secundária' };
-            if (/ambulatorio\s+de\s+especialidade|\bcae\b/.test(n))
+            if (/ambulatorio\s+de\s+especialidade/.test(n))
                 return { perfil: 'Ambulatório de Especialidades', nivel: 'Secundária' };
-            // Saúde mental / CAPS variantes
-            if (/\bcapsi\b|\bcapsad\b|\bcaps\s+(ii|iii|i)\b/.test(n))
-                return { perfil: 'CAPS',                      nivel: 'Secundária' };
-            if (/centro\s+(de\s+)?atendimento\s+(em\s+saude\s+mental|psicossocial)/.test(n))
-                return { perfil: 'CAPS',                      nivel: 'Secundária' };
-            // Ambulatório genérico (sem esp.) → Secundária
-            if (/\bambulatorio\b/.test(n))
-                return { perfil: 'Ambulatório',               nivel: 'Secundária' };
-            // Vigilância em saúde / centros de zoonoses
-            if (/vigilancia\s+(em\s+)?saude|zoonose|\bcvs\b|\bcvz\b/.test(n))
-                return { perfil: 'Vigilância em Saúde',       nivel: 'Secundária' };
 
             // ── PRIMÁRIA ─────────────────────────────────────────────────────
             if (/\bubs\b/.test(n))
@@ -1577,23 +1561,9 @@
                 return { perfil: 'Centro Municipal de Saúde',  nivel: 'Primária' };
             if (/centro\s+de\s+saude/.test(n))
                 return { perfil: 'Centro de Saúde',            nivel: 'Primária' };
-            // Núcleo de saúde / atenção integrada
-            if (/nucleo\s+(integrado\s+de\s+saude|de\s+saude|de\s+atencao)/.test(n))
-                return { perfil: 'Unidade de Saúde',           nivel: 'Primária' };
-            if (/unidade\s+(de\s+saude|medica|integrada)/.test(n))
-                return { perfil: 'Unidade de Saúde',           nivel: 'Primária' };
-            // "Clínica" (sem qualificador de família) → Primária se não excluída antes
-            if (/\bclinica\b/.test(n))
-                return { perfil: 'Clínica',                    nivel: 'Primária' };
-            // PAB / PAM / ponto de atendimento
-            if (/\bpab\b|\bpam\b|ponto\s+de\s+atendimento\s+(basico|medico)/.test(n))
-                return { perfil: 'Unidade Básica de Saúde',   nivel: 'Primária' };
 
             // ── GENÉRICO PÚBLICO ─────────────────────────────────────────────
-            if (/\bsus\b|municipal|prefeitura|secretaria|saude\s+publica|\bsms\b|\bsmsa\b/.test(n))
-                return { perfil: 'Unidade de Saúde',           nivel: 'Primária' };
-            // Qualquer coisa com "saúde" no nome (último recurso)
-            if (/\bsaude\b/.test(n))
+            if (/\bsus\b|municipal|prefeitura|secretaria|saude\s+publica|\bsms\b/.test(n))
                 return { perfil: 'Unidade de Saúde',           nivel: 'Primária' };
 
             return null; // sem evidência suficiente
@@ -1627,21 +1597,7 @@
             const porTipo = TIPO_INEQUIVOCO[tipoOSM] || null;
             if (porTipo) return porTipo;
 
-            // 5. Operador público confirmado + tipo de saúde → incluir como genérico
-            //    (cobre unidades com nome local/apelido sem padrão SUS no nome)
-            if (opStatus === true) {
-                if (['clinic','health_centre','health_post','yes','centre','centre_de_sante'].includes(tipoOSM))
-                    return { perfil: 'Unidade de Saúde', nivel: 'Primária' };
-                if (['hospital','emergency'].includes(tipoOSM))
-                    return { perfil: 'Hospital', nivel: 'Terciária' };
-                if (amenity === 'social_facility' || amenity === 'community_centre')
-                    return { perfil: 'Unidade de Saúde', nivel: 'Primária' };
-                // Qualquer unidade com operador público confirmado e algum tipo de saúde
-                if (tipoOSM && !TIPOS_PRIVADOS.has(tipoOSM))
-                    return { perfil: 'Unidade de Saúde', nivel: 'Primária' };
-            }
-
-            // 6. Sem evidência suficiente → descartar
+            // 5. Sem evidência suficiente → descartar
             return null;
         }
 
@@ -1686,16 +1642,11 @@
         }
 
         function deduplicar(lista) {
-            const vistosId   = new Set();
-            const vistosNome = new Set();
+            const vistos = new Set();
             return lista.filter(u => {
-                // Deduplicar por ID OSM (mais confiável)
-                if (u.osmId && vistosId.has(u.osmId)) return false;
-                if (u.osmId) vistosId.add(u.osmId);
-                // Deduplicar por nome normalizado (captura duplicatas sem ID)
-                const chave = norm(u.nome);
-                if (vistosNome.has(chave)) return false;
-                vistosNome.add(chave);
+                const chave = u.nome.toLowerCase().trim();
+                if (vistos.has(chave)) return false;
+                vistos.add(chave);
                 return true;
             });
         }
@@ -1749,33 +1700,15 @@
             }
             console.log(`🎯 ${candidatos.length} candidatos após classificação SUS`);
 
-            // ── PASSO 3b: Se área retornou poucos resultados, complementar com bbox ──
-            // Garante que municípios com área OSM incompleta não percam dados
-            if (candidatos.length < 5) {
-                atualizarProgresso(40, 'Complementando busca por coordenadas...');
-                const elsBbox = await _buscarPorBbox(municipio);
-                const vistosCandidatos = new Set(candidatos.map(u => u.osmId));
-                for (const el of elsBbox) {
-                    if (!_buscaAtiva) return [];
-                    const tags = el.tags || {};
-                    const lat = el.lat ?? el.center?.lat;
-                    const lon = el.lon ?? el.center?.lon;
-                    if (!lat || !lon) continue;
-                    const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
-                    if (u && !vistosCandidatos.has(u.osmId)) {
-                        candidatos.push(u);
-                        vistosCandidatos.add(u.osmId);
-                    }
-                }
-                console.log(`🔀 Total após complemento bbox: ${candidatos.length} candidatos`);
-            }
-
             if (candidatos.length === 0) return [];
 
-            // ── PASSO 4: Filtro por proximidade ao centroide do município ──────
+            // ── PASSO 4: Validação leve — apenas bbox ampla do município ──────
+            // Evita chamadas Nominatim individuais (causa loop lento e falsos negativos).
+            // A precisão vem da query de área; validamos apenas coordenadas dentro
+            // de um raio razoável do centroide do município.
             atualizarProgresso(50, `Validando ${candidatos.length} candidatos...`);
 
-            const raioKm = Math.max(12, municipio.area_km2 ? Math.sqrt(municipio.area_km2 / Math.PI) * 1.5 : 12);
+            const raioKm = Math.max(15, municipio.area_km2 ? Math.sqrt(municipio.area_km2 / Math.PI) * 1.3 : 15);
             const resultado = [];
 
             for (let i = 0; i < candidatos.length; i++) {
@@ -1801,105 +1734,58 @@
         }
 
         // ── Busca via área administrativa do OSM ───────────────────────────
-        // Estratégia em camadas:
-        //  1. IBGE:GEOCODIGO (tag padrão OSM para municípios brasileiros)
-        //  2. ref:IBGE (tag alternativa)
-        //  3. Nome + admin_level (fallback)
         async function _buscarPorArea(municipio) {
-            const ibge  = municipio.codigo_ibge;
-            const nome  = municipio.nome;
-
-            // Conjunto de queries Overpass a tentar (area seletor + mesma consulta de elementos)
-            const tentativas = [
-                `area["IBGE:GEOCODIGO"="${ibge}"]->.mun;`,
-                `area["ref:IBGE"="${ibge}"]->.mun;`,
-                `area["name"="${nome}"]["admin_level"~"^(7|8|9)$"]["boundary"="administrative"]->.mun;`,
-                `area["name"="${nome}"]["admin_level"~"^(7|8|9)$"]->.mun;`,
-                `area["name"="${nome}"]["boundary"="administrative"]->.mun;`,
-            ];
-
-            // Bloco de elementos: bem mais abrangente que a versão anterior.
-            // Inclui ALL healthcare (filtramos privados no JS), amenities ampliados
-            // e busca por nomes SUS dentro da área.
-            const elementosTpl = (sel) => `[out:json][timeout:90];
-${sel}
+            const excl = OVERPASS_EXCLUIR;
+            // Tenta com o nome exato do município como área admin nível 8 (município BR)
+            const nomes = [municipio.nome, municipio.nome.replace(/^(São|Santo|Santa) /, 'S. ')];
+            
+            for (const nome of nomes) {
+                const query = `[out:json][timeout:60];
+area["name"="${nome}"]["admin_level"~"^(7|8|9)$"]["boundary"="administrative"]->.mun;
 (
-  node["healthcare"](area.mun);
-  way["healthcare"](area.mun);
-  node["amenity"~"^(hospital|clinic|health_post|health_centre|social_facility)$"]["name"](area.mun);
-  way["amenity"~"^(hospital|clinic|health_post|health_centre|social_facility)$"]["name"](area.mun);
-  node["office"="healthcare"]["name"](area.mun);
-  way["office"="healthcare"]["name"](area.mun);
-  node["name"~"(saude|clinica|hospital|ubs|upa|caps|policlinica|maternidade|posto de saude|centro de saude|unidade de saude|sus|cefir|cemcan|cemcam|ambulatorio|vigilancia)",i](area.mun);
-  way["name"~"(saude|clinica|hospital|ubs|upa|caps|policlinica|maternidade|posto de saude|centro de saude|unidade de saude|sus|cefir|cemcan|cemcam|ambulatorio|vigilancia)",i](area.mun);
+  node["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
+  way["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
+  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
+  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
 );
 out center tags;`;
-
-            for (const sel of tentativas) {
                 try {
-                    const dados = await consultarOverpass(elementosTpl(sel));
-                    const els   = dados.elements || [];
-                    if (els.length > 0) {
-                        console.log(`✅ Área encontrada com seletor: ${sel.slice(0,60)}... → ${els.length} elementos`);
-                        return els;
-                    }
+                    const dados = await consultarOverpass(query);
+                    const els = dados.elements || [];
+                    if (els.length > 0) return els;
                 } catch (e) {
-                    console.warn('Overpass área falhou:', sel.slice(0,60), e.message);
+                    console.warn('Overpass área falhou:', e);
                 }
             }
             return [];
         }
-        // ── Fallback: bbox com raio generoso + busca por nome ──────────────
-        // Usado quando a busca por área administrativa não encontra nada.
-        // Usa raio maior e adiciona busca por nome para cobrir unidades sem tags de saúde.
+
+        // ── Fallback: bbox com raio maior ──────────────────────────────────
         async function _buscarPorBbox(municipio) {
-            const raio  = 0.15; // ~17 km — suficiente para municípios pequenos/médios
+            const excl = OVERPASS_EXCLUIR;
+            const raio = 0.25;
             const sul   = (municipio.latitude  - raio).toFixed(6);
             const norte = (municipio.latitude  + raio).toFixed(6);
             const oeste = (municipio.longitude - raio).toFixed(6);
             const leste = (municipio.longitude + raio).toFixed(6);
-            const bb    = `${sul},${oeste},${norte},${leste}`;
 
-            // Query 1: tags de saúde (abrangente)
-            const q1 = `[out:json][timeout:60];
+            const query = `[out:json][timeout:60];
 (
-  node["healthcare"](${bb});
-  way["healthcare"](${bb});
-  node["amenity"~"^(hospital|clinic|health_post|health_centre|social_facility)$"]["name"](${bb});
-  way["amenity"~"^(hospital|clinic|health_post|health_centre|social_facility)$"]["name"](${bb});
-  node["office"="healthcare"]["name"](${bb});
+  node["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
+  way["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
+  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
+  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
 );
 out center tags;`;
-
-            // Query 2: busca por nome (captura unidades sem tag de saúde no OSM)
-            const NOME_REGEX = '(saude|clinica|hospital|ubs|upa|caps|policlinica|maternidade|posto.de.saude|centro.de.saude|unidade.de.saude|cefir|cemcan|cemcam|ambulatorio|vigilancia)';
-            const q2 = `[out:json][timeout:60];
-(
-  node["name"~"${NOME_REGEX}",i](${bb});
-  way["name"~"${NOME_REGEX}",i](${bb});
-);
-out center tags;`;
-
-            const resultados = [];
-            const vistos = new Set();
-
-            for (const q of [q1, q2]) {
-                try {
-                    const dados = await consultarOverpass(q);
-                    for (const el of (dados.elements || [])) {
-                        if (!vistos.has(el.id)) {
-                            vistos.add(el.id);
-                            resultados.push(el);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Overpass bbox falhou:', e.message);
-                }
+            try {
+                const dados = await consultarOverpass(query);
+                return dados.elements || [];
+            } catch (e) {
+                console.warn('Overpass bbox falhou:', e);
+                return [];
             }
-
-            console.log(`📦 Bbox+nome retornou ${resultados.length} elementos únicos`);
-            return resultados;
         }
+        
         // ── FUNÇÃO AUXILIAR: Sleep ──────────────────────────────────────────
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
