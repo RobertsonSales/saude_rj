@@ -1460,10 +1460,14 @@
          */
         function classificarPorNome(n) {
             // ── EXCLUIR ──────────────────────────────────────────────────────
-            if (/farmac|drogaria|\bdroga\b|otica\b|optica\b/.test(n))        return null;
+            if (/farmac|drogaria|\bdroga\b|otica\b|optica\b|lente\s+de\s+contato/.test(n)) return null;
             if (/odonto|dental\b|dentist|ortodont/.test(n))                  return null;
             if (/\bvet(erinari)?\b/.test(n))                                 return null;
-            if (/laboratorio\s+particular|clinica\s+particular/.test(n))     return null;
+            if (/laboratorio|\blab\b|analise[s]?\s+clinic/.test(n))          return null;
+            if (/\bimagem\b|radiolog|tomograf|ultrassom|mamograf/.test(n))    return null;
+            if (/\bestetica\b|barbearia|salao\s+de/.test(n))                 return null;
+            if (/\bparticular\b|\bprivad/.test(n))                           return null;
+            if (/fisioterapia|\bpsicolog\b|fono(audiolog)?/.test(n))          return null;
 
             // ── TERCIÁRIA ────────────────────────────────────────────────────
             if (/\bhospital\b/.test(n))
@@ -1557,8 +1561,9 @@
             return {
                 nome,
                 cidade: tags['addr:city'] || '',
+                // addr:district costuma ser região/condado, não bairro → omitido
                 bairro: tags['addr:suburb'] || tags['addr:neighbourhood'] ||
-                        tags['addr:quarter'] || tags['addr:district'] || '',
+                        tags['addr:quarter'] || '',
                 perfil: classif.perfil,
                 nivel:  classif.nivel,
                 lat, lon,
@@ -1622,10 +1627,11 @@
                 const norte = (municipio.latitude  + r).toFixed(6);
                 const oeste = (municipio.longitude - r).toFixed(6);
                 const leste = (municipio.longitude + r).toFixed(6);
+                const excl = OVERPASS_EXCLUIR;
                 const qBbox = `[out:json][timeout:60];
 (
-  node["healthcare"](${sul},${oeste},${norte},${leste});
-  way["healthcare"](${sul},${oeste},${norte},${leste});
+  node["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
+  way["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
   node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
   way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
 );
@@ -1654,10 +1660,22 @@ out center tags;`;
                 const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
                 if (!u) continue;
 
+                // Sempre atribui o município selecionado como cidade (é mais confiável que addr:city do OSM)
                 u.cidade = municipio.nome;
-                if (!u.bairro) {
-                    u.bairro = tags['addr:suburb'] || tags['addr:neighbourhood'] ||
-                               tags['addr:quarter'] || tags['addr:district'] || 'Centro';
+
+                // Valida o bairro: se addr:city aponta para outro município, o bairro pode ser desse município
+                // (ex.: addr:suburb="Irajá" em unidade de São João de Meriti → ignorar)
+                const addrCityTag = norm(tags['addr:city'] || '');
+                const bairroEhValido = !addrCityTag ||
+                    addrCityTag.includes(nomeNorm) || nomeNorm.includes(addrCityTag);
+
+                if (!u.bairro || !bairroEhValido) {
+                    if (bairroEhValido) {
+                        u.bairro = tags['addr:suburb'] || tags['addr:neighbourhood'] ||
+                                   tags['addr:quarter'] || tags['addr:district'] || '';
+                    } else {
+                        u.bairro = ''; // Bairro provavelmente pertence a outro município
+                    }
                 }
                 resultado.push(u);
             }
@@ -1666,13 +1684,19 @@ out center tags;`;
         }
 
         /** Tenta query area por ref:IBGE. Com admin_level restrito ou livre. */
+        // Tipos que devem ser excluídos na origem (farmácias, dentistas, etc.)
+        const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
+            'sample_collection|physiotherapist|psychotherapist|audiologist|' +
+            'alternative|medical_imaging|blood_donation|veterinary';
+
         async function tentarQueryArea(ibge, comAdminLevel = false) {
             const filtroAdmin = comAdminLevel ? '["admin_level"~"^(8|9)$"]' : '';
+            const excl = OVERPASS_EXCLUIR;
             const q = `[out:json][timeout:60];
 area["ref:IBGE"="${ibge}"]${filtroAdmin}->.mun;
 (
-  node["healthcare"](area.mun);
-  way["healthcare"](area.mun);
+  node["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
+  way["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
   node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
   way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
 );
@@ -1707,11 +1731,12 @@ out center tags;`;
         async function buscarUnidadesProximas(lat, lon) {
             const raio = 10000; // 10 km
 
+            const excl = OVERPASS_EXCLUIR;
             const query = `
 [out:json][timeout:45];
 (
-  node["healthcare"](around:${raio},${lat},${lon});
-  way["healthcare"](around:${raio},${lat},${lon});
+  node["healthcare"]["healthcare"!~"^(${excl})$"](around:${raio},${lat},${lon});
+  way["healthcare"]["healthcare"!~"^(${excl})$"](around:${raio},${lat},${lon});
   node["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raio},${lat},${lon});
   way["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raio},${lat},${lon});
 );
@@ -1745,8 +1770,25 @@ out center tags;
                 );
                 if (!u) continue;
 
-                if (!u.cidade) u.cidade = extrairCidade(tags['addr:city'] || '') || 'Rio de Janeiro';
-                if (!u.bairro) u.bairro = 'Centro';
+                // Determina o município real pelas coordenadas (mais confiável que addr:city do OSM)
+                let munMaisProximo = null, distMinMun = Infinity;
+                for (const m of municipiosRJ) {
+                    const dMun = calcularDistancia(elLat, elLon, m.latitude, m.longitude);
+                    if (dMun < distMinMun) { distMinMun = dMun; munMaisProximo = m; }
+                }
+                u.cidade = munMaisProximo ? munMaisProximo.nome : 'Rio de Janeiro';
+
+                // Valida o bairro: só usa se addr:city bater com o município real
+                if (!u.bairro) {
+                    const addrCityProx = norm(tags['addr:city'] || '');
+                    const munNormProx  = norm(u.cidade);
+                    const bairroOk = !addrCityProx ||
+                        addrCityProx.includes(munNormProx) || munNormProx.includes(addrCityProx);
+                    u.bairro = bairroOk
+                        ? (tags['addr:suburb'] || tags['addr:neighbourhood'] ||
+                           tags['addr:quarter'] || tags['addr:district'] || '')
+                        : '';
+                }
 
                 resultado.push(u);
             }
@@ -1928,7 +1970,7 @@ out center tags;
                     <div class="unit-info">
                         <div class="info-row">
                             <span class="info-icon">📍</span>
-                            <span>${u.cidade} - ${u.bairro}</span>
+                            <span>${u.cidade}${u.bairro ? " – " + u.bairro : ""}</span>
                         </div>
                         ${u.endereco ? `
                             <div class="info-row">
