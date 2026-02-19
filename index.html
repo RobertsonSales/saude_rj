@@ -827,7 +827,13 @@
             .stats-grid { grid-template-columns: 1fr; }
         }
 
-        .hidden { display: none !important; }
+        /* Texto de localização em carregamento */
+        .info-loc-text[data-loading] {
+            color: var(--gray-400);
+            font-style: italic;
+        }
+
+                .hidden { display: none !important; }
 
         .fade-in {
             animation: fadeIn 0.4s ease;
@@ -1305,9 +1311,12 @@
                 
                 atualizarProgresso(100, `${unidades.length} unidades encontradas!`);
                 
+                const nomeMun = municipiosRJ.find(m => m.codigo_ibge === codigoMunicipio)?.nome || null;
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
+                    // Iniciar geocoding reverso para obter bairros corretos
+                    iniciarGeoReverso(nomeMun);
                 }, 500);
 
             } catch (error) {
@@ -1379,6 +1388,8 @@
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
+                    // Iniciar geocoding reverso para obter município e bairro corretos
+                    iniciarGeoReverso(null);
                 }, 500);
 
             } catch (error) {
@@ -1560,10 +1571,10 @@
 
             return {
                 nome,
-                cidade: tags['addr:city'] || '',
-                // addr:district costuma ser região/condado, não bairro → omitido
-                bairro: tags['addr:suburb'] || tags['addr:neighbourhood'] ||
-                        tags['addr:quarter'] || '',
+                // cidade e bairro NÃO são lidos das tags OSM (dados frequentemente incorretos).
+                // Serão preenchidos pelo geocoding reverso via Nominatim após a exibição.
+                cidade: '',
+                bairro: '',
                 perfil: classif.perfil,
                 nivel:  classif.nivel,
                 lat, lon,
@@ -1660,23 +1671,10 @@ out center tags;`;
                 const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
                 if (!u) continue;
 
-                // Sempre atribui o município selecionado como cidade (é mais confiável que addr:city do OSM)
+                // Cidade = município selecionado (sempre correto; addr:city do OSM não é confiável)
                 u.cidade = municipio.nome;
-
-                // Valida o bairro: se addr:city aponta para outro município, o bairro pode ser desse município
-                // (ex.: addr:suburb="Irajá" em unidade de São João de Meriti → ignorar)
-                const addrCityTag = norm(tags['addr:city'] || '');
-                const bairroEhValido = !addrCityTag ||
-                    addrCityTag.includes(nomeNorm) || nomeNorm.includes(addrCityTag);
-
-                if (!u.bairro || !bairroEhValido) {
-                    if (bairroEhValido) {
-                        u.bairro = tags['addr:suburb'] || tags['addr:neighbourhood'] ||
-                                   tags['addr:quarter'] || tags['addr:district'] || '';
-                    } else {
-                        u.bairro = ''; // Bairro provavelmente pertence a outro município
-                    }
-                }
+                // Bairro será preenchido via Nominatim reverse geocoding após a exibição
+                u.bairro = '';
                 resultado.push(u);
             }
 
@@ -1770,25 +1768,9 @@ out center tags;
                 );
                 if (!u) continue;
 
-                // Determina o município real pelas coordenadas (mais confiável que addr:city do OSM)
-                let munMaisProximo = null, distMinMun = Infinity;
-                for (const m of municipiosRJ) {
-                    const dMun = calcularDistancia(elLat, elLon, m.latitude, m.longitude);
-                    if (dMun < distMinMun) { distMinMun = dMun; munMaisProximo = m; }
-                }
-                u.cidade = munMaisProximo ? munMaisProximo.nome : 'Rio de Janeiro';
-
-                // Valida o bairro: só usa se addr:city bater com o município real
-                if (!u.bairro) {
-                    const addrCityProx = norm(tags['addr:city'] || '');
-                    const munNormProx  = norm(u.cidade);
-                    const bairroOk = !addrCityProx ||
-                        addrCityProx.includes(munNormProx) || munNormProx.includes(addrCityProx);
-                    u.bairro = bairroOk
-                        ? (tags['addr:suburb'] || tags['addr:neighbourhood'] ||
-                           tags['addr:quarter'] || tags['addr:district'] || '')
-                        : '';
-                }
+                // Cidade e bairro serão preenchidos via Nominatim reverse geocoding após exibição
+                u.cidade = '';
+                u.bairro = '';
 
                 resultado.push(u);
             }
@@ -1808,6 +1790,137 @@ out center tags;
                 }
             }
             return 'Rio de Janeiro';
+        }
+
+
+        // ============================================
+        // NOMINATIM REVERSE GEOCODING (Rate-limited: 1 req/s)
+        // Determina cidade e bairro pelas coordenadas reais da unidade.
+        // Muito mais confiável do que os tags addr:* do OSM.
+        // ============================================
+        const _geoQueue   = [];          // fila de requisições pendentes
+        let   _geoRunning = false;       // semáforo
+        let   _modoMunicipio = null;     // município fixado na busca por município
+
+        /**
+         * Encaminha uma unidade para reverse geocoding.
+         * @param {number} idx  índice em todasUnidades
+         */
+        function agendarGeoReverso(idx) {
+            _geoQueue.push(idx);
+            _processarGeoQueue();
+        }
+
+        async function _processarGeoQueue() {
+            if (_geoRunning) return;
+            _geoRunning = true;
+
+            while (_geoQueue.length > 0) {
+                const idx = _geoQueue.shift();
+                const u   = todasUnidades[idx];
+                if (!u || !u.lat || !u.lon) continue;
+
+                try {
+                    const url = `https://nominatim.openstreetmap.org/reverse` +
+                        `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=18` +
+                        `&addressdetails=1&accept-language=pt-BR`;
+                    const resp = await fetch(url, {
+                        headers: { 'User-Agent': 'SUSRio/1.0 (contato@susrio.gov.br)' }
+                    });
+
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const addr = data.address || {};
+
+                        // ── Bairro ───────────────────────────────────────────
+                        // Nominatim retorna neighbourhood > suburb > quarter > district
+                        const bairro =
+                            addr.neighbourhood || addr.suburb ||
+                            addr.quarter       || '';
+
+                        // ── Cidade ───────────────────────────────────────────
+                        // Na busca por município, mantemos o município selecionado.
+                        // Na busca por proximidade, usamos o que o Nominatim retorna.
+                        let cidade;
+                        if (_modoMunicipio) {
+                            cidade = _modoMunicipio;
+                        } else {
+                            cidade =
+                                addr.city         ||
+                                addr.town         ||
+                                addr.municipality ||
+                                addr.county       ||
+                                u.cidade          || 'Rio de Janeiro';
+
+                            // Verificar se é um município do RJ conhecido
+                            const cidNorm = norm(cidade);
+                            const munMatch = municipiosRJ.find(m =>
+                                norm(m.nome) === cidNorm ||
+                                cidNorm.includes(norm(m.nome)) ||
+                                norm(m.nome).includes(cidNorm)
+                            );
+                            if (munMatch) cidade = munMatch.nome;
+                        }
+
+                        // Atualizar o objeto
+                        u.cidade = cidade;
+                        u.bairro = bairro;
+                        u.mapsLink = u.lat && u.lon
+                            ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : '';
+
+                        // Atualizar o card no DOM (se já renderizado)
+                        _atualizarCardLocalizacao(idx, cidade, bairro);
+                    }
+                } catch (e) {
+                    console.warn(`Nominatim rev. error (idx=${idx}):`, e);
+                }
+
+                // Respeitar rate limit: 1 req/s
+                if (_geoQueue.length > 0) {
+                    await new Promise(r => setTimeout(r, 1100));
+                }
+            }
+
+            _geoRunning = false;
+        }
+
+        /** Atualiza o elemento de localização do card correspondente ao índice. */
+        function _atualizarCardLocalizacao(idx, cidade, bairro) {
+            const card = document.querySelector(`[data-unit-idx="${idx}"]`);
+            if (!card) return;
+            const locEl = card.querySelector('.info-row .info-loc-text');
+            if (locEl) {
+                const texto = cidade + (bairro ? ' – ' + bairro : '');
+                locEl.textContent = texto;
+                locEl.style.color = '';
+                locEl.style.fontStyle = '';
+            }
+            // Atualizar filtros (debounced) para refletir novas cidades/bairros
+            _agendarAtualizacaoFiltros();
+        }
+
+        let _filtroDebounce = null;
+        function _agendarAtualizacaoFiltros() {
+            clearTimeout(_filtroDebounce);
+            _filtroDebounce = setTimeout(() => {
+                if (document.getElementById('filtersSection') &&
+                    !document.getElementById('filtersSection').classList.contains('hidden')) {
+                    popularFiltros();
+                }
+            }, 800);
+        }
+
+        /**
+         * Inicia o geocoding reverso de todas as unidades carregadas.
+         * @param {string|null} municipioFixo  Nome do município (busca por município)
+         *                                     ou null (busca por proximidade)
+         */
+        function iniciarGeoReverso(municipioFixo) {
+            _modoMunicipio = municipioFixo || null;
+            _geoQueue.length = 0; // limpar fila anterior
+            todasUnidades.forEach((u, idx) => {
+                if (u.lat && u.lon) agendarGeoReverso(idx);
+            });
         }
 
         // ============================================
@@ -1892,6 +2005,10 @@ out center tags;
 
             atualizarEstatisticas();
             renderizarUnidades();
+            // Re-aplicar dados de localização já obtidos do Nominatim
+            todasUnidades.forEach((u, idx) => {
+                if (u.cidade || u.bairro) _atualizarCardLocalizacao(idx, u.cidade, u.bairro);
+            });
         }
 
         function limparFiltros() {
@@ -1904,11 +2021,18 @@ out center tags;
             unidadesFiltradas = [...todasUnidades];
             atualizarEstatisticas();
             renderizarUnidades();
+            // Re-aplicar dados de localização já obtidos do Nominatim
+            todasUnidades.forEach((u, idx) => {
+                if (u.cidade || u.bairro) _atualizarCardLocalizacao(idx, u.cidade, u.bairro);
+            });
         }
 
         // ============================================
         // RENDERIZAÇÃO
         // ============================================
+        // Índice global de unidade → posição em todasUnidades (para DOM update)
+        let _renderSeq = 0;
+
         function renderizarUnidades() {
             const container = document.getElementById('resultsSection');
 
@@ -1930,6 +2054,7 @@ out center tags;
             };
 
             let html = '';
+            _renderSeq = 0;
             
             Object.entries(porNivel).forEach(([nivel, unidades]) => {
                 if (unidades.length === 0) return;
@@ -1949,7 +2074,7 @@ out center tags;
                         </button>
                         <div class="category-content ${isAberta ? '' : 'collapsed'}" id="content-${nivel}">
                             <div class="units-grid">
-                                ${unidades.map(u => renderizarUnitCard(u, classe)).join('')}
+                                ${unidades.map(u => renderizarUnitCard(u, classe, todasUnidades.indexOf(u))).join('')}
                             </div>
                         </div>
                     </div>
@@ -1959,18 +2084,18 @@ out center tags;
             container.innerHTML = html;
         }
 
-        function renderizarUnitCard(u, classe) {
+        function renderizarUnitCard(u, classe, idx) {
             // Link de busca Google — sempre presente (fallback ou complemento ao site oficial)
             const termoBusca = encodeURIComponent(`${u.nome} ${u.cidade} SUS`);
             const googleSearchLink = `https://www.google.com/search?q=${termoBusca}`;
 
             return `
-                <div class="unit-card ${classe}">
+                <div class="unit-card ${classe}" data-unit-idx="${idx}">
                     <div class="unit-name">${u.nome}</div>
                     <div class="unit-info">
                         <div class="info-row">
                             <span class="info-icon">📍</span>
-                            <span>${u.cidade}${u.bairro ? " – " + u.bairro : ""}</span>
+                            <span class="info-loc-text">${u.cidade}${u.bairro ? " – " + u.bairro : "Carregando localização…"}</span>
                         </div>
                         ${u.endereco ? `
                             <div class="info-row">
