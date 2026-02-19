@@ -1627,12 +1627,12 @@
                 elementos = await tentarQueryArea(ibge, true);
             }
 
-            // ── ESTRATÉGIA 3: bbox conservadora como último recurso ──────────
-            // Raio de 0.10° (~11 km) — deliberadamente pequeno para municípios
-            // compactos. A filtragem geográfica por centroide mais próximo abaixo
-            // corrige qualquer vazamento residual.
+            // ── ESTRATÉGIA 3: bbox mais restritiva como último recurso ──────────
+            // Raio reduzido para 0.05° (~5.5 km) para evitar inclusão de municípios
+            // adjacentes. A filtragem geográfica por centroide mais próximo abaixo
+            // fornece uma segunda camada de validação.
             if (elementos.length === 0) {
-                const r     = 0.10;
+                const r     = 0.05;
                 const sul   = (municipio.latitude  - r).toFixed(6);
                 const norte = (municipio.latitude  + r).toFixed(6);
                 const oeste = (municipio.longitude - r).toFixed(6);
@@ -1657,15 +1657,19 @@ out center tags;`;
                 const lon  = el.lon ?? el.center?.lon;
                 if (!lat || !lon) continue;
 
-                // ── CAMADA A: addr:city contradiz o município → rejeitar ─────
-                const addrCity = norm(tags['addr:city'] || tags['is_in:city'] || '');
-                if (addrCity && !addrCity.includes(nomeNorm) && !nomeNorm.includes(addrCity)) continue;
-
-                // ── CAMADA B: centroide mais próximo ─────────────────────────
-                // O município cujo centroide está mais perto do elemento deve ser
-                // o municipio selecionado. Caso contrário, o elemento pertence
-                // geograficamente a um vizinho.
+                // ── CAMADA A: Verificação rigorosa de município por centroide mais próximo ─────
+                // O município cujo centroide está mais perto do elemento DEVE ser
+                // exatamente o município selecionado. Caso contrário, o elemento pertence
+                // geograficamente a um município vizinho e deve ser REJEITADO.
                 if (!municipioMaisProximo(lat, lon, municipio)) continue;
+
+                // ── CAMADA B: Validação adicional por distância máxima do centroide ─────
+                // Rejeitar elementos que estão muito longe do centroide do município
+                // (mais de 15 km), mesmo que sejam o município mais próximo.
+                // Isso evita inclusões incorretas em municípios muito grandes ou com
+                // geometria irregular.
+                const distCentroide = calcularDistancia(lat, lon, municipio.latitude, municipio.longitude);
+                if (distCentroide > 15) continue;
 
                 const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
                 if (!u) continue;
