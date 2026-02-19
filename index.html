@@ -894,6 +894,12 @@
                     <div class="progress-fill" id="progressFill" style="width: 0%"></div>
                 </div>
                 <div class="loading-details" id="loadingDetails">Aguarde...</div>
+                <div id="loadingCounter" style="display:none; margin-top:0.75rem; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                    <div style="background:rgba(5,150,105,0.1); border:1px solid rgba(5,150,105,0.3); border-radius:9999px; padding:0.35rem 1rem; font-size:0.85rem; font-weight:600; color:var(--primary); transition:all 0.3s;">
+                        🏥 <span id="counterTotal">0</span> unidades encontradas
+                    </div>
+                    <div id="counterEtapa" style="font-size:0.8rem; color:var(--gray-500); font-style:italic;"></div>
+                </div>
             </div>
         </div>
 
@@ -1196,6 +1202,13 @@
             document.getElementById('loadingSection').classList.remove('hidden');
             document.getElementById('alertSection').classList.add('hidden');
             document.getElementById('loadingText').textContent = mensagem;
+            // Reset counter
+            const counter = document.getElementById('loadingCounter');
+            if (counter) { counter.style.display = 'none'; }
+            const tot = document.getElementById('counterTotal');
+            if (tot) tot.textContent = '0';
+            const etapa = document.getElementById('counterEtapa');
+            if (etapa) etapa.textContent = '';
             atualizarProgresso(10);
         }
 
@@ -1203,11 +1216,39 @@
             document.getElementById('loadingSection').classList.add('hidden');
         }
 
+        // Regex para capturar "N unidade(s) localizada(s)" nos detalhes
+        const _reUnidades = /^(\d+)\s+unidade/i;
+
         function atualizarProgresso(valor, detalhes = '') {
             document.getElementById('loadingPercent').textContent = valor + '%';
             document.getElementById('progressFill').style.width = valor + '%';
             if (detalhes) {
                 document.getElementById('loadingDetails').textContent = detalhes;
+
+                // Extrair contagem de unidades dos detalhes para o contador live
+                const m = _reUnidades.exec(detalhes);
+                const counter = document.getElementById('loadingCounter');
+                if (m && counter) {
+                    counter.style.display = 'flex';
+                    const tot = document.getElementById('counterTotal');
+                    if (tot) {
+                        const novoVal = parseInt(m[1], 10);
+                        if (tot.textContent !== String(novoVal)) {
+                            tot.textContent = novoVal;
+                            // Mini-animação de pulso
+                            tot.parentElement.style.transform = 'scale(1.08)';
+                            setTimeout(() => { tot.parentElement.style.transform = 'scale(1)'; }, 180);
+                        }
+                    }
+                    // Etapa de progresso (texto após parênteses)
+                    const etapa = document.getElementById('counterEtapa');
+                    if (etapa) {
+                        const parIdx = detalhes.indexOf('(');
+                        etapa.textContent = parIdx > -1 ? detalhes.slice(parIdx) : '';
+                    }
+                } else if (counter && valor >= 92) {
+                    counter.style.display = 'flex';
+                }
             }
         }
 
@@ -1284,18 +1325,19 @@
             }
 
             fecharModalMunicipio();
-            mostrarLoading('Buscando unidades de saúde...');
+            _buscaAtiva = false; // cancelar busca anterior se houver
+            await sleep(50);
+            mostrarLoading('Iniciando busca de unidades de saúde...');
 
             try {
-                atualizarProgresso(30, 'Consultando OpenStreetMap...');
-                
                 const unidades = await consultarCNES(codigoMunicipio);
-                
-                atualizarProgresso(80, 'Processando resultados...');
+
+                atualizarProgresso(92, 'Finalizando resultados...');
 
                 if (unidades.length === 0) {
-                    mostrarAlerta('warning', 'Nenhuma unidade encontrada', 
-                        'Não foram encontradas unidades de saúde para este município no OpenStreetMap.');
+                    mostrarAlerta('warning', 'Nenhuma unidade encontrada',
+                        'Não foram encontradas unidades de saúde para este município no OpenStreetMap. ' +
+                        'Isso pode ocorrer em municípios com poucos dados cadastrados na base OSM.');
                     ocultarLoading();
                     return;
                 }
@@ -1308,19 +1350,19 @@
                 }));
 
                 unidadesFiltradas = [...todasUnidades];
-                
-                atualizarProgresso(100, `${unidades.length} unidades encontradas!`);
-                
+
+                const tot = unidades.length;
+                atualizarProgresso(100, `✅ ${tot} unidade${tot !== 1 ? 's' : ''} encontrada${tot !== 1 ? 's' : ''}!`);
+
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
-                    // Cidade já foi validada; iniciar geocoding para bairros complementares
                     iniciarGeoReverso();
-                }, 500);
+                }, 600);
 
             } catch (error) {
                 console.error('Erro na busca:', error);
-                mostrarAlerta('error', 'Erro na busca', 
+                mostrarAlerta('error', 'Erro na busca',
                     'Não foi possível consultar os dados. Tente novamente mais tarde.');
                 ocultarLoading();
             }
@@ -1611,29 +1653,123 @@
         }
 
         // ============================================
-        // BUSCA POR MUNICÍPIO — NOVA IMPLEMENTAÇÃO ROBUSTA
+        // BUSCA POR MUNICÍPIO — IMPLEMENTAÇÃO VIA ÁREA ADMINISTRATIVA
         // ============================================
         // Tipos que devem ser excluídos na origem (farmácias, dentistas, etc.)
         const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
             'sample_collection|physiotherapist|psychotherapist|audiologist|' +
             'alternative|medical_imaging|blood_donation|veterinary';
-            
+
+        // Controle de abort para evitar buscas órfãs
+        let _buscaAtiva = false;
+
         async function buscarUnidadesOpenStreetMap(municipio) {
-            const ibge = municipio.codigo_ibge;
-            const nomeNorm = norm(municipio.nome);
+            _buscaAtiva = true;
+            const nomeMun = municipio.nome;
+            console.log(`🔍 Buscando unidades em ${nomeMun}`);
+
+            // ── PASSO 1: Tentar busca via área administrativa (mais precisa) ──
+            atualizarProgresso(15, `Localizando área de ${nomeMun} no OpenStreetMap...`);
+            let elementos = await _buscarPorArea(municipio);
+
+            // ── PASSO 2: Fallback com bbox se área não retornar resultados ────
+            if (elementos.length === 0) {
+                atualizarProgresso(20, 'Expandindo busca por coordenadas...');
+                elementos = await _buscarPorBbox(municipio);
+            }
+
+            if (!_buscaAtiva) return [];
+
+            console.log(`📦 Overpass retornou ${elementos.length} elementos brutos`);
+
+            if (elementos.length === 0) {
+                console.warn(`⚠️ Nenhum elemento encontrado para ${nomeMun}`);
+                return [];
+            }
+
+            // ── PASSO 3: Classificar e montar unidades ────────────────────────
+            atualizarProgresso(35, 'Classificando unidades...');
+            const candidatos = [];
+            for (const el of elementos) {
+                if (!_buscaAtiva) return [];
+                const tags = el.tags || {};
+                const lat = el.lat ?? el.center?.lat;
+                const lon = el.lon ?? el.center?.lon;
+                if (!lat || !lon) continue;
+                const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
+                if (u) candidatos.push(u);
+            }
+            console.log(`🎯 ${candidatos.length} candidatos após classificação SUS`);
+
+            if (candidatos.length === 0) return [];
+
+            // ── PASSO 4: Validação leve — apenas bbox ampla do município ──────
+            // Evita chamadas Nominatim individuais (causa loop lento e falsos negativos).
+            // A precisão vem da query de área; validamos apenas coordenadas dentro
+            // de um raio razoável do centroide do município.
+            atualizarProgresso(50, `Validando ${candidatos.length} candidatos...`);
+
+            const raioKm = Math.max(15, municipio.area_km2 ? Math.sqrt(municipio.area_km2 / Math.PI) * 1.3 : 15);
+            const resultado = [];
+
+            for (let i = 0; i < candidatos.length; i++) {
+                if (!_buscaAtiva) return resultado;
+                const u = candidatos[i];
+                const dist = calcularDistancia(municipio.latitude, municipio.longitude, u.lat, u.lon);
+
+                if (dist <= raioKm + 5) {
+                    u.cidade = nomeMun;
+                    u.bairro = '';
+                    resultado.push(u);
+                }
+
+                // Atualizar progresso progressivamente com contagem de unidades
+                const pct = 50 + Math.round((i + 1) / candidatos.length * 40);
+                atualizarProgresso(pct,
+                    `${resultado.length} unidade${resultado.length !== 1 ? 's' : ''} localizada${resultado.length !== 1 ? 's' : ''}... (${i + 1}/${candidatos.length})`
+                );
+            }
+
+            console.log(`✅ ${resultado.length} unidades encontradas em ${nomeMun}`);
+            return deduplicar(resultado);
+        }
+
+        // ── Busca via área administrativa do OSM ───────────────────────────
+        async function _buscarPorArea(municipio) {
+            const excl = OVERPASS_EXCLUIR;
+            // Tenta com o nome exato do município como área admin nível 8 (município BR)
+            const nomes = [municipio.nome, municipio.nome.replace(/^(São|Santo|Santa) /, 'S. ')];
             
-            console.log(`🔍 Buscando unidades em ${municipio.nome} (IBGE: ${ibge})`);
-            
-            // ── PASSO 1: Buscar elementos do OSM com bbox generosa ──────────────
-            // Usar raio de 0.20° (~22 km) para garantir cobertura completa,
-            // mas validar RIGOROSAMENTE via Nominatim reverse antes de incluir
-            const raio = 0.20;
-            const sul = (municipio.latitude - raio).toFixed(6);
-            const norte = (municipio.latitude + raio).toFixed(6);
+            for (const nome of nomes) {
+                const query = `[out:json][timeout:60];
+area["name"="${nome}"]["admin_level"~"^(7|8|9)$"]["boundary"="administrative"]->.mun;
+(
+  node["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
+  way["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
+  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
+  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
+);
+out center tags;`;
+                try {
+                    const dados = await consultarOverpass(query);
+                    const els = dados.elements || [];
+                    if (els.length > 0) return els;
+                } catch (e) {
+                    console.warn('Overpass área falhou:', e);
+                }
+            }
+            return [];
+        }
+
+        // ── Fallback: bbox com raio maior ──────────────────────────────────
+        async function _buscarPorBbox(municipio) {
+            const excl = OVERPASS_EXCLUIR;
+            const raio = 0.25;
+            const sul   = (municipio.latitude  - raio).toFixed(6);
+            const norte = (municipio.latitude  + raio).toFixed(6);
             const oeste = (municipio.longitude - raio).toFixed(6);
             const leste = (municipio.longitude + raio).toFixed(6);
-            
-            const excl = OVERPASS_EXCLUIR;
+
             const query = `[out:json][timeout:60];
 (
   node["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
@@ -1642,75 +1778,13 @@
   way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
 );
 out center tags;`;
-            
-            let elementos = [];
             try {
                 const dados = await consultarOverpass(query);
-                elementos = dados.elements || [];
-                console.log(`📦 Overpass retornou ${elementos.length} elementos brutos`);
+                return dados.elements || [];
             } catch (e) {
-                console.error('❌ Erro no Overpass:', e);
+                console.warn('Overpass bbox falhou:', e);
                 return [];
             }
-            
-            if (elementos.length === 0) {
-                console.warn('⚠️ Nenhum elemento encontrado na área');
-                return [];
-            }
-            
-            // ── PASSO 2: Processar e validar cada elemento ──────────────────────
-            const resultado = [];
-            const candidatos = [];
-            
-            for (const el of elementos) {
-                const tags = el.tags || {};
-                const lat = el.lat ?? el.center?.lat;
-                const lon = el.lon ?? el.center?.lon;
-                
-                if (!lat || !lon) continue;
-                
-                // Montar unidade (já faz classificação SUS)
-                const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
-                if (!u) continue;
-                
-                candidatos.push(u);
-            }
-            
-            console.log(`🎯 ${candidatos.length} candidatos após classificação SUS`);
-            
-            // ── PASSO 3: VALIDAÇÃO DEFINITIVA via Nominatim (rate-limited) ──────
-            // Esta é a validação MAIS CONFIÁVEL: usar geocoding reverso para
-            // confirmar que a unidade realmente pertence ao município
-            let validados = 0;
-            let rejeitados = 0;
-            
-            for (const u of candidatos) {
-                try {
-                    // Validar município via Nominatim reverse geocoding
-                    const cidadeReal = await validarMunicipioPorCoordenadas(u.lat, u.lon, municipio.nome);
-                    
-                    if (cidadeReal) {
-                        // CONFIRMADO: unidade pertence ao município
-                        u.cidade = cidadeReal;
-                        u.bairro = ''; // Será preenchido depois
-                        resultado.push(u);
-                        validados++;
-                    } else {
-                        // REJEITADO: unidade pertence a outro município
-                        rejeitados++;
-                    }
-                    
-                    // Rate limit: 1 req/s no Nominatim
-                    await sleep(1100);
-                    
-                } catch (e) {
-                    console.warn(`⚠️ Erro validando ${u.nome}:`, e);
-                }
-            }
-            
-            console.log(`✅ ${validados} validados | ❌ ${rejeitados} rejeitados`);
-            
-            return deduplicar(resultado);
         }
         
         // ── FUNÇÃO AUXILIAR: Sleep ──────────────────────────────────────────
@@ -1823,63 +1897,53 @@ out center tags;
                     distancia
                 );
                 if (!u) continue;
-
                 candidatos.push(u);
             }
 
             console.log(`🎯 ${candidatos.length} candidatos próximos`);
 
-            // Validar município e bairro via Nominatim (com rate limit)
-            const resultado = [];
-            for (const u of candidatos) {
-                try {
-                    const url = `https://nominatim.openstreetmap.org/reverse` +
-                        `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=14` +
-                        `&addressdetails=1&accept-language=pt-BR`;
-                        
-                    const resp = await fetch(url, {
-                        headers: { 'User-Agent': 'SUSRio/2.0 (contato@susrio.gov.br)' }
-                    });
-                    
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        const addr = data.address || {};
-                        
-                        // Extrair cidade
-                        const cidadeNominatim = 
-                            addr.city || 
-                            addr.town || 
-                            addr.municipality || 
-                            addr.county || 
-                            'Rio de Janeiro';
-                        
-                        // Normalizar para município do RJ
-                        const cidNorm = norm(cidadeNominatim);
-                        const munMatch = municipiosRJ.find(m =>
-                            norm(m.nome) === cidNorm ||
-                            cidNorm.includes(norm(m.nome)) ||
-                            norm(m.nome).includes(cidNorm)
-                        );
-                        
-                        if (munMatch) {
-                            u.cidade = munMatch.nome;
-                            u.bairro = addr.neighbourhood || addr.suburb || addr.quarter || '';
-                            resultado.push(u);
-                        }
-                    }
-                    
-                    // Rate limit: 1 req/s
-                    await sleep(1100);
-                    
-                } catch (e) {
-                    console.warn(`Erro validando ${u.nome}:`, e);
+            // Para busca por proximidade: identificar município via UMA chamada
+            // Nominatim para o centroide, aplicar a todos. Bairros preenchidos depois.
+            atualizarProgresso(60, `Identificando município de referência...`);
+            let cidadeRef = 'Rio de Janeiro';
+            try {
+                const urlRef = `https://nominatim.openstreetmap.org/reverse` +
+                    `?lat=${lat}&lon=${lon}&format=json&zoom=10` +
+                    `&addressdetails=1&accept-language=pt-BR`;
+                const resp = await fetch(urlRef, {
+                    headers: { 'User-Agent': 'SUSRio/2.0 (contato@susrio.gov.br)' }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const addr = data.address || {};
+                    const cidNom = addr.city || addr.town || addr.municipality || addr.county || '';
+                    const cidNorm = norm(cidNom);
+                    const match = municipiosRJ.find(m =>
+                        norm(m.nome) === cidNorm ||
+                        cidNorm.includes(norm(m.nome)) ||
+                        norm(m.nome).includes(cidNorm)
+                    );
+                    if (match) cidadeRef = match.nome;
                 }
+            } catch(e) { console.warn('Nominatim ref falhou:', e); }
+
+            // Montar resultado com progresso dinâmico
+            const resultado = [];
+            for (let i = 0; i < candidatos.length; i++) {
+                const u = candidatos[i];
+                u.cidade = cidadeRef;
+                u.bairro = '';
+                resultado.push(u);
+
+                const pct = 60 + Math.round((i + 1) / candidatos.length * 30);
+                atualizarProgresso(pct,
+                    `${resultado.length} unidade${resultado.length !== 1 ? 's' : ''} localizada${resultado.length !== 1 ? 's' : ''}... (${i + 1}/${candidatos.length})`
+                );
             }
 
-            console.log(`✅ ${resultado.length} unidades validadas próximas`);
+            console.log(`✅ ${resultado.length} unidades próximas encontradas`);
             return deduplicar(resultado).sort((a, b) => a.distancia - b.distancia);
         }
-
         // ============================================
         // NOMINATIM REVERSE GEOCODING (COMPLEMENTAR)
         // Usado apenas para preencher bairros após a exibição inicial
