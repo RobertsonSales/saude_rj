@@ -1314,7 +1314,7 @@
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
-                    // Iniciar geocoding reverso para obter município e bairro corretos
+                    // Cidade já foi validada; iniciar geocoding para bairros complementares
                     iniciarGeoReverso();
                 }, 500);
 
@@ -1387,7 +1387,7 @@
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
-                    // Iniciar geocoding reverso para obter município e bairro corretos
+                    // Cidade já foi validada; iniciar geocoding para bairros complementares
                     iniciarGeoReverso();
                 }, 500);
 
@@ -1611,34 +1611,30 @@
         }
 
         // ============================================
-        // BUSCA POR MUNICÍPIO — Overpass com bbox do município
+        // BUSCA POR MUNICÍPIO — NOVA IMPLEMENTAÇÃO ROBUSTA
         // ============================================
+        // Tipos que devem ser excluídos na origem (farmácias, dentistas, etc.)
+        const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
+            'sample_collection|physiotherapist|psychotherapist|audiologist|' +
+            'alternative|medical_imaging|blood_donation|veterinary';
+            
         async function buscarUnidadesOpenStreetMap(municipio) {
-            const ibge      = municipio.codigo_ibge;
-            const nomeNorm  = norm(municipio.nome);
-
-            // ── ESTRATÉGIA 1: polígono OSM via ref:IBGE ─────────────────────
-            // Sem filtro de admin_level para maximizar a chance de encontrar a area.
-            // A Overpass converte a relation OSM no polígono real do município.
-            let elementos = await tentarQueryArea(ibge);
-
-            // ── ESTRATÉGIA 2: admin_level explícito caso a 1ª não retorne ───
-            if (elementos.length === 0) {
-                elementos = await tentarQueryArea(ibge, true);
-            }
-
-            // ── ESTRATÉGIA 3: bbox mais restritiva como último recurso ──────────
-            // Raio reduzido para 0.05° (~5.5 km) para evitar inclusão de municípios
-            // adjacentes. A filtragem geográfica por centroide mais próximo abaixo
-            // fornece uma segunda camada de validação.
-            if (elementos.length === 0) {
-                const r     = 0.05;
-                const sul   = (municipio.latitude  - r).toFixed(6);
-                const norte = (municipio.latitude  + r).toFixed(6);
-                const oeste = (municipio.longitude - r).toFixed(6);
-                const leste = (municipio.longitude + r).toFixed(6);
-                const excl = OVERPASS_EXCLUIR;
-                const qBbox = `[out:json][timeout:60];
+            const ibge = municipio.codigo_ibge;
+            const nomeNorm = norm(municipio.nome);
+            
+            console.log(`🔍 Buscando unidades em ${municipio.nome} (IBGE: ${ibge})`);
+            
+            // ── PASSO 1: Buscar elementos do OSM com bbox generosa ──────────────
+            // Usar raio de 0.20° (~22 km) para garantir cobertura completa,
+            // mas validar RIGOROSAMENTE via Nominatim reverse antes de incluir
+            const raio = 0.20;
+            const sul = (municipio.latitude - raio).toFixed(6);
+            const norte = (municipio.latitude + raio).toFixed(6);
+            const oeste = (municipio.longitude - raio).toFixed(6);
+            const leste = (municipio.longitude + raio).toFixed(6);
+            
+            const excl = OVERPASS_EXCLUIR;
+            const query = `[out:json][timeout:60];
 (
   node["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
   way["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
@@ -1646,84 +1642,140 @@
   way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
 );
 out center tags;`;
-                try { elementos = (await consultarOverpass(qBbox)).elements || []; }
-                catch (e) { console.warn('Bbox falhou:', e); return []; }
-            }
-
-            const resultado = [];
-            for (const el of elementos) {
-                const tags = el.tags || {};
-                const lat  = el.lat ?? el.center?.lat;
-                const lon  = el.lon ?? el.center?.lon;
-                if (!lat || !lon) continue;
-
-                // ── CAMADA A: Verificação rigorosa de município por centroide mais próximo ─────
-                // O município cujo centroide está mais perto do elemento DEVE ser
-                // exatamente o município selecionado. Caso contrário, o elemento pertence
-                // geograficamente a um município vizinho e deve ser REJEITADO.
-                if (!municipioMaisProximo(lat, lon, municipio)) continue;
-
-                // ── CAMADA B: Validação adicional por distância máxima do centroide ─────
-                // Rejeitar elementos que estão muito longe do centroide do município
-                // (mais de 15 km), mesmo que sejam o município mais próximo.
-                // Isso evita inclusões incorretas em municípios muito grandes ou com
-                // geometria irregular.
-                const distCentroide = calcularDistancia(lat, lon, municipio.latitude, municipio.longitude);
-                if (distCentroide > 15) continue;
-
-                const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
-                if (!u) continue;
-
-                // Cidade = município selecionado (sempre correto; addr:city do OSM não é confiável)
-                u.cidade = municipio.nome;
-                // Bairro será preenchido via Nominatim reverse geocoding após a exibição
-                u.bairro = '';
-                resultado.push(u);
-            }
-
-            return deduplicar(resultado);
-        }
-
-        /** Tenta query area por ref:IBGE. Com admin_level restrito ou livre. */
-        // Tipos que devem ser excluídos na origem (farmácias, dentistas, etc.)
-        const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
-            'sample_collection|physiotherapist|psychotherapist|audiologist|' +
-            'alternative|medical_imaging|blood_donation|veterinary';
-
-        async function tentarQueryArea(ibge, comAdminLevel = false) {
-            const filtroAdmin = comAdminLevel ? '["admin_level"~"^(8|9)$"]' : '';
-            const excl = OVERPASS_EXCLUIR;
-            const q = `[out:json][timeout:60];
-area["ref:IBGE"="${ibge}"]${filtroAdmin}->.mun;
-(
-  node["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
-  way["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
-  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
-  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
-);
-out center tags;`;
+            
+            let elementos = [];
             try {
-                const dados = await consultarOverpass(q);
-                return dados.elements || [];
+                const dados = await consultarOverpass(query);
+                elementos = dados.elements || [];
+                console.log(`📦 Overpass retornou ${elementos.length} elementos brutos`);
             } catch (e) {
-                console.warn(`Overpass area (ibge=${ibge}, adminLevel=${comAdminLevel}) falhou:`, e);
+                console.error('❌ Erro no Overpass:', e);
                 return [];
             }
-        }
-
-        /**
-         * Retorna true se o município selecionado for o municipio cujo centroide
-         * está mais próximo do ponto (lat, lon).
-         * Usa a lista global municipiosRJ para comparar todos os municípios.
-         */
-        function municipioMaisProximo(lat, lon, municipioSelecionado) {
-            let distMin = Infinity;
-            let maisProximo = null;
-            for (const m of municipiosRJ) {
-                const d = calcularDistancia(lat, lon, m.latitude, m.longitude);
-                if (d < distMin) { distMin = d; maisProximo = m; }
+            
+            if (elementos.length === 0) {
+                console.warn('⚠️ Nenhum elemento encontrado na área');
+                return [];
             }
-            return maisProximo && maisProximo.codigo_ibge === municipioSelecionado.codigo_ibge;
+            
+            // ── PASSO 2: Processar e validar cada elemento ──────────────────────
+            const resultado = [];
+            const candidatos = [];
+            
+            for (const el of elementos) {
+                const tags = el.tags || {};
+                const lat = el.lat ?? el.center?.lat;
+                const lon = el.lon ?? el.center?.lon;
+                
+                if (!lat || !lon) continue;
+                
+                // Montar unidade (já faz classificação SUS)
+                const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
+                if (!u) continue;
+                
+                candidatos.push(u);
+            }
+            
+            console.log(`🎯 ${candidatos.length} candidatos após classificação SUS`);
+            
+            // ── PASSO 3: VALIDAÇÃO DEFINITIVA via Nominatim (rate-limited) ──────
+            // Esta é a validação MAIS CONFIÁVEL: usar geocoding reverso para
+            // confirmar que a unidade realmente pertence ao município
+            let validados = 0;
+            let rejeitados = 0;
+            
+            for (const u of candidatos) {
+                try {
+                    // Validar município via Nominatim reverse geocoding
+                    const cidadeReal = await validarMunicipioPorCoordenadas(u.lat, u.lon, municipio.nome);
+                    
+                    if (cidadeReal) {
+                        // CONFIRMADO: unidade pertence ao município
+                        u.cidade = cidadeReal;
+                        u.bairro = ''; // Será preenchido depois
+                        resultado.push(u);
+                        validados++;
+                    } else {
+                        // REJEITADO: unidade pertence a outro município
+                        rejeitados++;
+                    }
+                    
+                    // Rate limit: 1 req/s no Nominatim
+                    await sleep(1100);
+                    
+                } catch (e) {
+                    console.warn(`⚠️ Erro validando ${u.nome}:`, e);
+                }
+            }
+            
+            console.log(`✅ ${validados} validados | ❌ ${rejeitados} rejeitados`);
+            
+            return deduplicar(resultado);
+        }
+        
+        // ── FUNÇÃO AUXILIAR: Sleep ──────────────────────────────────────────
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // ── VALIDAÇÃO DE MUNICÍPIO POR COORDENADAS ─────────────────────────
+        /**
+         * Valida se uma coordenada pertence ao município usando Nominatim.
+         * Retorna o nome do município se pertencer, ou null caso contrário.
+         */
+        async function validarMunicipioPorCoordenadas(lat, lon, municipioEsperado) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse` +
+                    `?lat=${lat}&lon=${lon}&format=json&zoom=10` +
+                    `&addressdetails=1&accept-language=pt-BR`;
+                    
+                const resp = await fetch(url, {
+                    headers: { 'User-Agent': 'SUSRio/2.0 (contato@susrio.gov.br)' }
+                });
+                
+                if (!resp.ok) return null;
+                
+                const data = await resp.json();
+                const addr = data.address || {};
+                
+                // Extrair município das várias possibilidades do Nominatim
+                const cidadeNominatim = 
+                    addr.city || 
+                    addr.town || 
+                    addr.municipality || 
+                    addr.county || 
+                    '';
+                
+                if (!cidadeNominatim) return null;
+                
+                // Normalizar e comparar
+                const cidNorm = norm(cidadeNominatim);
+                const munNorm = norm(municipioEsperado);
+                
+                // Buscar match exato no banco de municípios do RJ
+                const munMatch = municipiosRJ.find(m => {
+                    const mNorm = norm(m.nome);
+                    return mNorm === cidNorm || 
+                           cidNorm.includes(mNorm) || 
+                           mNorm.includes(cidNorm);
+                });
+                
+                if (!munMatch) {
+                    // Cidade não é do RJ
+                    return null;
+                }
+                
+                // Verificar se é o município esperado
+                if (norm(munMatch.nome) === munNorm) {
+                    return munMatch.nome; // VÁLIDO
+                } else {
+                    return null; // Município diferente do esperado
+                }
+                
+            } catch (e) {
+                console.warn('Erro no Nominatim reverse:', e);
+                return null;
+            }
         }
 
         // ============================================
@@ -1748,12 +1800,13 @@ out center tags;
             try {
                 const dados = await consultarOverpass(query);
                 elementos = dados.elements || [];
+                console.log(`📦 Overpass proximidade retornou ${elementos.length} elementos`);
             } catch (err) {
                 console.warn('Overpass (proximidade) falhou:', err);
                 return [];
             }
 
-            const resultado = [];
+            const candidatos = [];
             for (const el of elementos) {
                 const tags = el.tags || {};
                 const elLat = el.lat ?? el.center?.lat;
@@ -1771,41 +1824,71 @@ out center tags;
                 );
                 if (!u) continue;
 
-                // Cidade e bairro serão preenchidos via Nominatim reverse geocoding após exibição
-                u.cidade = '';
-                u.bairro = '';
-
-                resultado.push(u);
+                candidatos.push(u);
             }
 
+            console.log(`🎯 ${candidatos.length} candidatos próximos`);
+
+            // Validar município e bairro via Nominatim (com rate limit)
+            const resultado = [];
+            for (const u of candidatos) {
+                try {
+                    const url = `https://nominatim.openstreetmap.org/reverse` +
+                        `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=14` +
+                        `&addressdetails=1&accept-language=pt-BR`;
+                        
+                    const resp = await fetch(url, {
+                        headers: { 'User-Agent': 'SUSRio/2.0 (contato@susrio.gov.br)' }
+                    });
+                    
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const addr = data.address || {};
+                        
+                        // Extrair cidade
+                        const cidadeNominatim = 
+                            addr.city || 
+                            addr.town || 
+                            addr.municipality || 
+                            addr.county || 
+                            'Rio de Janeiro';
+                        
+                        // Normalizar para município do RJ
+                        const cidNorm = norm(cidadeNominatim);
+                        const munMatch = municipiosRJ.find(m =>
+                            norm(m.nome) === cidNorm ||
+                            cidNorm.includes(norm(m.nome)) ||
+                            norm(m.nome).includes(cidNorm)
+                        );
+                        
+                        if (munMatch) {
+                            u.cidade = munMatch.nome;
+                            u.bairro = addr.neighbourhood || addr.suburb || addr.quarter || '';
+                            resultado.push(u);
+                        }
+                    }
+                    
+                    // Rate limit: 1 req/s
+                    await sleep(1100);
+                    
+                } catch (e) {
+                    console.warn(`Erro validando ${u.nome}:`, e);
+                }
+            }
+
+            console.log(`✅ ${resultado.length} unidades validadas próximas`);
             return deduplicar(resultado).sort((a, b) => a.distancia - b.distancia);
         }
 
-        function extrairCidade(displayName) {
-            const partes = displayName.split(',').map(p => p.trim());
-            // Procurar por "Rio de Janeiro" ou outra cidade do RJ
-            for (const parte of partes) {
-                const parteLower = parte.toLowerCase();
-                for (const mun of municipiosRJ) {
-                    if (parteLower.includes(mun.nome.toLowerCase())) {
-                        return mun.nome;
-                    }
-                }
-            }
-            return 'Rio de Janeiro';
-        }
-
-
         // ============================================
-        // NOMINATIM REVERSE GEOCODING (Rate-limited: 1 req/s)
-        // Determina cidade e bairro pelas coordenadas reais da unidade.
-        // Muito mais confiável do que os tags addr:* do OSM.
+        // NOMINATIM REVERSE GEOCODING (COMPLEMENTAR)
+        // Usado apenas para preencher bairros após a exibição inicial
         // ============================================
         const _geoQueue   = [];          // fila de requisições pendentes
         let   _geoRunning = false;       // semáforo
 
         /**
-         * Encaminha uma unidade para reverse geocoding.
+         * Encaminha uma unidade para reverse geocoding (apenas bairro).
          * @param {number} idx  índice em todasUnidades
          */
         function agendarGeoReverso(idx) {
@@ -1820,53 +1903,29 @@ out center tags;
             while (_geoQueue.length > 0) {
                 const idx = _geoQueue.shift();
                 const u   = todasUnidades[idx];
-                if (!u || !u.lat || !u.lon) continue;
+                if (!u || !u.lat || !u.lon || u.bairro) continue; // Pular se já tem bairro
 
                 try {
                     const url = `https://nominatim.openstreetmap.org/reverse` +
                         `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=14` +
                         `&addressdetails=1&accept-language=pt-BR`;
                     const resp = await fetch(url, {
-                        headers: { 'User-Agent': 'SUSRio/1.0 (contato@susrio.gov.br)' }
+                        headers: { 'User-Agent': 'SUSRio/2.0 (contato@susrio.gov.br)' }
                     });
 
                     if (resp.ok) {
                         const data = await resp.json();
                         const addr = data.address || {};
 
-                        // ── Bairro ───────────────────────────────────────────
-                        // Nominatim retorna neighbourhood > suburb > quarter > district
+                        // Apenas preencher bairro (cidade já foi validada)
                         const bairro =
                             addr.neighbourhood || addr.suburb ||
                             addr.quarter       || '';
 
-                        // ── Cidade ───────────────────────────────────────────
-                        // Sempre determinada pelas coordenadas reais (Nominatim).
-                        // Funciona igual para busca por município e por proximidade.
-                        let cidade =
-                            addr.city         ||
-                            addr.town         ||
-                            addr.municipality ||
-                            addr.county       ||
-                            u.cidade          || 'Rio de Janeiro';
-
-                        // Normalizar para o nome canônico do município do RJ
-                        const cidNorm = norm(cidade);
-                        const munMatch = municipiosRJ.find(m =>
-                            norm(m.nome) === cidNorm ||
-                            cidNorm.includes(norm(m.nome)) ||
-                            norm(m.nome).includes(cidNorm)
-                        );
-                        if (munMatch) cidade = munMatch.nome;
-
-                        // Atualizar o objeto
-                        u.cidade = cidade;
                         u.bairro = bairro;
-                        u.mapsLink = u.lat && u.lon
-                            ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : '';
 
                         // Atualizar o card no DOM (se já renderizado)
-                        _atualizarCardLocalizacao(idx, cidade, bairro);
+                        _atualizarCardLocalizacao(idx, u.cidade, bairro);
                     }
                 } catch (e) {
                     console.warn(`Nominatim rev. error (idx=${idx}):`, e);
@@ -1874,7 +1933,7 @@ out center tags;
 
                 // Respeitar rate limit: 1 req/s
                 if (_geoQueue.length > 0) {
-                    await new Promise(r => setTimeout(r, 1100));
+                    await sleep(1100);
                 }
             }
 
@@ -1908,13 +1967,13 @@ out center tags;
         }
 
         /**
-         * Inicia o geocoding reverso de todas as unidades carregadas.
-         * Cidade e bairro sempre determinados pelas coordenadas (Nominatim).
+         * Inicia o geocoding reverso complementar para preencher bairros.
+         * A cidade já foi validada durante a busca.
          */
         function iniciarGeoReverso() {
             _geoQueue.length = 0; // limpar fila anterior
             todasUnidades.forEach((u, idx) => {
-                if (u.lat && u.lon) agendarGeoReverso(idx);
+                if (u.lat && u.lon && !u.bairro) agendarGeoReverso(idx);
             });
         }
 
