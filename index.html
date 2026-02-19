@@ -827,13 +827,7 @@
             .stats-grid { grid-template-columns: 1fr; }
         }
 
-        /* Texto de localização em carregamento */
-        .info-loc-text[data-loading] {
-            color: var(--gray-400);
-            font-style: italic;
-        }
-
-                .hidden { display: none !important; }
+        .hidden { display: none !important; }
 
         .fade-in {
             animation: fadeIn 0.4s ease;
@@ -1174,6 +1168,7 @@
         // VARIÁVEIS GLOBAIS
         // ============================================
         let todasUnidades = [];
+        let _renderSeq = 0;
         let unidadesFiltradas = [];
         let localizacaoUsuario = null;
         let categoriasAbertas = { 'Primária': true, 'Secundária': true, 'Terciária': true };
@@ -1314,8 +1309,7 @@
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
-                    // Iniciar geocoding reverso para obter município e bairro corretos
-                    iniciarGeoReverso();
+                    iniciarGeoReverso(); // obtém cidade e bairro corretos pelas coordenadas
                 }, 500);
 
             } catch (error) {
@@ -1387,8 +1381,7 @@
                 setTimeout(() => {
                     exibirResultados();
                     ocultarLoading();
-                    // Iniciar geocoding reverso para obter município e bairro corretos
-                    iniciarGeoReverso();
+                    iniciarGeoReverso(); // obtém cidade e bairro corretos pelas coordenadas
                 }, 500);
 
             } catch (error) {
@@ -1470,14 +1463,13 @@
          */
         function classificarPorNome(n) {
             // ── EXCLUIR ──────────────────────────────────────────────────────
-            if (/farmac|drogaria|\bdroga\b|otica\b|optica\b|lente\s+de\s+contato/.test(n)) return null;
+            if (/farmac|drogaria|\bdroga\b|otica\b|optica\b/.test(n))        return null;
             if (/odonto|dental\b|dentist|ortodont/.test(n))                  return null;
             if (/\bvet(erinari)?\b/.test(n))                                 return null;
-            if (/laboratorio|\blab\b|analise[s]?\s+clinic/.test(n))          return null;
+            if (/\blaboratorio\b|\blab\b|analise[s]?\s+clinic/.test(n))     return null;
             if (/\bimagem\b|radiolog|tomograf|ultrassom|mamograf/.test(n))    return null;
-            if (/\bestetica\b|barbearia|salao\s+de/.test(n))                 return null;
             if (/\bparticular\b|\bprivad/.test(n))                           return null;
-            if (/fisioterapia|\bpsicolog\b|fono(audiolog)?/.test(n))          return null;
+            if (/fisioterapia|\bpsicolog\b|\bfono/.test(n))                  return null;
 
             // ── TERCIÁRIA ────────────────────────────────────────────────────
             if (/\bhospital\b/.test(n))
@@ -1570,8 +1562,8 @@
 
             return {
                 nome,
-                // cidade e bairro NÃO são lidos das tags OSM (dados frequentemente incorretos).
-                // Serão preenchidos pelo geocoding reverso via Nominatim após a exibição.
+                // cidade e bairro NÃO lidos das tags OSM (frequentemente incorretos).
+                // Serão preenchidos via Nominatim reverse geocoding.
                 cidade: '',
                 bairro: '',
                 perfil: classif.perfil,
@@ -1670,9 +1662,8 @@ out center tags;`;
                 const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
                 if (!u) continue;
 
-                // Cidade = município selecionado (sempre correto; addr:city do OSM não é confiável)
+                // Placeholder: cidade certa já conhecida; bairro será obtido via Nominatim
                 u.cidade = municipio.nome;
-                // Bairro será preenchido via Nominatim reverse geocoding após a exibição
                 u.bairro = '';
                 resultado.push(u);
             }
@@ -1681,7 +1672,7 @@ out center tags;`;
         }
 
         /** Tenta query area por ref:IBGE. Com admin_level restrito ou livre. */
-        // Tipos que devem ser excluídos na origem (farmácias, dentistas, etc.)
+        // Tipos OSM a excluir na origem (farmácias, dentistas, privados etc.)
         const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
             'sample_collection|physiotherapist|psychotherapist|audiologist|' +
             'alternative|medical_imaging|blood_donation|veterinary';
@@ -1767,7 +1758,7 @@ out center tags;
                 );
                 if (!u) continue;
 
-                // Cidade e bairro serão preenchidos via Nominatim reverse geocoding após exibição
+                // Cidade e bairro: Nominatim resolverá pelas coordenadas
                 u.cidade = '';
                 u.bairro = '';
 
@@ -1794,16 +1785,12 @@ out center tags;
 
         // ============================================
         // NOMINATIM REVERSE GEOCODING (Rate-limited: 1 req/s)
-        // Determina cidade e bairro pelas coordenadas reais da unidade.
-        // Muito mais confiável do que os tags addr:* do OSM.
+        // Determina cidade e bairro pelas coordenadas reais.
+        // Mesma lógica para busca por município e por proximidade.
         // ============================================
-        const _geoQueue   = [];          // fila de requisições pendentes
-        let   _geoRunning = false;       // semáforo
+        const _geoQueue   = [];   // fila de índices pendentes
+        let   _geoRunning = false;
 
-        /**
-         * Encaminha uma unidade para reverse geocoding.
-         * @param {number} idx  índice em todasUnidades
-         */
         function agendarGeoReverso(idx) {
             _geoQueue.push(idx);
             _processarGeoQueue();
@@ -1820,7 +1807,7 @@ out center tags;
 
                 try {
                     const url = `https://nominatim.openstreetmap.org/reverse` +
-                        `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=14` +
+                        `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=16` +
                         `&addressdetails=1&accept-language=pt-BR`;
                     const resp = await fetch(url, {
                         headers: { 'User-Agent': 'SUSRio/1.0 (contato@susrio.gov.br)' }
@@ -1830,15 +1817,11 @@ out center tags;
                         const data = await resp.json();
                         const addr = data.address || {};
 
-                        // ── Bairro ───────────────────────────────────────────
-                        // Nominatim retorna neighbourhood > suburb > quarter > district
+                        // Bairro: campos do mais ao menos específico
                         const bairro =
-                            addr.neighbourhood || addr.suburb ||
-                            addr.quarter       || '';
+                            addr.neighbourhood || addr.suburb || addr.quarter || '';
 
-                        // ── Cidade ───────────────────────────────────────────
-                        // Sempre determinada pelas coordenadas reais (Nominatim).
-                        // Funciona igual para busca por município e por proximidade.
+                        // Cidade: sempre pelas coordenadas reais (igual para município e proximidade)
                         let cidade =
                             addr.city         ||
                             addr.town         ||
@@ -1848,27 +1831,22 @@ out center tags;
 
                         // Normalizar para o nome canônico do município do RJ
                         const cidNorm = norm(cidade);
-                        const munMatch = municipiosRJ.find(m =>
-                            norm(m.nome) === cidNorm ||
-                            cidNorm.includes(norm(m.nome)) ||
-                            norm(m.nome).includes(cidNorm)
-                        );
+                        const munMatch = municipiosRJ.find(m => {
+                            const mn = norm(m.nome);
+                            return mn === cidNorm || cidNorm.includes(mn) || mn.includes(cidNorm);
+                        });
                         if (munMatch) cidade = munMatch.nome;
 
-                        // Atualizar o objeto
                         u.cidade = cidade;
                         u.bairro = bairro;
-                        u.mapsLink = u.lat && u.lon
-                            ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : '';
+                        u.mapsLink = `https://www.google.com/maps?q=${u.lat},${u.lon}`;
 
-                        // Atualizar o card no DOM (se já renderizado)
                         _atualizarCardLocalizacao(idx, cidade, bairro);
                     }
                 } catch (e) {
                     console.warn(`Nominatim rev. error (idx=${idx}):`, e);
                 }
 
-                // Respeitar rate limit: 1 req/s
                 if (_geoQueue.length > 0) {
                     await new Promise(r => setTimeout(r, 1100));
                 }
@@ -1877,18 +1855,13 @@ out center tags;
             _geoRunning = false;
         }
 
-        /** Atualiza o elemento de localização do card correspondente ao índice. */
         function _atualizarCardLocalizacao(idx, cidade, bairro) {
             const card = document.querySelector(`[data-unit-idx="${idx}"]`);
             if (!card) return;
-            const locEl = card.querySelector('.info-row .info-loc-text');
+            const locEl = card.querySelector('.info-loc-text');
             if (locEl) {
-                const texto = cidade + (bairro ? ' – ' + bairro : '');
-                locEl.textContent = texto;
-                locEl.style.color = '';
-                locEl.style.fontStyle = '';
+                locEl.textContent = cidade + (bairro ? ' – ' + bairro : '');
             }
-            // Atualizar filtros (debounced) para refletir novas cidades/bairros
             _agendarAtualizacaoFiltros();
         }
 
@@ -1896,19 +1869,13 @@ out center tags;
         function _agendarAtualizacaoFiltros() {
             clearTimeout(_filtroDebounce);
             _filtroDebounce = setTimeout(() => {
-                if (document.getElementById('filtersSection') &&
-                    !document.getElementById('filtersSection').classList.contains('hidden')) {
-                    popularFiltros();
-                }
+                const fs = document.getElementById('filtersSection');
+                if (fs && !fs.classList.contains('hidden')) popularFiltros();
             }, 800);
         }
 
-        /**
-         * Inicia o geocoding reverso de todas as unidades carregadas.
-         * Cidade e bairro sempre determinados pelas coordenadas (Nominatim).
-         */
         function iniciarGeoReverso() {
-            _geoQueue.length = 0; // limpar fila anterior
+            _geoQueue.length = 0;
             todasUnidades.forEach((u, idx) => {
                 if (u.lat && u.lon) agendarGeoReverso(idx);
             });
@@ -1996,7 +1963,7 @@ out center tags;
 
             atualizarEstatisticas();
             renderizarUnidades();
-            // Re-aplicar dados de localização já obtidos do Nominatim
+            // Re-aplicar dados já obtidos do Nominatim nos novos elementos DOM
             todasUnidades.forEach((u, idx) => {
                 if (u.cidade || u.bairro) _atualizarCardLocalizacao(idx, u.cidade, u.bairro);
             });
@@ -2012,7 +1979,7 @@ out center tags;
             unidadesFiltradas = [...todasUnidades];
             atualizarEstatisticas();
             renderizarUnidades();
-            // Re-aplicar dados de localização já obtidos do Nominatim
+            // Re-aplicar dados já obtidos do Nominatim nos novos elementos DOM
             todasUnidades.forEach((u, idx) => {
                 if (u.cidade || u.bairro) _atualizarCardLocalizacao(idx, u.cidade, u.bairro);
             });
@@ -2021,10 +1988,8 @@ out center tags;
         // ============================================
         // RENDERIZAÇÃO
         // ============================================
-        // Índice global de unidade → posição em todasUnidades (para DOM update)
-        let _renderSeq = 0;
-
         function renderizarUnidades() {
+            _renderSeq = 0;
             const container = document.getElementById('resultsSection');
 
             if (unidadesFiltradas.length === 0) {
@@ -2086,7 +2051,7 @@ out center tags;
                     <div class="unit-info">
                         <div class="info-row">
                             <span class="info-icon">📍</span>
-                            <span class="info-loc-text">${u.cidade ? u.cidade + (u.bairro ? " – " + u.bairro : " – carregando bairro…") : "Carregando localização…"}</span>
+                            <span class="info-loc-text">${u.cidade ? u.cidade + (u.bairro ? ' – ' + u.bairro : ' – carregando bairro…') : 'Carregando localização…'}</span>
                         </div>
                         ${u.endereco ? `
                             <div class="info-row">
