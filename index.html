@@ -957,7 +957,7 @@
             background: white;
             border-radius: var(--radius-xl);
             width: 100%;
-            max-width: 1000px;
+            max-width: 1200px;
             max-height: 90vh;
             overflow: hidden;
             box-shadow: var(--shadow-xl);
@@ -1010,120 +1010,138 @@
             background: white;
         }
 
-        /* PDF Content - Estrutura Independente (formato A5 horizontal) */
+        /* PDF Content - Formato A5 Horizontal OTIMIZADO */
         .pdf-content-a5 {
             background: white;
-            padding: 1.5rem;
+            padding: 1rem;
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
             font-family: 'Inter', sans-serif;
-            width: 1050px; /* A5 horizontal ~ 210mm */
+            width: 1100px; /* Largura total para A5 horizontal */
             margin: 0 auto;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .pdf-header-a5 {
-            text-align: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
             border-bottom: 2px solid var(--primary);
         }
 
         .pdf-header-a5 h1 {
             color: var(--primary);
-            font-size: 1.5rem;
-            margin-bottom: 0.25rem;
+            font-size: 1.3rem;
+            font-weight: 700;
         }
 
         .pdf-header-a5 p {
             color: var(--gray-600);
-            font-size: 0.8rem;
+            font-size: 0.75rem;
         }
 
-        .pdf-stats-a5 {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
+        /* Estatísticas em linha - ocupando toda largura */
+        .pdf-stats-row-a5 {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
         }
 
-        .pdf-stat-a5 {
-            text-align: center;
-            padding: 0.75rem 0.5rem;
-            background: var(--gray-50);
+        .pdf-stat-card-a5 {
+            flex: 1;
+            min-width: 80px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
             border-radius: var(--radius);
+            padding: 0.5rem 0.25rem;
+            text-align: center;
+            border-left: 3px solid var(--primary);
         }
 
         .pdf-stat-value-a5 {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             font-weight: 800;
             color: var(--primary);
             line-height: 1.2;
         }
 
         .pdf-stat-label-a5 {
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             color: var(--gray-600);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            font-weight: 600;
         }
 
+        /* Grid de resumo de acolhimento */
+        .pdf-acolhimento-grid-a5 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .pdf-acolhimento-item-a5 {
+            background: var(--gray-50);
+            border-radius: var(--radius);
+            padding: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            border: 1px solid var(--gray-200);
+        }
+
+        .pdf-acolhimento-icon-a5 {
+            font-size: 1rem;
+        }
+
+        .pdf-acolhimento-info-a5 {
+            flex: 1;
+        }
+
+        .pdf-acolhimento-nome-a5 {
+            font-size: 0.65rem;
+            color: var(--gray-600);
+            white-space: nowrap;
+        }
+
+        .pdf-acolhimento-numero-a5 {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--gray-800);
+        }
+
+        /* Seções */
         .pdf-section-a5 {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .pdf-section-title-a5 {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 700;
             color: var(--gray-800);
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
             padding-bottom: 0.25rem;
             border-bottom: 2px solid var(--gray-200);
         }
 
         .pdf-section-title-a5 span {
             color: var(--primary);
-            margin-right: 0.5rem;
+            margin-right: 0.3rem;
         }
 
-        .pdf-resumo-grid-a5 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .pdf-resumo-item-a5 {
-            padding: 0.5rem;
-            background: var(--gray-50);
-            border-radius: var(--radius);
-        }
-
-        .pdf-resumo-label-a5 {
-            font-size: 0.7rem;
-            color: var(--gray-600);
-        }
-
-        .pdf-resumo-value-a5 {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .pdf-category-a5 {
-            margin-bottom: 1rem;
-        }
-
+        /* Cabeçalhos de categoria */
         .pdf-category-header-a5 {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.4rem 0.75rem;
+            padding: 0.3rem 0.75rem;
             border-radius: var(--radius);
             color: white;
             font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
         }
 
         .pdf-category-header-a5.primaria {
@@ -1138,50 +1156,65 @@
             background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
         }
 
-        .pdf-unit-grid-a5 {
+        /* Grid de unidades - 3 colunas */
+        .pdf-units-grid-a5 {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
             margin-bottom: 1rem;
         }
 
         .pdf-unit-card-a5 {
-            padding: 0.75rem;
             border: 1px solid var(--gray-200);
             border-radius: var(--radius);
+            padding: 0.5rem;
             background: var(--gray-50);
+            transition: all 0.2s ease;
+        }
+
+        .pdf-unit-card-a5:hover {
+            background: white;
+            box-shadow: var(--shadow-sm);
         }
 
         .pdf-unit-name-a5 {
             font-weight: 700;
             color: var(--gray-800);
-            font-size: 0.85rem;
-            margin-bottom: 0.35rem;
+            font-size: 0.8rem;
+            margin-bottom: 0.2rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .pdf-unit-detail-a5 {
             color: var(--gray-600);
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.25rem;
+            gap: 0.3rem;
+            margin-bottom: 0.2rem;
         }
 
         .pdf-unit-detail-a5 span {
             display: inline-flex;
             align-items: center;
-            gap: 0.2rem;
+            gap: 0.15rem;
+            background: white;
+            padding: 0.1rem 0.3rem;
+            border-radius: 9999px;
+            border: 1px solid var(--gray-200);
         }
 
         .pdf-acolhimento-badge-a5 {
             display: inline-block;
-            padding: 0.15rem 0.5rem;
+            padding: 0.1rem 0.4rem;
             border-radius: 9999px;
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             font-weight: 600;
             background: var(--gray-200);
             color: var(--gray-700);
+            margin-top: 0.2rem;
         }
 
         .pdf-acolhimento-badge-a5.urgente {
@@ -1204,13 +1237,28 @@
             color: #b45309;
         }
 
+        .pdf-acolhimento-badge-a5.samu {
+            background: rgba(59, 130, 246, 0.15);
+            color: #2563eb;
+        }
+
+        .pdf-acolhimento-badge-a5.hemoterapia {
+            background: rgba(220, 38, 38, 0.15);
+            color: #b91c1c;
+        }
+
+        .pdf-acolhimento-badge-a5.psiquiatria {
+            background: rgba(147, 51, 234, 0.15);
+            color: #7e22ce;
+        }
+
         .pdf-footer-a5 {
-            margin-top: 1.5rem;
-            padding-top: 0.75rem;
+            margin-top: 1rem;
+            padding-top: 0.5rem;
             border-top: 1px solid var(--gray-200);
             text-align: center;
             color: var(--gray-500);
-            font-size: 0.65rem;
+            font-size: 0.6rem;
         }
 
         /* Footer */
@@ -1235,8 +1283,6 @@
             .modal-footer { flex-direction: column; }
             .modal-footer .btn { width: 100%; }
             .export-buttons { flex-direction: column; }
-            .pdf-stats-a5 { grid-template-columns: repeat(3, 1fr); }
-            .pdf-unit-grid-a5 { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 480px) {
@@ -1390,14 +1436,14 @@
                     </label>
                     <select id="filtroAcolhimento" class="filter-select" onchange="aplicarFiltros()">
                         <option value="">Todos os tipos</option>
-                        <option value="urgente">Urgência/Emergência Geral</option>
-                        <option value="urgencia_especializada">Urgência Especializada</option>
-                        <option value="ambulatorial">Atendimento Ambulatorial</option>
-                        <option value="transferencia">Admissão por Transferência</option>
-                        <option value="especializado">Atendimento Especializado</option>
-                        <option value="samu">SAMU / Atendimento Móvel</option>
-                        <option value="hemoterapia">Hemoterapia / Banco de Sangue</option>
-                        <option value="psiquiatria">Atendimento Psiquiátrico</option>
+                        <option value="urgente">🚨 Urgência/Emergência Geral</option>
+                        <option value="urgencia_especializada">🏥⚡ Urgência Especializada</option>
+                        <option value="ambulatorial">🩺 Atendimento Ambulatorial</option>
+                        <option value="transferencia">🚑 Admissão por Transferência</option>
+                        <option value="especializado">🔬 Atendimento Especializado</option>
+                        <option value="samu">🚑📞 SAMU</option>
+                        <option value="hemoterapia">🩸 Hemoterapia</option>
+                        <option value="psiquiatria">🧠 Psiquiatria</option>
                     </select>
                 </div>
             </div>
@@ -1491,7 +1537,7 @@
     <div id="pdfPreviewOverlay" class="pdf-preview-overlay">
         <div class="pdf-preview">
             <div class="pdf-preview-header">
-                <h3 class="pdf-preview-title">📄 Visualização do PDF</h3>
+                <h3 class="pdf-preview-title">📄 Visualização do PDF - Formato A5 Horizontal</h3>
                 <button class="pdf-preview-close" onclick="fecharPDFPreview()">×</button>
             </div>
             <div class="pdf-preview-body" id="pdfPreviewBody">
@@ -2675,7 +2721,7 @@ out center tags;
         }
 
         // ============================================
-        // FUNÇÕES DE PDF - FORMATO A5 HORIZONTAL
+        // FUNÇÕES DE PDF - FORMATO A5 HORIZONTAL OTIMIZADO
         // ============================================
         function gerarConteudoPDF_A5() {
             const dataAtual = new Date().toLocaleDateString('pt-BR', {
@@ -2710,93 +2756,121 @@ out center tags;
                         <p>Gerado em: ${dataAtual} | Total: ${unidadesFiltradas.length} unidades</p>
                     </div>
                     
-                    <div class="pdf-stats-a5">
-                        <div class="pdf-stat-a5">
+                    <!-- Estatísticas em linha -->
+                    <div class="pdf-stats-row-a5">
+                        <div class="pdf-stat-card-a5">
                             <div class="pdf-stat-value-a5">${unidadesFiltradas.length}</div>
                             <div class="pdf-stat-label-a5">Total</div>
                         </div>
-                        <div class="pdf-stat-a5">
+                        <div class="pdf-stat-card-a5">
                             <div class="pdf-stat-value-a5">${porNivel['Primária'].length}</div>
                             <div class="pdf-stat-label-a5">Primária</div>
                         </div>
-                        <div class="pdf-stat-a5">
+                        <div class="pdf-stat-card-a5">
                             <div class="pdf-stat-value-a5">${porNivel['Secundária'].length}</div>
                             <div class="pdf-stat-label-a5">Secundária</div>
                         </div>
-                        <div class="pdf-stat-a5">
+                        <div class="pdf-stat-card-a5">
                             <div class="pdf-stat-value-a5">${porNivel['Terciária'].length}</div>
                             <div class="pdf-stat-label-a5">Terciária</div>
                         </div>
-                        <div class="pdf-stat-a5">
+                        <div class="pdf-stat-card-a5">
                             <div class="pdf-stat-value-a5">${acolhimentos.urgente + acolhimentos.urgencia_especializada}</div>
                             <div class="pdf-stat-label-a5">Urgência</div>
                         </div>
-                        <div class="pdf-stat-a5">
+                        <div class="pdf-stat-card-a5">
                             <div class="pdf-stat-value-a5">${acolhimentos.transferencia}</div>
                             <div class="pdf-stat-label-a5">Transferência</div>
                         </div>
                     </div>
 
-                    <div class="pdf-section-a5">
-                        <div class="pdf-section-title-a5">
-                            <span>📊</span> Resumo por Tipo de Acolhimento
+                    <!-- Resumo de Acolhimento em Grid -->
+                    <div class="pdf-acolhimento-grid-a5">
+                        <div class="pdf-acolhimento-item-a5">
+                            <span class="pdf-acolhimento-icon-a5">🚨</span>
+                            <div class="pdf-acolhimento-info-a5">
+                                <div class="pdf-acolhimento-nome-a5">Urgência Geral</div>
+                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.urgente}</div>
+                            </div>
                         </div>
-                        <div class="pdf-resumo-grid-a5">
-                            <div class="pdf-resumo-item-a5">
-                                <div class="pdf-resumo-label-a5">🚨 Urgência Geral</div>
-                                <div class="pdf-resumo-value-a5">${acolhimentos.urgente}</div>
+                        <div class="pdf-acolhimento-item-a5">
+                            <span class="pdf-acolhimento-icon-a5">🏥⚡</span>
+                            <div class="pdf-acolhimento-info-a5">
+                                <div class="pdf-acolhimento-nome-a5">Urgência Esp.</div>
+                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.urgencia_especializada}</div>
                             </div>
-                            <div class="pdf-resumo-item-a5">
-                                <div class="pdf-resumo-label-a5">🏥⚡ Urgência Especializada</div>
-                                <div class="pdf-resumo-value-a5">${acolhimentos.urgencia_especializada}</div>
+                        </div>
+                        <div class="pdf-acolhimento-item-a5">
+                            <span class="pdf-acolhimento-icon-a5">🩺</span>
+                            <div class="pdf-acolhimento-info-a5">
+                                <div class="pdf-acolhimento-nome-a5">Ambulatorial</div>
+                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.ambulatorial}</div>
                             </div>
-                            <div class="pdf-resumo-item-a5">
-                                <div class="pdf-resumo-label-a5">🩺 Ambulatorial</div>
-                                <div class="pdf-resumo-value-a5">${acolhimentos.ambulatorial}</div>
+                        </div>
+                        <div class="pdf-acolhimento-item-a5">
+                            <span class="pdf-acolhimento-icon-a5">🚑</span>
+                            <div class="pdf-acolhimento-info-a5">
+                                <div class="pdf-acolhimento-nome-a5">Transferência</div>
+                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.transferencia}</div>
                             </div>
-                            <div class="pdf-resumo-item-a5">
-                                <div class="pdf-resumo-label-a5">🚑 Transferência</div>
-                                <div class="pdf-resumo-value-a5">${acolhimentos.transferencia}</div>
+                        </div>
+                        <div class="pdf-acolhimento-item-a5">
+                            <span class="pdf-acolhimento-icon-a5">🔬</span>
+                            <div class="pdf-acolhimento-info-a5">
+                                <div class="pdf-acolhimento-nome-a5">Especializado</div>
+                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.especializado}</div>
                             </div>
-                            <div class="pdf-resumo-item-a5">
-                                <div class="pdf-resumo-label-a5">🔬 Especializado</div>
-                                <div class="pdf-resumo-value-a5">${acolhimentos.especializado}</div>
+                        </div>
+                        <div class="pdf-acolhimento-item-a5">
+                            <span class="pdf-acolhimento-icon-a5">🚑📞</span>
+                            <div class="pdf-acolhimento-info-a5">
+                                <div class="pdf-acolhimento-nome-a5">SAMU</div>
+                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.samu}</div>
                             </div>
-                            <div class="pdf-resumo-item-a5">
-                                <div class="pdf-resumo-label-a5">🩸 Hemoterapia</div>
-                                <div class="pdf-resumo-value-a5">${acolhimentos.hemoterapia}</div>
+                        </div>
+                        <div class="pdf-acolhimento-item-a5">
+                            <span class="pdf-acolhimento-icon-a5">🩸</span>
+                            <div class="pdf-acolhimento-info-a5">
+                                <div class="pdf-acolhimento-nome-a5">Hemoterapia</div>
+                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.hemoterapia}</div>
+                            </div>
+                        </div>
+                        <div class="pdf-acolhimento-item-a5">
+                            <span class="pdf-acolhimento-icon-a5">🧠</span>
+                            <div class="pdf-acolhimento-info-a5">
+                                <div class="pdf-acolhimento-nome-a5">Psiquiatria</div>
+                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.psiquiatria}</div>
                             </div>
                         </div>
                     </div>
             `;
 
-            // Listagem por nível
+            // Listagem por nível em grid de 3 colunas
             Object.entries(porNivel).forEach(([nivel, unidades]) => {
                 if (unidades.length === 0) return;
                 
                 const classe = nivel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
                 
                 html += `
-                    <div class="pdf-category-a5">
+                    <div class="pdf-section-a5">
                         <div class="pdf-category-header-a5 ${classe}">
                             <span>${nivel === 'Primária' ? '🏥' : nivel === 'Secundária' ? '🚑' : '🏨'}</span>
                             Atenção ${nivel} (${unidades.length} unidades)
                         </div>
-                        <div class="pdf-unit-grid-a5">
+                        <div class="pdf-units-grid-a5">
                 `;
 
                 unidades.forEach(u => {
-                    const acolhimentoTexto = getTextoAcolhimento(u.acolhimento);
                     const acolhimentoClass = u.acolhimento || 'ambulatorial';
                     html += `
                         <div class="pdf-unit-card-a5">
-                            <div class="pdf-unit-name-a5">${u.nome}</div>
+                            <div class="pdf-unit-name-a5" title="${u.nome}">${u.nome}</div>
                             <div class="pdf-unit-detail-a5">
-                                <span>📍 ${u.cidade}${u.bairro ? ' – ' + u.bairro : ''}</span>
-                                <span>📞 ${u.telefone || 'N/I'}</span>
-                                <span class="pdf-acolhimento-badge-a5 ${acolhimentoClass}">${acolhimentoTexto}</span>
-                                ${u.distancia ? `<span>🧭 ${u.distancia.toFixed(1)} km</span>` : ''}
+                                <span>📍 ${u.cidade}${u.bairro ? ' – ' + u.bairro.substring(0, 15) : ''}</span>
+                                <span>📞 ${u.telefone ? u.telefone.substring(0, 12) : 'N/I'}</span>
                             </div>
+                            <div class="pdf-acolhimento-badge-a5 ${acolhimentoClass}">${getTextoAcolhimento(u.acolhimento).substring(0, 20)}</div>
+                            ${u.distancia ? `<div style="font-size:0.6rem; color:var(--accent); margin-top:0.2rem;">🧭 ${u.distancia.toFixed(1)} km</div>` : ''}
                         </div>
                     `;
                 });
@@ -2852,8 +2926,8 @@ out center tags;
                 
                 const element = document.createElement('div');
                 element.innerHTML = gerarConteudoPDF_A5();
-                element.style.width = '1050px'; // Largura para A5 horizontal
-                element.style.padding = '20px';
+                element.style.width = '1100px';
+                element.style.padding = '15px';
                 element.style.background = 'white';
                 element.style.position = 'absolute';
                 element.style.left = '-9999px';
@@ -2886,7 +2960,11 @@ out center tags;
                 const width = imgWidth * ratio;
                 const height = imgHeight * ratio;
 
-                pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+                // Centralizar no PDF
+                const x = (pdfWidth - width) / 2;
+                const y = (pdfHeight - height) / 2;
+
+                pdf.addImage(imgData, 'PNG', x, y, width, height);
                 
                 const dataAtual = new Date().toISOString().split('T')[0];
                 pdf.save(`Unidades_SUS_RJ_${dataAtual}_A5.pdf`);
@@ -2912,8 +2990,8 @@ out center tags;
                 
                 const element = document.createElement('div');
                 element.innerHTML = gerarConteudoPDF_A5();
-                element.style.width = '1050px';
-                element.style.padding = '20px';
+                element.style.width = '1100px';
+                element.style.padding = '15px';
                 element.style.background = 'white';
                 element.style.position = 'absolute';
                 element.style.left = '-9999px';
@@ -2944,7 +3022,10 @@ out center tags;
                 const width = imgWidth * ratio;
                 const height = imgHeight * ratio;
 
-                pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+                const x = (pdfWidth - width) / 2;
+                const y = (pdfHeight - height) / 2;
+
+                pdf.addImage(imgData, 'PNG', x, y, width, height);
                 
                 const pdfBlob = pdf.output('blob');
                 const pdfUrl = URL.createObjectURL(pdfBlob);
