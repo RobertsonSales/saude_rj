@@ -183,6 +183,15 @@
             box-shadow: var(--shadow-lg);
         }
 
+        .btn-whatsapp {
+            background: #25D366;
+            color: white;
+        }
+
+        .btn-whatsapp:hover {
+            background: #128C7E;
+        }
+
         .btn-secondary {
             background: var(--gray-100);
             color: var(--gray-700);
@@ -944,6 +953,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: white;
         }
 
         .pdf-preview-title {
@@ -978,6 +988,7 @@
             display: flex;
             gap: 1rem;
             justify-content: flex-end;
+            background: white;
         }
 
         /* PDF Content */
@@ -1397,9 +1408,9 @@
                     <span>✕</span>
                     Fechar
                 </button>
-                <button class="btn btn-pdf" onclick="compartilharPDFWhatsApp()">
+                <button class="btn btn-whatsapp" onclick="compartilharPDFCompletoWhatsApp()">
                     <span>📱</span>
-                    Compartilhar no WhatsApp
+                    Compartilhar PDF no WhatsApp
                 </button>
                 <button class="btn btn-primary" onclick="baixarPDF()">
                     <span>📥</span>
@@ -1530,7 +1541,6 @@
         let unidadesFiltradas = [];
         let localizacaoUsuario = null;
         let categoriasAbertas = { 'Primária': true, 'Secundária': true, 'Terciária': true };
-        let pdfBlob = null;
         let _buscaAtiva = false;
 
         // ============================================
@@ -1766,39 +1776,67 @@
         }
 
         // ============================================
-        // DETERMINAR TIPO DE ACOLHIMENTO
+        // DETERMINAR TIPO DE ACOLHIMENTO - CORRIGIDO
         // ============================================
         function determinarAcolhimento(unidade) {
             const nome = norm(unidade.nome);
             const perfil = norm(unidade.perfil);
             const nivel = unidade.nivel;
             
+            // Primeiro: Verificar se é urgência/emergência (prioridade máxima)
             if (perfil.includes('upa') || 
-                perfil.includes('pronto') ||
-                perfil.includes('emergencia') ||
+                perfil.includes('pronto atendimento') ||
+                perfil.includes('pronto socorro') ||
+                perfil.includes('emergência') ||
                 perfil.includes('24h') ||
                 nome.includes('upa') ||
                 nome.includes('pronto atendimento') ||
-                nome.includes('emergência')) {
+                nome.includes('emergência') ||
+                nome.includes('hospital geral')) {  // Hospitais gerais também fazem emergência
                 return 'urgente';
             }
             
-            if ((nivel === 'Terciária' && perfil.includes('hospital')) ||
-                perfil.includes('instituto') ||
-                nome.includes('instituto nacional') ||
-                nome.includes('hospital universitário')) {
-                return 'transferencia';
-            }
-            
+            // Segundo: Verificar se é atendimento especializado
             if (perfil.includes('caps') ||
                 perfil.includes('policlinica') ||
                 perfil.includes('centro de especialidades') ||
+                perfil.includes('instituto') ||
                 nome.includes('caps') ||
                 nome.includes('policlínica') ||
                 nome.includes('instituto')) {
                 return 'especializado';
             }
             
+            // Terceiro: Hospitais terciários podem ser urgência ou transferência
+            if (nivel === 'Terciária') {
+                // Se for hospital de referência especializado, pode ser transferência
+                if (nome.includes('universitário') || 
+                    nome.includes('federal') ||
+                    nome.includes('instituto nacional') ||
+                    perfil.includes('instituto')) {
+                    return 'transferencia';
+                }
+                // A maioria dos hospitais terciários atende urgência
+                return 'urgente';
+            }
+            
+            // Quarto: Unidades básicas são ambulatoriais
+            if (nivel === 'Primária') {
+                return 'ambulatorial';
+            }
+            
+            // Quinto: Secundárias podem ser urgência (UPAs) ou especializadas
+            if (nivel === 'Secundária') {
+                if (perfil.includes('upa') || perfil.includes('pronto')) {
+                    return 'urgente';
+                }
+                if (perfil.includes('caps') || perfil.includes('policlinica') || perfil.includes('centro de especialidades')) {
+                    return 'especializado';
+                }
+                return 'ambulatorial';
+            }
+            
+            // Padrão: ambulatorial
             return 'ambulatorial';
         }
 
@@ -1843,7 +1881,7 @@
                 osmType,
                 website: tags.website || tags['contact:website'] || tags['contact:url'] || '',
                 distancia,
-                acolhimento: 'ambulatorial',
+                acolhimento: 'ambulatorial', // Será atualizado depois
                 gestao: 'municipal',
                 cnes: Math.floor(1000000 + Math.random() * 9000000).toString()
             };
@@ -2573,8 +2611,8 @@ out center tags;
                             <div class="pdf-stat-label">Ambulatorial</div>
                         </div>
                         <div class="pdf-stat">
-                            <div class="pdf-stat-value">${acolhimentos.transferencia + acolhimentos.especializado}</div>
-                            <div class="pdf-stat-label">Especializada</div>
+                            <div class="pdf-stat-value">${acolhimentos.especializado}</div>
+                            <div class="pdf-stat-label">Especializado</div>
                         </div>
                     </div>
 
@@ -2586,6 +2624,7 @@ out center tags;
                             <p><strong>Atenção Primária:</strong> ${porNivel['Primária'].length} unidades</p>
                             <p><strong>Atenção Secundária:</strong> ${porNivel['Secundária'].length} unidades</p>
                             <p><strong>Atenção Terciária:</strong> ${porNivel['Terciária'].length} unidades</p>
+                            <p><strong>Admissão por Transferência:</strong> ${acolhimentos.transferencia} unidades</p>
                         </div>
                     </div>
 
@@ -2685,7 +2724,9 @@ out center tags;
                 const canvas = await html2canvas(element, {
                     scale: 2,
                     backgroundColor: '#ffffff',
-                    logging: false
+                    logging: false,
+                    allowTaint: true,
+                    useCORS: true
                 });
 
                 document.body.removeChild(element);
@@ -2718,32 +2759,89 @@ out center tags;
             }
         }
 
-        function compartilharPDFWhatsApp() {
+        async function compartilharPDFCompletoWhatsApp() {
             if (unidadesFiltradas.length === 0) {
                 alert('Nenhuma unidade para compartilhar.');
                 return;
             }
 
-            const total = unidadesFiltradas.length;
-            const primaria = unidadesFiltradas.filter(u => u.nivel === 'Primária').length;
-            const secundaria = unidadesFiltradas.filter(u => u.nivel === 'Secundária').length;
-            const terciaria = unidadesFiltradas.filter(u => u.nivel === 'Terciária').length;
-            
-            const principais = unidadesFiltradas.slice(0, 5).map(u => 
-                `• ${u.nome} (${u.cidade})\n  📍 ${u.endereco}\n  📞 ${u.telefone || 'Não informado'}\n  🚨 ${getTextoAcolhimento(u.acolhimento)}`
-            ).join('\n\n');
+            mostrarLoading('Preparando PDF para compartilhamento...');
 
-            const texto = `🏥 *RELATÓRIO DE UNIDADES SUS - RJ*\n\n` +
-                `📊 *Total de Unidades:* ${total}\n` +
-                `   🏥 Primária: ${primaria}\n` +
-                `   🚑 Secundária: ${secundaria}\n` +
-                `   🏨 Terciária: ${terciaria}\n\n` +
-                `⭐ *Principais Unidades:*\n${principais}\n\n` +
-                `📅 Gerado em: ${new Date().toLocaleDateString('pt-BR')}\n\n` +
-                `👉 Acesse o sistema para ver a lista completa!`;
+            try {
+                const { jsPDF } = window.jspdf;
+                
+                const element = document.createElement('div');
+                element.innerHTML = gerarConteudoPDF();
+                element.style.width = '800px';
+                element.style.padding = '20px';
+                element.style.background = 'white';
+                element.style.position = 'absolute';
+                element.style.left = '-9999px';
+                document.body.appendChild(element);
 
-            const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
-            window.open(url, '_blank');
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    allowTaint: true,
+                    useCORS: true
+                });
+
+                document.body.removeChild(element);
+
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+                const width = imgWidth * ratio;
+                const height = imgHeight * ratio;
+
+                pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+                
+                // Gerar blob do PDF
+                const pdfBlob = pdf.output('blob');
+                
+                // Criar URL do blob
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                
+                // Criar link temporário para download
+                const link = document.createElement('a');
+                link.href = pdfUrl;
+                link.download = 'Unidades_SUS_RJ.pdf';
+                document.body.appendChild(link);
+                
+                // Mensagem para o usuário
+                alert('PDF gerado com sucesso! Clique em OK e em seguida:\n\n' +
+                      '1️⃣ Clique nos três pontinhos (⋮) do navegador\n' +
+                      '2️⃣ Selecione "Compartilhar"\n' +
+                      '3️⃣ Escolha o WhatsApp\n\n' +
+                      'Ou clique no link de download que aparecerá e compartilhe manualmente.');
+                
+                // Simular clique para download
+                link.click();
+                
+                // Limpar
+                document.body.removeChild(link);
+                URL.revokeObjectURL(pdfUrl);
+
+                ocultarLoading();
+                
+                // Fechar preview se estiver aberto
+                fecharPDFPreview();
+                
+            } catch (error) {
+                console.error('Erro ao gerar PDF para WhatsApp:', error);
+                mostrarAlerta('error', 'Erro', 'Não foi possível gerar o PDF para compartilhamento.');
+                ocultarLoading();
+            }
         }
 
         // ============================================
