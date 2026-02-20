@@ -623,8 +623,6 @@
             font-size: 0.75rem;
             font-weight: 600;
             margin-top: 0.5rem;
-            background: var(--gray-200);
-            color: var(--gray-700);
         }
 
         .info-acolhimento.urgente {
@@ -645,6 +643,27 @@
         .info-acolhimento.especializado {
             background: rgba(245, 158, 11, 0.15);
             color: #b45309;
+        }
+
+        .info-acolhimento.samu {
+            background: rgba(59, 130, 246, 0.15);
+            color: #2563eb;
+        }
+
+        .info-acolhimento.hemoterapia {
+            background: rgba(220, 38, 38, 0.15);
+            color: #b91c1c;
+        }
+
+        .info-acolhimento.psiquiatria {
+            background: rgba(147, 51, 234, 0.15);
+            color: #7e22ce;
+        }
+
+        .info-acolhimento.urgencia_especializada {
+            background: rgba(245, 158, 11, 0.15);
+            color: #b45309;
+            border: 1px dashed #f59e0b;
         }
 
         .info-icon {
@@ -938,7 +957,7 @@
             background: white;
             border-radius: var(--radius-xl);
             width: 100%;
-            max-width: 900px;
+            max-width: 1000px;
             max-height: 90vh;
             overflow: hidden;
             box-shadow: var(--shadow-xl);
@@ -991,137 +1010,207 @@
             background: white;
         }
 
-        /* PDF Content */
-        .pdf-content {
+        /* PDF Content - Estrutura Independente (formato A5 horizontal) */
+        .pdf-content-a5 {
             background: white;
-            padding: 2rem;
+            padding: 1.5rem;
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
             font-family: 'Inter', sans-serif;
-            max-width: 800px;
+            width: 1050px; /* A5 horizontal ~ 210mm */
             margin: 0 auto;
+            font-size: 0.9rem;
         }
 
-        .pdf-header {
+        .pdf-header-a5 {
             text-align: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
             border-bottom: 2px solid var(--primary);
         }
 
-        .pdf-header h1 {
+        .pdf-header-a5 h1 {
             color: var(--primary);
-            font-size: 1.75rem;
-            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
         }
 
-        .pdf-header p {
+        .pdf-header-a5 p {
             color: var(--gray-600);
-            font-size: 0.875rem;
+            font-size: 0.8rem;
         }
 
-        .pdf-stats {
+        .pdf-stats-a5 {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
         }
 
-        .pdf-stat {
+        .pdf-stat-a5 {
             text-align: center;
-            padding: 1rem;
+            padding: 0.75rem 0.5rem;
             background: var(--gray-50);
             border-radius: var(--radius);
         }
 
-        .pdf-stat-value {
-            font-size: 1.5rem;
+        .pdf-stat-value-a5 {
+            font-size: 1.25rem;
             font-weight: 800;
             color: var(--primary);
             line-height: 1.2;
         }
 
-        .pdf-stat-label {
-            font-size: 0.75rem;
+        .pdf-stat-label-a5 {
+            font-size: 0.65rem;
             color: var(--gray-600);
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
-        .pdf-section {
-            margin-bottom: 2rem;
+        .pdf-section-a5 {
+            margin-bottom: 1.5rem;
         }
 
-        .pdf-section-title {
-            font-size: 1.25rem;
+        .pdf-section-title-a5 {
+            font-size: 1.1rem;
             font-weight: 700;
             color: var(--gray-800);
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.25rem;
             border-bottom: 2px solid var(--gray-200);
         }
 
-        .pdf-section-title span {
+        .pdf-section-title-a5 span {
             color: var(--primary);
             margin-right: 0.5rem;
         }
 
-        .pdf-category {
-            margin-bottom: 1.5rem;
-        }
-
-        .pdf-category-title {
-            font-size: 1rem;
-            font-weight: 700;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: var(--radius);
+        .pdf-resumo-grid-a5 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
             margin-bottom: 1rem;
         }
 
-        .pdf-category-title.primaria {
+        .pdf-resumo-item-a5 {
+            padding: 0.5rem;
+            background: var(--gray-50);
+            border-radius: var(--radius);
+        }
+
+        .pdf-resumo-label-a5 {
+            font-size: 0.7rem;
+            color: var(--gray-600);
+        }
+
+        .pdf-resumo-value-a5 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .pdf-category-a5 {
+            margin-bottom: 1rem;
+        }
+
+        .pdf-category-header-a5 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: var(--radius);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .pdf-category-header-a5.primaria {
             background: linear-gradient(135deg, #059669 0%, #10b981 100%);
         }
 
-        .pdf-category-title.secundaria {
+        .pdf-category-header-a5.secundaria {
             background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
         }
 
-        .pdf-category-title.terciaria {
+        .pdf-category-header-a5.terciaria {
             background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
         }
 
-        .pdf-unit {
+        .pdf-unit-grid-a5 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .pdf-unit-card-a5 {
             padding: 0.75rem;
-            border-bottom: 1px solid var(--gray-200);
-            font-size: 0.875rem;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            background: var(--gray-50);
         }
 
-        .pdf-unit:last-child {
-            border-bottom: none;
-        }
-
-        .pdf-unit-name {
-            font-weight: 600;
+        .pdf-unit-name-a5 {
+            font-weight: 700;
             color: var(--gray-800);
-            margin-bottom: 0.25rem;
+            font-size: 0.85rem;
+            margin-bottom: 0.35rem;
         }
 
-        .pdf-unit-detail {
+        .pdf-unit-detail-a5 {
             color: var(--gray-600);
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             display: flex;
-            gap: 1rem;
             flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
         }
 
-        .pdf-footer {
-            margin-top: 2rem;
-            padding-top: 1rem;
+        .pdf-unit-detail-a5 span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+
+        .pdf-acolhimento-badge-a5 {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            background: var(--gray-200);
+            color: var(--gray-700);
+        }
+
+        .pdf-acolhimento-badge-a5.urgente {
+            background: rgba(239, 68, 68, 0.15);
+            color: #dc2626;
+        }
+
+        .pdf-acolhimento-badge-a5.ambulatorial {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--primary-dark);
+        }
+
+        .pdf-acolhimento-badge-a5.transferencia {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--accent);
+        }
+
+        .pdf-acolhimento-badge-a5.especializado {
+            background: rgba(245, 158, 11, 0.15);
+            color: #b45309;
+        }
+
+        .pdf-footer-a5 {
+            margin-top: 1.5rem;
+            padding-top: 0.75rem;
             border-top: 1px solid var(--gray-200);
             text-align: center;
             color: var(--gray-500);
-            font-size: 0.75rem;
+            font-size: 0.65rem;
         }
 
         /* Footer */
@@ -1146,7 +1235,8 @@
             .modal-footer { flex-direction: column; }
             .modal-footer .btn { width: 100%; }
             .export-buttons { flex-direction: column; }
-            .pdf-stats { grid-template-columns: repeat(2, 1fr); }
+            .pdf-stats-a5 { grid-template-columns: repeat(3, 1fr); }
+            .pdf-unit-grid-a5 { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 480px) {
@@ -1300,10 +1390,14 @@
                     </label>
                     <select id="filtroAcolhimento" class="filter-select" onchange="aplicarFiltros()">
                         <option value="">Todos os tipos</option>
-                        <option value="urgente">Urgência/Emergência</option>
+                        <option value="urgente">Urgência/Emergência Geral</option>
+                        <option value="urgencia_especializada">Urgência Especializada</option>
                         <option value="ambulatorial">Atendimento Ambulatorial</option>
                         <option value="transferencia">Admissão por Transferência</option>
                         <option value="especializado">Atendimento Especializado</option>
+                        <option value="samu">SAMU / Atendimento Móvel</option>
+                        <option value="hemoterapia">Hemoterapia / Banco de Sangue</option>
+                        <option value="psiquiatria">Atendimento Psiquiátrico</option>
                     </select>
                 </div>
             </div>
@@ -1414,7 +1508,7 @@
                 </button>
                 <button class="btn btn-primary" onclick="baixarPDF()">
                     <span>📥</span>
-                    Baixar PDF
+                    Baixar PDF (A5 Horizontal)
                 </button>
             </div>
         </div>
@@ -1776,86 +1870,101 @@
         }
 
         // ============================================
-        // DETERMINAR TIPO DE ACOLHIMENTO - CORRIGIDO
+        // DETERMINAR TIPO DE ACOLHIMENTO - CORRETO BASEADO NO CNES
         // ============================================
         function determinarAcolhimento(unidade) {
             const nome = norm(unidade.nome);
             const perfil = norm(unidade.perfil);
             const nivel = unidade.nivel;
             
-            // Primeiro: Verificar se é urgência/emergência (prioridade máxima)
-            if (perfil.includes('upa') || 
-                perfil.includes('pronto atendimento') ||
-                perfil.includes('pronto socorro') ||
-                perfil.includes('emergência') ||
-                perfil.includes('24h') ||
-                nome.includes('upa') ||
-                nome.includes('pronto atendimento') ||
-                nome.includes('emergência') ||
-                nome.includes('hospital geral')) {  // Hospitais gerais também fazem emergência
+            // 1. SAMU / Atendimento Móvel
+            if (nome.includes('samu') || perfil.includes('samu') || 
+                nome.includes('serviço de atendimento móvel')) {
+                return 'samu';
+            }
+            
+            // 2. Hemoterapia / Banco de Sangue
+            if (perfil.includes('banco de sangue') || perfil.includes('hemoterapia') ||
+                nome.includes('hemorio') || nome.includes('banco de sangue')) {
+                return 'hemoterapia';
+            }
+            
+            // 3. Atendimento Psiquiátrico
+            if (perfil.includes('caps') || perfil.includes('centro de atenção psicossocial') ||
+                nome.includes('hospital psiquiátrico') || nome.includes('instituto de psiquiatria')) {
+                return 'psiquiatria';
+            }
+            
+            // 4. UPAs e Pronto Atendimento (urgência geral)
+            if (perfil.includes('upa') || perfil.includes('pronto atendimento') ||
+                perfil.includes('pronto socorro') || perfil.includes('emergência') ||
+                nome.includes('upa') || nome.includes('pronto atendimento')) {
                 return 'urgente';
             }
             
-            // Segundo: Verificar se é atendimento especializado
-            if (perfil.includes('caps') ||
-                perfil.includes('policlinica') ||
-                perfil.includes('centro de especialidades') ||
-                perfil.includes('instituto') ||
-                nome.includes('caps') ||
-                nome.includes('policlínica') ||
-                nome.includes('instituto')) {
-                return 'especializado';
-            }
-            
-            // Terceiro: Hospitais terciários podem ser urgência ou transferência
+            // 5. Hospitais Terciários - Classificação diferenciada
             if (nivel === 'Terciária') {
-                // Se for hospital de referência especializado, pode ser transferência
-                if (nome.includes('universitário') || 
-                    nome.includes('federal') ||
-                    nome.includes('instituto nacional') ||
-                    perfil.includes('instituto')) {
+                // Hospitais de referência nacional/estadual (transferência)
+                if (nome.includes('instituto nacional') || 
+                    nome.includes('instituto estadual') ||
+                    nome.includes('hospital federal') ||
+                    nome.includes('hospital universitário') ||
+                    nome.includes('hospital de referência')) {
                     return 'transferencia';
                 }
-                // A maioria dos hospitais terciários atende urgência
-                return 'urgente';
+                
+                // Hospitais gerais com emergência
+                if (perfil.includes('hospital geral') || perfil.includes('hospital')) {
+                    return 'urgente';
+                }
+                
+                // Hospitais especializados
+                if (perfil.includes('instituto') || perfil.includes('especializado')) {
+                    return 'urgencia_especializada';
+                }
             }
             
-            // Quarto: Unidades básicas são ambulatoriais
+            // 6. Atendimento Especializado (nível secundário)
+            if (nivel === 'Secundária') {
+                if (perfil.includes('policlinica') || perfil.includes('centro de especialidades') ||
+                    perfil.includes('ambulatório de especialidades')) {
+                    return 'especializado';
+                }
+            }
+            
+            // 7. Atenção Primária - Ambulatorial
             if (nivel === 'Primária') {
                 return 'ambulatorial';
             }
             
-            // Quinto: Secundárias podem ser urgência (UPAs) ou especializadas
-            if (nivel === 'Secundária') {
-                if (perfil.includes('upa') || perfil.includes('pronto')) {
-                    return 'urgente';
-                }
-                if (perfil.includes('caps') || perfil.includes('policlinica') || perfil.includes('centro de especialidades')) {
-                    return 'especializado';
-                }
-                return 'ambulatorial';
-            }
-            
-            // Padrão: ambulatorial
+            // Padrão
             return 'ambulatorial';
         }
 
         function getIconeAcolhimento(tipo) {
             switch(tipo) {
                 case 'urgente': return '🚨';
+                case 'urgencia_especializada': return '🏥⚡';
                 case 'ambulatorial': return '🩺';
                 case 'transferencia': return '🚑';
                 case 'especializado': return '🔬';
+                case 'samu': return '🚑📞';
+                case 'hemoterapia': return '🩸';
+                case 'psiquiatria': return '🧠';
                 default: return '🏥';
             }
         }
 
         function getTextoAcolhimento(tipo) {
             switch(tipo) {
-                case 'urgente': return 'Urgência/Emergência 24h';
+                case 'urgente': return 'Urgência/Emergência Geral';
+                case 'urgencia_especializada': return 'Urgência Especializada';
                 case 'ambulatorial': return 'Atendimento Ambulatorial';
                 case 'transferencia': return 'Admissão por Transferência';
                 case 'especializado': return 'Atendimento Especializado';
+                case 'samu': return 'SAMU / Atendimento Móvel';
+                case 'hemoterapia': return 'Hemoterapia / Banco de Sangue';
+                case 'psiquiatria': return 'Atendimento Psiquiátrico';
                 default: return 'Atendimento Geral';
             }
         }
@@ -2566,9 +2675,9 @@ out center tags;
         }
 
         // ============================================
-        // FUNÇÕES DE PDF
+        // FUNÇÕES DE PDF - FORMATO A5 HORIZONTAL
         // ============================================
-        function gerarConteudoPDF() {
+        function gerarConteudoPDF_A5() {
             const dataAtual = new Date().toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: '2-digit',
@@ -2585,89 +2694,118 @@ out center tags;
 
             const acolhimentos = {
                 urgente: unidadesFiltradas.filter(u => u.acolhimento === 'urgente').length,
+                urgencia_especializada: unidadesFiltradas.filter(u => u.acolhimento === 'urgencia_especializada').length,
                 ambulatorial: unidadesFiltradas.filter(u => u.acolhimento === 'ambulatorial').length,
                 transferencia: unidadesFiltradas.filter(u => u.acolhimento === 'transferencia').length,
-                especializado: unidadesFiltradas.filter(u => u.acolhimento === 'especializado').length
+                especializado: unidadesFiltradas.filter(u => u.acolhimento === 'especializado').length,
+                samu: unidadesFiltradas.filter(u => u.acolhimento === 'samu').length,
+                hemoterapia: unidadesFiltradas.filter(u => u.acolhimento === 'hemoterapia').length,
+                psiquiatria: unidadesFiltradas.filter(u => u.acolhimento === 'psiquiatria').length
             };
 
             let html = `
-                <div class="pdf-content">
-                    <div class="pdf-header">
+                <div class="pdf-content-a5">
+                    <div class="pdf-header-a5">
                         <h1>🏥 Relatório de Unidades de Saúde - RJ</h1>
-                        <p>Gerado em: ${dataAtual}</p>
+                        <p>Gerado em: ${dataAtual} | Total: ${unidadesFiltradas.length} unidades</p>
                     </div>
                     
-                    <div class="pdf-stats">
-                        <div class="pdf-stat">
-                            <div class="pdf-stat-value">${unidadesFiltradas.length}</div>
-                            <div class="pdf-stat-label">Total de Unidades</div>
+                    <div class="pdf-stats-a5">
+                        <div class="pdf-stat-a5">
+                            <div class="pdf-stat-value-a5">${unidadesFiltradas.length}</div>
+                            <div class="pdf-stat-label-a5">Total</div>
                         </div>
-                        <div class="pdf-stat">
-                            <div class="pdf-stat-value">${acolhimentos.urgente}</div>
-                            <div class="pdf-stat-label">Urgência/Emergência</div>
+                        <div class="pdf-stat-a5">
+                            <div class="pdf-stat-value-a5">${porNivel['Primária'].length}</div>
+                            <div class="pdf-stat-label-a5">Primária</div>
                         </div>
-                        <div class="pdf-stat">
-                            <div class="pdf-stat-value">${acolhimentos.ambulatorial}</div>
-                            <div class="pdf-stat-label">Ambulatorial</div>
+                        <div class="pdf-stat-a5">
+                            <div class="pdf-stat-value-a5">${porNivel['Secundária'].length}</div>
+                            <div class="pdf-stat-label-a5">Secundária</div>
                         </div>
-                        <div class="pdf-stat">
-                            <div class="pdf-stat-value">${acolhimentos.especializado}</div>
-                            <div class="pdf-stat-label">Especializado</div>
+                        <div class="pdf-stat-a5">
+                            <div class="pdf-stat-value-a5">${porNivel['Terciária'].length}</div>
+                            <div class="pdf-stat-label-a5">Terciária</div>
                         </div>
-                    </div>
-
-                    <div class="pdf-section">
-                        <div class="pdf-section-title">
-                            <span>📊</span> Resumo por Perfil
+                        <div class="pdf-stat-a5">
+                            <div class="pdf-stat-value-a5">${acolhimentos.urgente + acolhimentos.urgencia_especializada}</div>
+                            <div class="pdf-stat-label-a5">Urgência</div>
                         </div>
-                        <div style="margin-bottom: 1.5rem;">
-                            <p><strong>Atenção Primária:</strong> ${porNivel['Primária'].length} unidades</p>
-                            <p><strong>Atenção Secundária:</strong> ${porNivel['Secundária'].length} unidades</p>
-                            <p><strong>Atenção Terciária:</strong> ${porNivel['Terciária'].length} unidades</p>
-                            <p><strong>Admissão por Transferência:</strong> ${acolhimentos.transferencia} unidades</p>
+                        <div class="pdf-stat-a5">
+                            <div class="pdf-stat-value-a5">${acolhimentos.transferencia}</div>
+                            <div class="pdf-stat-label-a5">Transferência</div>
                         </div>
                     </div>
 
-                    <div class="pdf-section">
-                        <div class="pdf-section-title">
-                            <span>📋</span> Listagem Categorizada
+                    <div class="pdf-section-a5">
+                        <div class="pdf-section-title-a5">
+                            <span>📊</span> Resumo por Tipo de Acolhimento
                         </div>
+                        <div class="pdf-resumo-grid-a5">
+                            <div class="pdf-resumo-item-a5">
+                                <div class="pdf-resumo-label-a5">🚨 Urgência Geral</div>
+                                <div class="pdf-resumo-value-a5">${acolhimentos.urgente}</div>
+                            </div>
+                            <div class="pdf-resumo-item-a5">
+                                <div class="pdf-resumo-label-a5">🏥⚡ Urgência Especializada</div>
+                                <div class="pdf-resumo-value-a5">${acolhimentos.urgencia_especializada}</div>
+                            </div>
+                            <div class="pdf-resumo-item-a5">
+                                <div class="pdf-resumo-label-a5">🩺 Ambulatorial</div>
+                                <div class="pdf-resumo-value-a5">${acolhimentos.ambulatorial}</div>
+                            </div>
+                            <div class="pdf-resumo-item-a5">
+                                <div class="pdf-resumo-label-a5">🚑 Transferência</div>
+                                <div class="pdf-resumo-value-a5">${acolhimentos.transferencia}</div>
+                            </div>
+                            <div class="pdf-resumo-item-a5">
+                                <div class="pdf-resumo-label-a5">🔬 Especializado</div>
+                                <div class="pdf-resumo-value-a5">${acolhimentos.especializado}</div>
+                            </div>
+                            <div class="pdf-resumo-item-a5">
+                                <div class="pdf-resumo-label-a5">🩸 Hemoterapia</div>
+                                <div class="pdf-resumo-value-a5">${acolhimentos.hemoterapia}</div>
+                            </div>
+                        </div>
+                    </div>
             `;
 
+            // Listagem por nível
             Object.entries(porNivel).forEach(([nivel, unidades]) => {
                 if (unidades.length === 0) return;
                 
                 const classe = nivel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
                 
                 html += `
-                    <div class="pdf-category">
-                        <div class="pdf-category-title ${classe}">
+                    <div class="pdf-category-a5">
+                        <div class="pdf-category-header-a5 ${classe}">
+                            <span>${nivel === 'Primária' ? '🏥' : nivel === 'Secundária' ? '🚑' : '🏨'}</span>
                             Atenção ${nivel} (${unidades.length} unidades)
                         </div>
+                        <div class="pdf-unit-grid-a5">
                 `;
 
                 unidades.forEach(u => {
                     const acolhimentoTexto = getTextoAcolhimento(u.acolhimento);
+                    const acolhimentoClass = u.acolhimento || 'ambulatorial';
                     html += `
-                        <div class="pdf-unit">
-                            <div class="pdf-unit-name">${u.nome}</div>
-                            <div class="pdf-unit-detail">
-                                <span>${u.perfil}</span>
+                        <div class="pdf-unit-card-a5">
+                            <div class="pdf-unit-name-a5">${u.nome}</div>
+                            <div class="pdf-unit-detail-a5">
                                 <span>📍 ${u.cidade}${u.bairro ? ' – ' + u.bairro : ''}</span>
-                                <span>📞 ${u.telefone || 'Não informado'}</span>
-                                <span>🚨 ${acolhimentoTexto}</span>
+                                <span>📞 ${u.telefone || 'N/I'}</span>
+                                <span class="pdf-acolhimento-badge-a5 ${acolhimentoClass}">${acolhimentoTexto}</span>
                                 ${u.distancia ? `<span>🧭 ${u.distancia.toFixed(1)} km</span>` : ''}
                             </div>
                         </div>
                     `;
                 });
 
-                html += `</div>`;
+                html += `</div></div>`;
             });
 
             html += `
-                    </div>
-                    <div class="pdf-footer">
+                    <div class="pdf-footer-a5">
                         <p>Relatório gerado pelo Sistema Saúde Rio - Dados do CNES/DATASUS</p>
                         <p>© 2026 - Todos os direitos reservados</p>
                     </div>
@@ -2686,7 +2824,7 @@ out center tags;
             mostrarLoading('Gerando visualização do PDF...');
 
             try {
-                const html = gerarConteudoPDF();
+                const html = gerarConteudoPDF_A5();
                 document.getElementById('pdfPreviewBody').innerHTML = html;
                 document.getElementById('pdfPreviewOverlay').classList.add('active');
                 ocultarLoading();
@@ -2707,14 +2845,14 @@ out center tags;
                 return;
             }
 
-            mostrarLoading('Gerando PDF...');
+            mostrarLoading('Gerando PDF em formato A5 horizontal...');
 
             try {
                 const { jsPDF } = window.jspdf;
                 
                 const element = document.createElement('div');
-                element.innerHTML = gerarConteudoPDF();
-                element.style.width = '800px';
+                element.innerHTML = gerarConteudoPDF_A5();
+                element.style.width = '1050px'; // Largura para A5 horizontal
                 element.style.padding = '20px';
                 element.style.background = 'white';
                 element.style.position = 'absolute';
@@ -2732,10 +2870,12 @@ out center tags;
                 document.body.removeChild(element);
 
                 const imgData = canvas.toDataURL('image/png');
+                
+                // Configurar PDF em A5 horizontal (148mm x 210mm)
                 const pdf = new jsPDF({
-                    orientation: 'portrait',
+                    orientation: 'landscape',
                     unit: 'mm',
-                    format: 'a4'
+                    format: 'a5'
                 });
 
                 const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -2749,7 +2889,7 @@ out center tags;
                 pdf.addImage(imgData, 'PNG', 0, 0, width, height);
                 
                 const dataAtual = new Date().toISOString().split('T')[0];
-                pdf.save(`Unidades_SUS_RJ_${dataAtual}.pdf`);
+                pdf.save(`Unidades_SUS_RJ_${dataAtual}_A5.pdf`);
 
                 ocultarLoading();
             } catch (error) {
@@ -2771,8 +2911,8 @@ out center tags;
                 const { jsPDF } = window.jspdf;
                 
                 const element = document.createElement('div');
-                element.innerHTML = gerarConteudoPDF();
-                element.style.width = '800px';
+                element.innerHTML = gerarConteudoPDF_A5();
+                element.style.width = '1050px';
                 element.style.padding = '20px';
                 element.style.background = 'white';
                 element.style.position = 'absolute';
@@ -2791,9 +2931,9 @@ out center tags;
 
                 const imgData = canvas.toDataURL('image/png');
                 const pdf = new jsPDF({
-                    orientation: 'portrait',
+                    orientation: 'landscape',
                     unit: 'mm',
-                    format: 'a4'
+                    format: 'a5'
                 });
 
                 const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -2806,35 +2946,29 @@ out center tags;
 
                 pdf.addImage(imgData, 'PNG', 0, 0, width, height);
                 
-                // Gerar blob do PDF
                 const pdfBlob = pdf.output('blob');
-                
-                // Criar URL do blob
                 const pdfUrl = URL.createObjectURL(pdfBlob);
                 
-                // Criar link temporário para download
                 const link = document.createElement('a');
                 link.href = pdfUrl;
-                link.download = 'Unidades_SUS_RJ.pdf';
+                link.download = 'Unidades_SUS_RJ_A5.pdf';
                 document.body.appendChild(link);
                 
-                // Mensagem para o usuário
-                alert('PDF gerado com sucesso! Clique em OK e em seguida:\n\n' +
-                      '1️⃣ Clique nos três pontinhos (⋮) do navegador\n' +
-                      '2️⃣ Selecione "Compartilhar"\n' +
-                      '3️⃣ Escolha o WhatsApp\n\n' +
-                      'Ou clique no link de download que aparecerá e compartilhe manualmente.');
+                alert('✅ PDF gerado com sucesso!\n\n' +
+                      'Para compartilhar no WhatsApp:\n\n' +
+                      '1️⃣ Clique em OK e aguarde o download\n' +
+                      '2️⃣ Abra o WhatsApp\n' +
+                      '3️⃣ Selecione a conversa desejada\n' +
+                      '4️⃣ Clique no ícone 📎 (anexar)\n' +
+                      '5️⃣ Escolha "Documento"\n' +
+                      '6️⃣ Selecione o arquivo baixado');
                 
-                // Simular clique para download
                 link.click();
                 
-                // Limpar
                 document.body.removeChild(link);
                 URL.revokeObjectURL(pdfUrl);
 
                 ocultarLoading();
-                
-                // Fechar preview se estiver aberto
                 fecharPDFPreview();
                 
             } catch (error) {
