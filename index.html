@@ -1010,90 +1010,90 @@
             background: white;
         }
 
-        /* PDF Content - Formato A5 Horizontal OTIMIZADO */
+        /* PDF Content - Formato A5 Horizontal com informações completas */
         .pdf-content-a5 {
             background: white;
             padding: 1rem;
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
             font-family: 'Inter', sans-serif;
-            width: 1100px; /* Largura total para A5 horizontal */
+            width: 1100px;
             margin: 0 auto;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
 
         .pdf-header-a5 {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             padding-bottom: 0.5rem;
             border-bottom: 2px solid var(--primary);
         }
 
         .pdf-header-a5 h1 {
             color: var(--primary);
-            font-size: 1.3rem;
+            font-size: 1.2rem;
             font-weight: 700;
         }
 
         .pdf-header-a5 p {
             color: var(--gray-600);
-            font-size: 0.75rem;
+            font-size: 0.7rem;
         }
 
-        /* Estatísticas em linha - ocupando toda largura */
+        /* Estatísticas em linha */
         .pdf-stats-row-a5 {
             display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
+            gap: 0.4rem;
+            margin-bottom: 0.75rem;
             flex-wrap: wrap;
         }
 
         .pdf-stat-card-a5 {
             flex: 1;
-            min-width: 80px;
+            min-width: 70px;
             background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
             border-radius: var(--radius);
-            padding: 0.5rem 0.25rem;
+            padding: 0.4rem 0.2rem;
             text-align: center;
             border-left: 3px solid var(--primary);
         }
 
         .pdf-stat-value-a5 {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 800;
             color: var(--primary);
             line-height: 1.2;
         }
 
         .pdf-stat-label-a5 {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             color: var(--gray-600);
             text-transform: uppercase;
             font-weight: 600;
         }
 
-        /* Grid de resumo de acolhimento */
+        /* Grid de acolhimento */
         .pdf-acolhimento-grid-a5 {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 1rem;
+            gap: 0.4rem;
+            margin-bottom: 0.75rem;
         }
 
         .pdf-acolhimento-item-a5 {
             background: var(--gray-50);
             border-radius: var(--radius);
-            padding: 0.4rem;
+            padding: 0.3rem;
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.3rem;
             border: 1px solid var(--gray-200);
         }
 
         .pdf-acolhimento-icon-a5 {
-            font-size: 1rem;
+            font-size: 0.9rem;
         }
 
         .pdf-acolhimento-info-a5 {
@@ -1101,28 +1101,28 @@
         }
 
         .pdf-acolhimento-nome-a5 {
-            font-size: 0.65rem;
+            font-size: 0.55rem;
             color: var(--gray-600);
             white-space: nowrap;
         }
 
         .pdf-acolhimento-numero-a5 {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             font-weight: 700;
             color: var(--gray-800);
         }
 
         /* Seções */
         .pdf-section-a5 {
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
 
         .pdf-section-title-a5 {
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: var(--gray-800);
-            margin-bottom: 0.5rem;
-            padding-bottom: 0.25rem;
+            margin-bottom: 0.4rem;
+            padding-bottom: 0.2rem;
             border-bottom: 2px solid var(--gray-200);
         }
 
@@ -1135,12 +1135,12 @@
         .pdf-category-header-a5 {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.3rem 0.75rem;
+            gap: 0.4rem;
+            padding: 0.25rem 0.6rem;
             border-radius: var(--radius);
             color: white;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             margin-bottom: 0.5rem;
         }
 
@@ -1156,12 +1156,12 @@
             background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
         }
 
-        /* Grid de unidades - 3 colunas */
+        /* Grid de unidades - 2 colunas para informações completas */
         .pdf-units-grid-a5 {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.5rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
 
         .pdf-unit-card-a5 {
@@ -1181,40 +1181,50 @@
             font-weight: 700;
             color: var(--gray-800);
             font-size: 0.8rem;
-            margin-bottom: 0.2rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            margin-bottom: 0.3rem;
         }
 
-        .pdf-unit-detail-a5 {
-            color: var(--gray-600);
+        .pdf-unit-address-a5 {
             font-size: 0.65rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.3rem;
+            color: var(--gray-600);
             margin-bottom: 0.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
         }
 
-        .pdf-unit-detail-a5 span {
-            display: inline-flex;
+        .pdf-unit-phone-a5 {
+            font-size: 0.65rem;
+            color: var(--gray-600);
+            margin-bottom: 0.2rem;
+            display: flex;
             align-items: center;
-            gap: 0.15rem;
-            background: white;
-            padding: 0.1rem 0.3rem;
-            border-radius: 9999px;
-            border: 1px solid var(--gray-200);
+            gap: 0.2rem;
+        }
+
+        .pdf-unit-profile-a5 {
+            font-size: 0.65rem;
+            color: var(--gray-700);
+            margin-bottom: 0.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+            font-weight: 500;
+        }
+
+        .pdf-unit-row-a5 {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.2rem;
         }
 
         .pdf-acolhimento-badge-a5 {
             display: inline-block;
-            padding: 0.1rem 0.4rem;
+            padding: 0.15rem 0.4rem;
             border-radius: 9999px;
             font-size: 0.6rem;
             font-weight: 600;
-            background: var(--gray-200);
-            color: var(--gray-700);
-            margin-top: 0.2rem;
         }
 
         .pdf-acolhimento-badge-a5.urgente {
@@ -1252,13 +1262,19 @@
             color: #7e22ce;
         }
 
+        .pdf-distance-a5 {
+            font-size: 0.6rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
         .pdf-footer-a5 {
-            margin-top: 1rem;
-            padding-top: 0.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.4rem;
             border-top: 1px solid var(--gray-200);
             text-align: center;
             color: var(--gray-500);
-            font-size: 0.6rem;
+            font-size: 0.55rem;
         }
 
         /* Footer */
@@ -2721,7 +2737,7 @@ out center tags;
         }
 
         // ============================================
-        // FUNÇÕES DE PDF - FORMATO A5 HORIZONTAL OTIMIZADO
+        // FUNÇÕES DE PDF - FORMATO A5 HORIZONTAL COM INFORMAÇÕES COMPLETAS
         // ============================================
         function gerarConteudoPDF_A5() {
             const dataAtual = new Date().toLocaleDateString('pt-BR', {
@@ -2845,7 +2861,7 @@ out center tags;
                     </div>
             `;
 
-            // Listagem por nível em grid de 3 colunas
+            // Listagem por nível em grid de 2 colunas com informações completas
             Object.entries(porNivel).forEach(([nivel, unidades]) => {
                 if (unidades.length === 0) return;
                 
@@ -2862,15 +2878,29 @@ out center tags;
 
                 unidades.forEach(u => {
                     const acolhimentoClass = u.acolhimento || 'ambulatorial';
+                    const enderecoCompleto = u.endereco ? u.endereco : 'Endereço não informado';
+                    const telefone = u.telefone ? u.telefone : 'Telefone não informado';
+                    
                     html += `
                         <div class="pdf-unit-card-a5">
                             <div class="pdf-unit-name-a5" title="${u.nome}">${u.nome}</div>
-                            <div class="pdf-unit-detail-a5">
-                                <span>📍 ${u.cidade}${u.bairro ? ' – ' + u.bairro.substring(0, 15) : ''}</span>
-                                <span>📞 ${u.telefone ? u.telefone.substring(0, 12) : 'N/I'}</span>
+                            <div class="pdf-unit-profile-a5">
+                                <span>🏥 ${u.perfil}</span>
                             </div>
-                            <div class="pdf-acolhimento-badge-a5 ${acolhimentoClass}">${getTextoAcolhimento(u.acolhimento).substring(0, 20)}</div>
-                            ${u.distancia ? `<div style="font-size:0.6rem; color:var(--accent); margin-top:0.2rem;">🧭 ${u.distancia.toFixed(1)} km</div>` : ''}
+                            <div class="pdf-unit-address-a5" title="${enderecoCompleto}">
+                                <span>📍 ${enderecoCompleto.substring(0, 35)}${enderecoCompleto.length > 35 ? '...' : ''}</span>
+                            </div>
+                            <div class="pdf-unit-address-a5">
+                                <span>🏘️ ${u.cidade}${u.bairro ? ' – ' + u.bairro.substring(0, 20) : ''}</span>
+                            </div>
+                            <div class="pdf-unit-phone-a5">
+                                <span>📞 ${telefone}</span>
+                            </div>
+                            <div class="pdf-unit-row-a5">
+                                <span class="pdf-acolhimento-badge-a5 ${acolhimentoClass}">${getTextoAcolhimento(u.acolhimento).substring(0, 18)}</span>
+                                ${u.distancia ? `<span class="pdf-distance-a5">🧭 ${u.distancia.toFixed(1)} km</span>` : ''}
+                            </div>
+                            ${u.cnes ? `<div style="font-size:0.55rem; color:var(--gray-500); margin-top:0.2rem;">🔢 CNES: ${u.cnes}</div>` : ''}
                         </div>
                     `;
                 });
