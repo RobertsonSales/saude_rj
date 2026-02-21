@@ -1712,29 +1712,44 @@
         function classificar(tags, nome) {
             const healthcare = tags.healthcare || tags.amenity;
             const n = norm(nome + (tags.description || ''));
-            if (!healthcare && !n.includes('hospital') && !n.includes('clinica') && !n.includes('upa') && !n.includes('posto')) return null;
+            if (!healthcare && !n.includes('hospital') && !n.includes('clinica') && !n.includes('upa') && !n.includes('posto') && !n.includes('ubs') && !n.includes('caps') && !n.includes('cri') && !n.includes('policlinica')) return null;
+
+            // Verificar se é estabelecimento SUS — excluir privados sem vínculo aparente
+            const operador = (tags.operator || tags['operator:type'] || tags.ownership || '').toLowerCase();
+            const acessoTag = (tags.access || '').toLowerCase();
+            if (acessoTag === 'private') return null;
+            if (operador && (operador.includes('privad') || operador.includes('particular')) && !operador.includes('sus') && !operador.includes('federal') && !operador.includes('estadual') && !operador.includes('municipal')) return null;
 
             let perfil = 'Hospital Geral';
             let nivel = 'Secundária';
 
-            if (healthcare === 'hospital' || n.includes('hospital')) {
-                if (n.includes('maternidad') || n.includes('mulher')) perfil = 'Hospital Maternidade';
-                else if (n.includes('infantil') || n.includes('crianca')) perfil = 'Hospital Infantil';
-                else if (n.includes('oncologi') || n.includes('cancer')) perfil = 'Hospital Oncológico';
-                else if (n.includes('psiquiatri') || n.includes('mental')) perfil = 'Hospital Psiquiátrico';
-                else if (n.includes('especializad')) perfil = 'Hospital Especializado';
-                nivel = n.includes('universitari') || n.includes('referencia') ? 'Terciária' : 'Secundária';
+            // UPA/Urgência tem prioridade antes de hospital genérico
+            if (n.includes('upa') || (n.includes('urgencia') && !n.includes('hospital')) || n.includes('pronto atendimento') || n.includes('pronto socorro')) {
+                perfil = n.includes('upa') ? 'UPA' : 'Pronto-Socorro';
+                nivel = 'Secundária';
+            } else if (healthcare === 'hospital' || n.includes('hospital')) {
+                if (n.includes('maternidad') || n.includes('mulher') || n.includes(' mae') || n.includes('da mae') || n.includes('matern') || n.includes('obstetri') || n.includes('perinatal')) perfil = 'Hospital Maternidade';
+                else if (n.includes('infantil') || n.includes('crianca') || n.includes('pediatri')) perfil = 'Hospital Infantil';
+                else if (n.includes('oncologi') || n.includes('cancer') || n.includes('inca')) perfil = 'Hospital Oncológico';
+                else if (n.includes('psiquiatri') || n.includes('mental') || n.includes('naps') || n.includes('caps')) perfil = 'Hospital Psiquiátrico';
+                else if (n.includes('especializad') || n.includes('ortopedi') || n.includes('cardiolog') || n.includes('neurologica')) perfil = 'Hospital Especializado';
+                // Critérios de Atenção Terciária expandidos
+                if (n.includes('universitari') || n.includes('referencia') || n.includes('federal') || n.includes('estadual') || n.includes('complexo') || n.includes('inca') || n.includes('nacional') || n.includes('regional') || n.includes('instituto') || operador.includes('federal') || operador.includes('estadual') || (tags['healthcare:speciality'] && tags['healthcare:speciality'].split(';').length >= 3)) {
+                    nivel = 'Terciária';
+                } else {
+                    nivel = 'Secundária';
+                }
             } else if (healthcare === 'clinic' || n.includes('clinica')) {
                 perfil = 'Clínica Médica';
                 nivel = 'Primária';
-            } else if (healthcare === 'health_post' || n.includes('posto') || n.includes('ubs')) {
+            } else if (healthcare === 'health_post' || n.includes('posto') || n.includes('ubs') || n.includes('psf')) {
                 perfil = 'Posto de Saúde';
                 nivel = 'Primária';
-            } else if (healthcare === 'health_centre') {
+            } else if (healthcare === 'health_centre' || n.includes('centro de saude') || n.includes('policlinica') || n.includes('cms')) {
                 perfil = 'Centro de Saúde';
                 nivel = 'Primária';
-            } else if (n.includes('upa') || n.includes('urgencia')) {
-                perfil = 'UPA';
+            } else if (n.includes('caps') || n.includes('cri') || n.includes('caps ad') || n.includes('saude mental')) {
+                perfil = 'CAPS';
                 nivel = 'Secundária';
             } else if (n.includes('ambulatorio')) {
                 perfil = 'Ambulatório';
@@ -1793,7 +1808,8 @@
         // MONTAGEM DO OBJETO UNIDADE
         // ============================================
         function montarUnidade(tags, lat, lon, osmId, osmType, distancia) {
-            const nome = tags.name || tags['name:pt'] || '';
+            const nome = (tags.name || tags['name:pt'] || '').trim();
+            if (!nome) return null; // Ignorar unidades sem nome identificável
             const classif = classificar(tags, nome);
             if (!classif) return null;
 
@@ -1811,8 +1827,8 @@
                 website: tags.website || tags['contact:website'] || tags['contact:url'] || '',
                 distancia,
                 acolhimento: 'ambulatorial', // Será atualizado depois
-                gestao: 'municipal',
-                cnes: Math.floor(1000000 + Math.random() * 9000000).toString()
+                gestao: tags.operator ? (norm(tags.operator).includes('federal') ? 'Federal' : norm(tags.operator).includes('estadual') ? 'Estadual' : 'Municipal') : 'Municipal',
+                cnes: tags['ref:CNES'] || tags['ref:cnes'] || '' // Apenas CNES real informado no OSM
             };
         }
 
@@ -1845,7 +1861,8 @@
             mostrarLoading('Iniciando busca de unidades de saúde...');
 
             try {
-                const municipio = municipiosPorEstado[uf].find(m => m.id === codigoMunicipio);
+                const uf = document.getElementById('selectEstado').value;
+                const municipio = municipiosPorEstado[uf]?.find(m => m.id === codigoMunicipio);
                 if (!municipio) throw new Error('Município não encontrado');
 
                 // Priorizar CNES
@@ -2129,14 +2146,7 @@ out center tags;
                 if (resp.ok) {
                     const data = await resp.json();
                     const addr = data.address || {};
-                    const cidNom = addr.city || addr.town || addr.municipality || addr.county || '';
-                    const cidNorm = norm(cidNom);
-                    const match = municipiosRJ.find(m =>
-                        norm(m.nome) === cidNorm ||
-                        cidNorm.includes(norm(m.nome)) ||
-                        norm(m.nome).includes(cidNorm)
-                    );
-                    if (match) cidadeRef = match.nome;
+                    cidadeRef = addr.city || addr.town || addr.municipality || addr.county || cidadeRef;
                 }
             } catch(e) { console.warn('Nominatim ref falhou:', e); }
 
@@ -2418,7 +2428,7 @@ out center tags;
                     <div class="badges">
                         <span class="badge ${classe}">${u.perfil}</span>
                         <span class="badge sus">SUS</span>
-                        ${u.cnes ? '<span class="badge cnes">CNES: ' + u.cnes + '</span>' : ''}
+                        ${u.cnes ? `<span class="badge cnes" title="Consultar no CNES">CNES: ${u.cnes}</span>` : ''}
                         ${u.gestao ? '<span class="badge gestao">' + u.gestao + '</span>' : ''}
                     </div>
                     <div class="unit-info">
@@ -2454,6 +2464,12 @@ out center tags;
                             <a href="${u.mapsLink}" target="_blank" rel="noopener noreferrer" class="unit-link maps">
                                 <span>🗺️</span>
                                 Maps
+                            </a>
+                        ` : ''}
+                        ${u.cnes ? `
+                            <a href="https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.jsp?pk=${u.cnes}" target="_blank" rel="noopener noreferrer" class="unit-link cnes-link">
+                                <span>🔢</span>
+                                CNES
                             </a>
                         ` : ''}
                         ${u.website ? `
@@ -2889,7 +2905,112 @@ out center tags;
         }
 
         // ============================================
-        // FECHAR MODAIS AO CLICAR FORA
+        // ESTADOS E MUNICÍPIOS — IBGE API
+        // ============================================
+        async function carregarEstados() {
+            try {
+                const resp = await fetch(`${CONFIG.IBGE}/estados?orderBy=nome`);
+                if (!resp.ok) throw new Error('Falha ao carregar estados');
+                estados = await resp.json();
+
+                const selectModal = document.getElementById('selectEstado');
+                const selectFiltro = document.getElementById('filtroEstado');
+
+                estados.forEach(e => {
+                    const opt1 = new Option(`${e.sigla} — ${e.nome}`, e.sigla);
+                    const opt2 = new Option(`${e.sigla} — ${e.nome}`, e.sigla);
+                    selectModal.appendChild(opt1);
+                    selectFiltro.appendChild(opt2);
+                });
+            } catch (err) {
+                console.error('Erro ao carregar estados:', err);
+            }
+        }
+
+        async function carregarMunicipios(uf) {
+            if (!uf) uf = document.getElementById('selectEstado').value;
+            if (!uf) return;
+
+            const selectMun = document.getElementById('selectMunicipio');
+            selectMun.innerHTML = '<option value="">Carregando...</option>';
+            selectMun.disabled = true;
+
+            try {
+                if (!municipiosPorEstado[uf]) {
+                    const siglaObj = estados.find(e => e.sigla === uf);
+                    const idEstado = siglaObj ? siglaObj.id : uf;
+                    const resp = await fetch(`${CONFIG.IBGE}/estados/${idEstado}/municipios?orderBy=nome`);
+                    if (!resp.ok) throw new Error('Falha ao carregar municípios');
+                    const lista = await resp.json();
+                    municipiosPorEstado[uf] = lista.map(m => ({
+                        id: String(m.id),
+                        nome: m.nome,
+                        latitude: null,
+                        longitude: null,
+                        area_km2: null
+                    }));
+                }
+
+                selectMun.innerHTML = '<option value="">Selecione um município</option>';
+                municipiosPorEstado[uf].forEach(m => {
+                    selectMun.appendChild(new Option(m.nome, m.id));
+                });
+                selectMun.disabled = false;
+            } catch (err) {
+                console.error('Erro ao carregar municípios:', err);
+                selectMun.innerHTML = '<option value="">Erro ao carregar — tente novamente</option>';
+                selectMun.disabled = false;
+            }
+        }
+
+        async function buscarUnidadesCNES(codigoMunicipio) {
+            // Tenta buscar no OSM usando o código IBGE para localizar o município
+            try {
+                atualizarProgresso(5, 'Buscando coordenadas do município no IBGE...');
+                const uf = document.getElementById('selectEstado').value;
+                const municipio = municipiosPorEstado[uf]?.find(m => m.id === codigoMunicipio);
+                if (!municipio) return [];
+
+                // Obtém coordenadas via Nominatim se não tiver
+                if (!municipio.latitude || !municipio.longitude) {
+                    const nomeBusca = encodeURIComponent(`${municipio.nome}, ${uf}, Brasil`);
+                    const resp = await fetch(
+                        `https://nominatim.openstreetmap.org/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br`,
+                        { headers: { 'User-Agent': 'SaudeBrasil/2.0 (contato@sus.gov.br)' } }
+                    );
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data.length > 0) {
+                            municipio.latitude = parseFloat(data[0].lat);
+                            municipio.longitude = parseFloat(data[0].lon);
+                            // Estimar área pelo bounding box
+                            if (data[0].boundingbox) {
+                                const bb = data[0].boundingbox.map(Number);
+                                const dLat = Math.abs(bb[1] - bb[0]);
+                                const dLon = Math.abs(bb[3] - bb[2]);
+                                municipio.area_km2 = dLat * 111 * dLon * 111 * Math.cos(municipio.latitude * Math.PI / 180);
+                            }
+                        }
+                    }
+                }
+
+                if (!municipio.latitude) return [];
+
+                atualizarProgresso(10, `Buscando unidades de saúde em ${municipio.nome}...`);
+                return await buscarUnidadesOpenStreetMap(municipio);
+            } catch (err) {
+                console.warn('buscarUnidadesCNES falhou:', err);
+                return [];
+            }
+        }
+
+        function atualizarCidadesFiltros() {
+            const estado = document.getElementById('filtroEstado').value;
+            // No modo filtro pós-busca, apenas re-aplica os filtros
+            aplicarFiltros();
+        }
+
+        // ============================================
         // ============================================
         document.querySelectorAll('.modal-overlay, .pdf-preview-overlay').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -2902,7 +3023,9 @@ out center tags;
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
             carregarEstados();
-            document.getElementById('selectEstado').addEventListener('change', () => carregarMunicipios(document.getElementById('selectEstado').value));
+            document.getElementById('selectEstado').addEventListener('change', function() {
+                carregarMunicipios(this.value);
+            });
         });
 
     </script>
