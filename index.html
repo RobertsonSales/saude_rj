@@ -1413,7 +1413,7 @@
                         <span>🇧🇷</span>
                         Estado
                     </label>
-                    <select id="filtroEstado" class="filter-select" onchange="atualizarCidadesFiltros()">
+                    <select id="filtroEstado" class="filter-select" onchange="aplicarFiltros()">
                         <option value="">Todos os estados</option>
                     </select>
                 </div>
@@ -1623,6 +1623,8 @@
             'Terciária': true
         };
         let _buscaAtiva = false;
+        let ultimoEstadoSelecionado = '';
+        let ultimoMunicipioSelecionado = '';
 
         const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
             'sample_collection|physiotherapist|psychotherapist|audiologist|' +
@@ -1707,7 +1709,7 @@
         }
 
         // ============================================
-        // CLASSIFICAÇÃO
+        // CLASSIFICAÇÃO CORRIGIDA
         // ============================================
         function classificar(tags, nome) {
             const healthcare = tags.healthcare || tags.amenity;
@@ -1733,10 +1735,20 @@
                 else if (n.includes('oncologi') || n.includes('cancer') || n.includes('inca')) perfil = 'Hospital Oncológico';
                 else if (n.includes('psiquiatri') || n.includes('mental') || n.includes('naps') || n.includes('caps')) perfil = 'Hospital Psiquiátrico';
                 else if (n.includes('especializad') || n.includes('ortopedi') || n.includes('cardiolog') || n.includes('neurologica')) perfil = 'Hospital Especializado';
-                // Critérios de Atenção Terciária expandidos
-                if (n.includes('universitari') || n.includes('referencia') || n.includes('federal') || n.includes('estadual') || n.includes('complexo') || n.includes('inca') || n.includes('nacional') || n.includes('regional') || n.includes('instituto') || operador.includes('federal') || operador.includes('estadual') || (tags['healthcare:speciality'] && tags['healthcare:speciality'].split(';').length >= 3)) {
+                
+                // CRITÉRIOS CLAROS PARA ATENÇÃO TERCIÁRIA
+                const palavrasTerciaria = ['universitari', 'referencia', 'federal', 'instituto', 'nacional', 'complexo'];
+                const palavrasSecundaria = ['regional', 'estadual', 'municipal', 'geral', 'distrital'];
+                
+                if (palavrasTerciaria.some(p => n.includes(p)) || 
+                    (operador.includes('federal') && !n.includes('regional'))) {
                     nivel = 'Terciária';
+                } else if (palavrasSecundaria.some(p => n.includes(p)) || 
+                          operador.includes('estadual') || 
+                          operador.includes('municipal')) {
+                    nivel = 'Secundária';
                 } else {
+                    // Por padrão, classificar hospitais sem indicadores claros como secundários
                     nivel = 'Secundária';
                 }
             } else if (healthcare === 'clinic' || n.includes('clinica')) {
@@ -1839,7 +1851,16 @@
             const select = document.getElementById('selectMunicipio');
             select.innerHTML = '<option value="">Selecione um município</option>';
             
-            // municipiosRJ removido, carregado dinamicamente
+            // Restaurar seleções anteriores se existirem
+            if (ultimoEstadoSelecionado) {
+                document.getElementById('selectEstado').value = ultimoEstadoSelecionado;
+                carregarMunicipios(ultimoEstadoSelecionado).then(() => {
+                    if (ultimoMunicipioSelecionado) {
+                        document.getElementById('selectMunicipio').value = ultimoMunicipioSelecionado;
+                    }
+                });
+            }
+            
             document.getElementById('modalMunicipio').classList.add('active');
         }
 
@@ -1850,34 +1871,34 @@
         async function buscarPorMunicipio() {
             const uf = document.getElementById('selectEstado').value;
             const codigoMunicipio = document.getElementById('selectMunicipio').value;
+            
+            // Salvar seleções para persistência
+            ultimoEstadoSelecionado = uf;
+            ultimoMunicipioSelecionado = codigoMunicipio;
+            
             if (!uf || !codigoMunicipio) {
                 mostrarAlerta('warning', 'Atenção', 'Selecione um estado e município para continuar.');
                 return;
             }
 
             fecharModalMunicipio();
-            _buscaAtiva = false;
+            _buscaAtiva = true;
             await sleep(50);
             mostrarLoading('Iniciando busca de unidades de saúde...');
 
             try {
-                const uf = document.getElementById('selectEstado').value;
                 const municipio = municipiosPorEstado[uf]?.find(m => m.id === codigoMunicipio);
                 if (!municipio) throw new Error('Município não encontrado');
 
-                // Priorizar CNES
-                let unidades = await buscarUnidadesCNES(codigoMunicipio);
-
-                if (unidades.length === 0) {
-                    atualizarProgresso(20, 'Buscando complemento no OpenStreetMap...');
-                    unidades = await buscarUnidadesOpenStreetMap(municipio);
-                }
+                // Buscar unidades
+                let unidades = await buscarUnidadesOpenStreetMap(municipio);
 
                 atualizarProgresso(92, 'Finalizando resultados...');
 
                 if (unidades.length === 0) {
+                    // Manter estado e município selecionados para nova tentativa
                     mostrarAlerta('warning', 'Nenhuma unidade encontrada',
-                        'Não foram encontradas unidades de saúde para este município no OpenStreetMap.');
+                        'Não foram encontradas unidades de saúde para este município. Tente novamente ou selecione outro município.');
                     ocultarLoading();
                     return;
                 }
@@ -2537,7 +2558,7 @@ out center tags;
             let html = `
                 <div class="pdf-content-a5">
                     <div class="pdf-header-a5">
-                        <h1>🏥 Relatório de Unidades de Saúde - RJ</h1>
+                        <h1>🏥 Relatório de Unidades de Saúde - Brasil</h1>
                         <p>Gerado em: ${dataAtual} | Total: ${unidadesFiltradas.length} unidades</p>
                     </div>
                     
@@ -2679,7 +2700,7 @@ out center tags;
 
             html += `
                     <div class="pdf-footer-a5">
-                        <p>Relatório gerado pelo Sistema Saúde Rio - Dados do CNES/DATASUS</p>
+                        <p>Relatório gerado pelo Sistema Saúde Brasil - Dados do CNES/DATASUS</p>
                         <p>© 2026 - Todos os direitos reservados</p>
                     </div>
                 </div>
@@ -2960,47 +2981,6 @@ out center tags;
                 console.error('Erro ao carregar municípios:', err);
                 selectMun.innerHTML = '<option value="">Erro ao carregar — tente novamente</option>';
                 selectMun.disabled = false;
-            }
-        }
-
-        async function buscarUnidadesCNES(codigoMunicipio) {
-            // Tenta buscar no OSM usando o código IBGE para localizar o município
-            try {
-                atualizarProgresso(5, 'Buscando coordenadas do município no IBGE...');
-                const uf = document.getElementById('selectEstado').value;
-                const municipio = municipiosPorEstado[uf]?.find(m => m.id === codigoMunicipio);
-                if (!municipio) return [];
-
-                // Obtém coordenadas via Nominatim se não tiver
-                if (!municipio.latitude || !municipio.longitude) {
-                    const nomeBusca = encodeURIComponent(`${municipio.nome}, ${uf}, Brasil`);
-                    const resp = await fetch(
-                        `https://nominatim.openstreetmap.org/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br`,
-                        { headers: { 'User-Agent': 'SaudeBrasil/2.0 (contato@sus.gov.br)' } }
-                    );
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        if (data.length > 0) {
-                            municipio.latitude = parseFloat(data[0].lat);
-                            municipio.longitude = parseFloat(data[0].lon);
-                            // Estimar área pelo bounding box
-                            if (data[0].boundingbox) {
-                                const bb = data[0].boundingbox.map(Number);
-                                const dLat = Math.abs(bb[1] - bb[0]);
-                                const dLon = Math.abs(bb[3] - bb[2]);
-                                municipio.area_km2 = dLat * 111 * dLon * 111 * Math.cos(municipio.latitude * Math.PI / 180);
-                            }
-                        }
-                    }
-                }
-
-                if (!municipio.latitude) return [];
-
-                atualizarProgresso(10, `Buscando unidades de saúde em ${municipio.nome}...`);
-                return await buscarUnidadesOpenStreetMap(municipio);
-            } catch (err) {
-                console.warn('buscarUnidadesCNES falhou:', err);
-                return [];
             }
         }
 
