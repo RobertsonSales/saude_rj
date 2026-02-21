@@ -1605,32 +1605,37 @@
             OVERPASS:  'https://overpass-api.de/api/interpreter'
         };
 
-        // Mapeamento oficial tp_unidade CNES → perfil/nível de atenção
+        // Mapeamento oficial tp_unidade CNES → perfil-base / nível de atenção.
+        // Para tipos hospitalares (05, 06, 07, 15) o perfil é refinado em
+        // refinarPerfilHospital() com base no nome do estabelecimento.
         const TIPO_UNIDADE = {
-            '01': { perfil: 'Posto de Saúde',                 nivel: 'Primária'   },
-            '02': { perfil: 'Unidade Básica de Saúde',        nivel: 'Primária'   },
-            '04': { perfil: 'Policlínica',                    nivel: 'Primária'   },
-            '05': { perfil: 'Hospital Geral',                 nivel: 'Secundária' },
-            '06': { perfil: 'Hospital Especializado',         nivel: 'Terciária'  },
-            '07': { perfil: 'Hospital Dia',                   nivel: 'Terciária'  },
-            '15': { perfil: 'Unidade Mista',                  nivel: 'Secundária' },
-            '20': { perfil: 'Pronto-Socorro Geral',           nivel: 'Secundária' },
-            '21': { perfil: 'Pronto-Socorro Especializado',   nivel: 'Secundária' },
-            '36': { perfil: 'Clínica Especializada',          nivel: 'Secundária' },
-            '39': { perfil: 'UPA',                            nivel: 'Secundária' },
-            '42': { perfil: 'Centro de Parto Normal',         nivel: 'Secundária' },
-            '67': { perfil: 'Atenção Residencial',            nivel: 'Secundária' },
-            '68': { perfil: 'Ambulatório Especializado',      nivel: 'Secundária' },
-            '69': { perfil: 'Hemocentro / Hemoterapia',       nivel: 'Secundária' },
-            '70': { perfil: 'CAPS',                           nivel: 'Secundária' },
-            '71': { perfil: 'Núcleo NASF',                    nivel: 'Primária'   },
-            '72': { perfil: 'Unidade de Saúde Indígena',      nivel: 'Primária'   },
-            '74': { perfil: 'Academia da Saúde',              nivel: 'Primária'   },
-            '78': { perfil: 'Atenção Domiciliar',             nivel: 'Secundária' },
-            '83': { perfil: 'Polo de Prevenção',              nivel: 'Primária'   },
-            '85': { perfil: 'Centro de Parto Normal',         nivel: 'Secundária' },
-            '86': { perfil: 'Unidade de Saúde da Família',    nivel: 'Primária'   }
+            '01': { perfil: 'Posto de Saúde',               nivel: 'Primária'   },
+            '02': { perfil: 'Unidade Básica de Saúde',      nivel: 'Primária'   },
+            '04': { perfil: 'Policlínica',                  nivel: 'Secundária' }, // ambulatório especializado
+            '05': { perfil: 'Hospital Geral',               nivel: 'Secundária' }, // refinado pelo nome
+            '06': { perfil: 'Hospital Especializado',       nivel: 'Terciária'  }, // refinado pelo nome
+            '07': { perfil: 'Hospital Dia',                 nivel: 'Terciária'  },
+            '15': { perfil: 'Unidade Mista',                nivel: 'Secundária' }, // refinado pelo nome
+            '20': { perfil: 'Pronto-Socorro Geral',         nivel: 'Secundária' },
+            '21': { perfil: 'Pronto-Socorro Especializado', nivel: 'Secundária' },
+            '36': { perfil: 'Clínica Especializada',        nivel: 'Secundária' },
+            '39': { perfil: 'UPA',                          nivel: 'Secundária' },
+            '42': { perfil: 'Centro de Parto Normal',       nivel: 'Secundária' },
+            '67': { perfil: 'Atenção Residencial',          nivel: 'Secundária' },
+            '68': { perfil: 'Ambulatório Especializado',    nivel: 'Secundária' },
+            '69': { perfil: 'Hemocentro / Hemoterapia',     nivel: 'Secundária' },
+            '70': { perfil: 'CAPS',                         nivel: 'Secundária' },
+            '71': { perfil: 'Núcleo NASF',                  nivel: 'Primária'   },
+            '72': { perfil: 'Unidade de Saúde Indígena',    nivel: 'Primária'   },
+            '74': { perfil: 'Academia da Saúde',            nivel: 'Primária'   },
+            '78': { perfil: 'Atenção Domiciliar',           nivel: 'Secundária' },
+            '83': { perfil: 'Polo de Prevenção',            nivel: 'Primária'   },
+            '85': { perfil: 'Centro de Parto Normal',       nivel: 'Secundária' },
+            '86': { perfil: 'Unidade de Saúde da Família',  nivel: 'Primária'   }
         };
+
+        // Tipos hospitalares cujo perfil deve ser refinado pelo nome
+        const TIPOS_HOSPITAL = new Set(['05','06','07','15']);
 
         // Tipos a ocultar (apoio diagnóstico, lab, farmácia, vigilância, etc.)
         const TIPOS_OCULTAR = new Set([
@@ -1746,63 +1751,138 @@
         }
 
         // ============================================
+        // REFINAMENTO DE PERFIL / NÍVEL HOSPITALAR
+        // ============================================
+        // Recebe o nome normalizado e retorna o perfil especializado,
+        // ou null quando não há especialização detectável.
+        function refinarPerfilHospital(nNorm) {
+            if (nNorm.includes('maternidad') || nNorm.includes('obstetr') ||
+                nNorm.includes('perinatal') || nNorm.includes('mulher') ||
+                /mae/.test(nNorm) || nNorm.includes(' mae ') ||
+                nNorm.includes('da mae') || nNorm.includes('matern'))
+                return 'Hospital Maternidade';
+            if (nNorm.includes('infantil') || nNorm.includes('pediatri') ||
+                nNorm.includes('crianca') || nNorm.includes('neonatal') ||
+                nNorm.includes(' da infancia') || nNorm.includes('da crianca'))
+                return 'Hospital Infantil';
+            if (nNorm.includes('oncologi') || nNorm.includes('cancer') ||
+                nNorm.includes('cancro') || /inca/.test(nNorm) ||
+                nNorm.includes('quimio') || nNorm.includes('radioterapia') ||
+                nNorm.includes('cancerologico') || nNorm.includes('cancerol'))
+                return 'Hospital Oncológico';
+            if (nNorm.includes('psiquiatri') || nNorm.includes('saude mental') ||
+                nNorm.includes('neuropsiquiatri') || nNorm.includes('psicossocial'))
+                return 'Hospital Psiquiátrico';
+            if (nNorm.includes('cardiolog') || nNorm.includes('coracao') ||
+                nNorm.includes('cardiovascular') || nNorm.includes('cardio'))
+                return 'Hospital Cardiológico';
+            if (nNorm.includes('ortopedi') || nNorm.includes('traumatol') ||
+                nNorm.includes('reabilitac'))
+                return 'Hospital de Reabilitação';
+            if (nNorm.includes('oftalmolog') || nNorm.includes('olhos') ||
+                nNorm.includes('visao'))
+                return 'Hospital Oftalmológico';
+            if (nNorm.includes('dermatolog'))
+                return 'Hospital Dermatológico';
+            if (nNorm.includes('infectolog') || nNorm.includes('infeccioso') ||
+                nNorm.includes('doenca infecciosa'))
+                return 'Hospital de Doenças Infecciosas';
+            return null; // sem especialidade detectada
+        }
+
+        // Determina o nível de atenção para unidades hospitalares.
+        function refinarNivelHospital(nNorm, esfera, perfil) {
+            // Oncológicos e cardiológicos são sempre alta complexidade
+            if (perfil === 'Hospital Oncológico' || perfil === 'Hospital Cardiológico' ||
+                perfil === 'Hospital de Doenças Infecciosas') return 'Terciária';
+            // Esfera federal ou estadual = referência regional = Terciária
+            if (esfera === '1' || esfera === '2') return 'Terciária';
+            // Palavras que indicam hospital de referência ou alta complexidade
+            if (nNorm.includes('universitari') || nNorm.includes('referencia') ||
+                nNorm.includes('federal') || nNorm.includes('nacional') ||
+                nNorm.includes('estadual') || nNorm.includes('regional') ||
+                nNorm.includes('instituto') || nNorm.includes('complexo') ||
+                nNorm.includes('inca')) return 'Terciária';
+            return null; // manter nível-base da tabela
+        }
+
+        // ============================================
         // CLASSIFICAÇÃO — CNES (por tipo oficial)
         // ============================================
         function classificarPorTipo(tp, nome, esfera) {
             const tpStr = String(tp || '').padStart(2, '0');
             if (TIPO_UNIDADE[tpStr]) {
                 const c = { ...TIPO_UNIDADE[tpStr] };
-                // Hospitais federais/estaduais sobem para Terciária
-                if (c.nivel === 'Secundária' && c.perfil.includes('Hospital') &&
-                    (esfera === '1' || esfera === '2')) c.nivel = 'Terciária';
+                // Para tipos hospitalares, refina o perfil pelo nome
+                if (TIPOS_HOSPITAL.has(tpStr)) {
+                    const nNorm = norm(nome);
+                    const perfilRefinado = refinarPerfilHospital(nNorm);
+                    if (perfilRefinado) c.perfil = perfilRefinado;
+                    const nivelRefinado = refinarNivelHospital(nNorm, esfera, c.perfil);
+                    if (nivelRefinado) c.nivel = nivelRefinado;
+                }
                 return c;
             }
-            // Fallback por nome (para dados sem tp_unidade)
+            // Fallback por nome (registros sem tp_unidade)
             return classificarPorNome(nome, esfera);
         }
 
         function classificarPorNome(nome, esfera) {
             const n = norm(nome);
-            if (n.includes('upa') || n.includes('pronto atendimento'))
+
+            // ── Primária — verificar ANTES de qualquer outra categoria ──────
+            // Siglas e nomes inequívocos de APS (Atenção Primária à Saúde)
+            if (/ubs/.test(n) || /ubsf/.test(n) || /usf/.test(n) ||
+                /psf/.test(n) || /pab/.test(n))
+                return { perfil: 'Unidade Básica de Saúde', nivel: 'Primária' };
+            if (n.includes('saude da familia') || n.includes('saúde da família') ||
+                n.includes('estrategia saude') || n.includes('esf '))
+                return { perfil: 'Unidade de Saúde da Família', nivel: 'Primária' };
+            if (n.includes('clinica da familia') || n.includes('clínica da família') ||
+                n.includes('clinica de saude da familia'))
+                return { perfil: 'Clínica da Família', nivel: 'Primária' };
+            if ((n.includes('posto') && n.includes('saude')) ||
+                n.includes('posto de saude') || n.includes('posta de saude'))
+                return { perfil: 'Posto de Saúde', nivel: 'Primária' };
+            if ((n.includes('centro') && n.includes('saude') && !n.includes('hospital') && !n.includes('especializ')) ||
+                /cms/.test(n) || /csf/.test(n))
+                return { perfil: 'Centro de Saúde', nivel: 'Primária' };
+            if (/nasf/.test(n))
+                return { perfil: 'Núcleo NASF', nivel: 'Primária' };
+            if (n.includes('academia da saude') || n.includes('academia saude'))
+                return { perfil: 'Academia da Saúde', nivel: 'Primária' };
+
+            // ── Secundária — UPA / Urgência ──────────────────────────────────
+            if (/upa/.test(n) || n.includes('unidade de pronto atendimento'))
                 return { perfil: 'UPA', nivel: 'Secundária' };
-            if (n.includes('pronto-socorro') || n.includes('pronto socorro'))
+            if (n.includes('pronto-socorro') || n.includes('pronto socorro') ||
+                n.includes('pronto atendimento') ||
+                (n.includes('urgencia') && !n.includes('hospital')))
                 return { perfil: 'Pronto-Socorro', nivel: 'Secundária' };
-            if (n.includes('caps')) return { perfil: 'CAPS', nivel: 'Secundária' };
-            if (n.includes('hemocentro') || n.includes('hemoterapia'))
+
+            // ── Secundária — tipos específicos ────────────────────────────────
+            if (/caps/.test(n) || n.includes('caps ad') || n.includes('caps i') ||
+                n.includes('caps ii') || n.includes('caps iii'))
+                return { perfil: 'CAPS', nivel: 'Secundária' };
+            if (n.includes('hemocentro') || n.includes('hemoterapia') || n.includes('hematolog'))
                 return { perfil: 'Hemocentro / Hemoterapia', nivel: 'Secundária' };
-            if (n.includes('hospital')) {
-                let perfil = 'Hospital Geral';
-                let nivel  = 'Secundária';
-                if (n.includes('maternidad') || n.includes(' mae') || n.includes('da mae') ||
-                    n.includes('obstetri') || n.includes('mulher') || n.includes('perinatal') ||
-                    n.includes('matern'))
-                    perfil = 'Hospital Maternidade';
-                else if (n.includes('infantil') || n.includes('pediatri') || n.includes('crianca'))
-                    perfil = 'Hospital Infantil';
-                else if (n.includes('psiquiatri') || n.includes('mental'))
-                    perfil = 'Hospital Psiquiátrico';
-                else if (n.includes('oncologi') || n.includes('cancer') || n.includes('inca'))
-                    { perfil = 'Hospital Oncológico'; nivel = 'Terciária'; }
-                if (nivel === 'Secundária' && (
-                    n.includes('universitari') || n.includes('referencia') || n.includes('federal') ||
-                    n.includes('estadual') || n.includes('regional') || n.includes('instituto') ||
-                    n.includes('nacional') || n.includes('complexo') ||
-                    esfera === '1' || esfera === '2'))
-                    nivel = 'Terciária';
+            if (n.includes('policlinica') || n.includes('policlínica') || n.includes('poli clinica'))
+                return { perfil: 'Policlínica', nivel: 'Secundária' };
+            if (n.includes('ambulatorio') || n.includes('ambulatório'))
+                return { perfil: 'Ambulatório Especializado', nivel: 'Secundária' };
+            if (n.includes('clinica') && !n.includes('familia') && !n.includes('saude'))
+                return { perfil: 'Clínica Especializada', nivel: 'Secundária' };
+
+            // ── Hospitais — perfil e nível refinados pelo nome ────────────────
+            if (n.includes('hospital') || n.includes('hosp ')) {
+                const perfilRef = refinarPerfilHospital(n);
+                const perfil    = perfilRef || 'Hospital Geral';
+                const nivelRef  = refinarNivelHospital(n, esfera, perfil);
+                const nivel     = nivelRef  || 'Secundária';
                 return { perfil, nivel };
             }
-            if (n.includes('policlinica') || n.includes('policlínica'))
-                return { perfil: 'Policlínica', nivel: 'Primária' };
-            if (n.includes('ubs') || n.includes('ubsf') || n.includes('usf') || n.includes('psf'))
-                return { perfil: 'Unidade Básica de Saúde', nivel: 'Primária' };
-            if (n.includes('posto de saude') || n.includes('posto saude'))
-                return { perfil: 'Posto de Saúde', nivel: 'Primária' };
-            if (n.includes('centro de saude') || n.includes('cms ') || n.includes('centro saude'))
-                return { perfil: 'Centro de Saúde', nivel: 'Primária' };
-            if (n.includes('ambulatorio') || n.includes('ambulatório'))
-                return { perfil: 'Ambulatório', nivel: 'Secundária' };
-            if (n.includes('clinica')) return { perfil: 'Clínica Especializada', nivel: 'Secundária' };
-            return null;
+
+            return null; // não classificável
         }
 
         // ============================================
@@ -1810,51 +1890,71 @@
         // ============================================
         function classificarOSM(tags, nome) {
             const healthcare = tags.healthcare || tags.amenity;
-            const n = norm(nome + ' ' + (tags.description || ''));
+            const n          = norm(nome + ' ' + (tags.description || ''));
+            const opNorm     = norm(tags.operator || '');
 
+            // Deve ser um estabelecimento de saúde reconhecível
             if (!healthcare &&
-                !n.includes('hospital') && !n.includes('clinica') &&
-                !n.includes('upa') && !n.includes('posto') && !n.includes('ubs') &&
-                !n.includes('caps') && !n.includes('policlinica')) return null;
+                !n.includes('hospital') && !n.includes('hosp ') &&
+                !n.includes('clinica') && !n.includes('upa') &&
+                !n.includes('posto de saude') && !n.includes('posto saude') &&
+                !n.includes('ubs') && !n.includes('usf') && !n.includes('psf') &&
+                !n.includes('caps') && !n.includes('policlinica') &&
+                !n.includes('saude da familia') && !n.includes('pronto')) return null;
 
-            // Verificar vínculo SUS — recusar privados não vinculados
             if (!isSUSporOSM(tags, n)) return null;
 
-            // UPA/Urgência tem prioridade
-            if (n.includes('upa') || (n.includes('urgencia') && !n.includes('hospital')) ||
-                n.includes('pronto atendimento') || n.includes('pronto-socorro'))
-                return { perfil: n.includes('upa') ? 'UPA' : 'Pronto-Socorro', nivel: 'Secundária' };
+            // ── Primária — verificar antes de tudo ───────────────────────────
+            if (n.includes('saude da familia') || n.includes('clinica da familia') ||
+                n.includes('estrategia saude') || /esf/.test(n))
+                return { perfil: 'Unidade de Saúde da Família', nivel: 'Primária' };
+            if (/ubs/.test(n) || /ubsf/.test(n) || /usf/.test(n) || /psf/.test(n))
+                return { perfil: 'Unidade Básica de Saúde', nivel: 'Primária' };
+            if ((n.includes('posto') && n.includes('saude')) ||
+                healthcare === 'health_post')
+                return { perfil: 'Posto de Saúde', nivel: 'Primária' };
+            if ((n.includes('centro') && n.includes('saude') && !n.includes('hospital')) ||
+                healthcare === 'health_centre' || /cms/.test(n))
+                return { perfil: 'Centro de Saúde', nivel: 'Primária' };
 
-            if (n.includes('caps')) return { perfil: 'CAPS', nivel: 'Secundária' };
+            // ── Urgência / Secundária ─────────────────────────────────────────
+            if (/upa/.test(n) || n.includes('unidade de pronto atendimento'))
+                return { perfil: 'UPA', nivel: 'Secundária' };
+            if (n.includes('pronto-socorro') || n.includes('pronto socorro') ||
+                (n.includes('urgencia') && !n.includes('hospital')))
+                return { perfil: 'Pronto-Socorro', nivel: 'Secundária' };
+            if (/caps/.test(n))
+                return { perfil: 'CAPS', nivel: 'Secundária' };
             if (n.includes('hemocentro') || n.includes('hemoterapia'))
                 return { perfil: 'Hemocentro / Hemoterapia', nivel: 'Secundária' };
+            if (n.includes('policlinica') || n.includes('policlínica'))
+                return { perfil: 'Policlínica', nivel: 'Secundária' };
+            if (n.includes('ambulatorio'))
+                return { perfil: 'Ambulatório Especializado', nivel: 'Secundária' };
 
-            if (healthcare === 'hospital' || n.includes('hospital')) {
-                let perfil = 'Hospital Geral', nivel = 'Secundária';
-                if (n.includes('maternidad') || n.includes(' mae') || n.includes('da mae') ||
-                    n.includes('obstetri') || n.includes('mulher') || n.includes('perinatal'))
-                    perfil = 'Hospital Maternidade';
-                else if (n.includes('infantil') || n.includes('pediatri')) perfil = 'Hospital Infantil';
-                else if (n.includes('psiquiatri') || n.includes('mental')) perfil = 'Hospital Psiquiátrico';
-                else if (n.includes('oncologi') || n.includes('inca')) { perfil = 'Hospital Oncológico'; nivel = 'Terciária'; }
-                if (nivel !== 'Terciária' && (
-                    n.includes('universitari') || n.includes('referencia') || n.includes('federal') ||
-                    n.includes('estadual') || n.includes('regional') || n.includes('instituto') ||
-                    n.includes('nacional') || n.includes('complexo') ||
-                    norm(tags.operator || '').includes('federal') ||
-                    norm(tags.operator || '').includes('estadual')))
-                    nivel = 'Terciária';
+            // ── Hospitais — refinamento completo ─────────────────────────────
+            if (healthcare === 'hospital' || n.includes('hospital') || n.includes('hosp ')) {
+                const perfilRef = refinarPerfilHospital(n);
+                const perfil    = perfilRef || 'Hospital Geral';
+                // Também considera o operador para determinar a esfera
+                const esfOSM = (opNorm.includes('federal') || opNorm.includes('ministerio')) ? '1'
+                             : (opNorm.includes('estadual') || opNorm.includes('governo do estado')) ? '2' : '';
+                const nivelRef  = refinarNivelHospital(n, esfOSM, perfil);
+                const nivel     = nivelRef || 'Secundária';
                 return { perfil, nivel };
             }
+
+            // ── Clínica genérica ──────────────────────────────────────────────
             if (healthcare === 'clinic' || n.includes('clinica'))
                 return { perfil: 'Clínica Especializada', nivel: 'Secundária' };
-            if (healthcare === 'health_post' || n.includes('posto') || n.includes('ubs') || n.includes('psf'))
-                return { perfil: 'Posto de Saúde', nivel: 'Primária' };
-            if (healthcare === 'health_centre' || n.includes('centro de saude') || n.includes('policlinica'))
-                return { perfil: 'Centro de Saúde', nivel: 'Primária' };
-            if (n.includes('ambulatorio')) return { perfil: 'Ambulatório', nivel: 'Secundária' };
 
-            return { perfil: 'Unidade de Saúde', nivel: 'Primária' };
+            // ── Outros tipos healthcare mapeáveis ─────────────────────────────
+            if (healthcare === 'dialysis')
+                return { perfil: 'Clínica de Diálise', nivel: 'Secundária' };
+            if (healthcare === 'rehabilitation')
+                return { perfil: 'Centro de Reabilitação', nivel: 'Secundária' };
+
+            return null; // não classificável
         }
 
         function isSUSporOSM(tags, nNorm) {
