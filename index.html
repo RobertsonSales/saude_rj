@@ -1630,6 +1630,11 @@
             'sample_collection|physiotherapist|psychotherapist|audiologist|' +
             'alternative|medical_imaging|blood_donation|veterinary';
 
+        // Palavras-chave para classificação
+        const PALAVRAS_PRIMARIA = ['posto', 'ubs', 'psf', 'centro de saude', 'cms', 'clinica da familia', 'policlinica', 'ambulatorio'];
+        const PALAVRAS_SECUNDARIA = ['upa', 'pronto socorro', 'pronto atendimento', 'pam', 'cri', 'caps', 'cer', 'policlinica'];
+        const PALAVRAS_TERCIARIA = ['hospital', 'hosp', 'maternidade', 'instituto', 'federal', 'universitario', 'referencia', 'oncologia', 'cancer', 'inca'];
+
         // ============================================
         // FUNÇÕES AUXILIARES
         // ============================================
@@ -1709,67 +1714,86 @@
         }
 
         // ============================================
-        // CLASSIFICAÇÃO CORRIGIDA
+        // CLASSIFICAÇÃO CORRIGIDA E UNIFICADA
         // ============================================
-        function classificar(tags, nome) {
+        function classificarUnidade(tags, nome) {
             const healthcare = tags.healthcare || tags.amenity;
-            const n = norm(nome + (tags.description || ''));
-            if (!healthcare && !n.includes('hospital') && !n.includes('clinica') && !n.includes('upa') && !n.includes('posto') && !n.includes('ubs') && !n.includes('caps') && !n.includes('cri') && !n.includes('policlinica')) return null;
+            const n = norm(nome + ' ' + (tags.description || ''));
+            
+            // Verificar se é estabelecimento de saúde
+            if (!healthcare && !n.includes('hospital') && !n.includes('clinica') && !n.includes('upa') && !n.includes('posto') && !n.includes('ubs') && !n.includes('caps') && !n.includes('cri') && !n.includes('policlinica')) {
+                return null;
+            }
 
-            // Verificar se é estabelecimento SUS — excluir privados sem vínculo aparente
+            // Verificar se é público (SUS)
             const operador = (tags.operator || tags['operator:type'] || tags.ownership || '').toLowerCase();
             const acessoTag = (tags.access || '').toLowerCase();
+            
+            // Excluir claramente privados
             if (acessoTag === 'private') return null;
-            if (operador && (operador.includes('privad') || operador.includes('particular')) && !operador.includes('sus') && !operador.includes('federal') && !operador.includes('estadual') && !operador.includes('municipal')) return null;
+            if (operador && (operador.includes('privad') || operador.includes('particular')) && 
+                !operador.includes('sus') && !operador.includes('federal') && 
+                !operador.includes('estadual') && !operador.includes('municipal')) {
+                return null;
+            }
 
-            let perfil = 'Hospital Geral';
-            let nivel = 'Secundária';
-
-            // UPA/Urgência tem prioridade antes de hospital genérico
-            if (n.includes('upa') || (n.includes('urgencia') && !n.includes('hospital')) || n.includes('pronto atendimento') || n.includes('pronto socorro')) {
+            // Determinar perfil primeiro
+            let perfil = 'Unidade de Saúde';
+            
+            if (n.includes('upa') || n.includes('pronto atendimento') || n.includes('pronto socorro')) {
                 perfil = n.includes('upa') ? 'UPA' : 'Pronto-Socorro';
-                nivel = 'Secundária';
-            } else if (healthcare === 'hospital' || n.includes('hospital')) {
-                if (n.includes('maternidad') || n.includes('mulher') || n.includes(' mae') || n.includes('da mae') || n.includes('matern') || n.includes('obstetri') || n.includes('perinatal')) perfil = 'Hospital Maternidade';
-                else if (n.includes('infantil') || n.includes('crianca') || n.includes('pediatri')) perfil = 'Hospital Infantil';
-                else if (n.includes('oncologi') || n.includes('cancer') || n.includes('inca')) perfil = 'Hospital Oncológico';
-                else if (n.includes('psiquiatri') || n.includes('mental') || n.includes('naps') || n.includes('caps')) perfil = 'Hospital Psiquiátrico';
-                else if (n.includes('especializad') || n.includes('ortopedi') || n.includes('cardiolog') || n.includes('neurologica')) perfil = 'Hospital Especializado';
-                
-                // CRITÉRIOS CLAROS PARA ATENÇÃO TERCIÁRIA
-                const palavrasTerciaria = ['universitari', 'referencia', 'federal', 'instituto', 'nacional', 'complexo'];
-                const palavrasSecundaria = ['regional', 'estadual', 'municipal', 'geral', 'distrital'];
-                
-                if (palavrasTerciaria.some(p => n.includes(p)) || 
-                    (operador.includes('federal') && !n.includes('regional'))) {
-                    nivel = 'Terciária';
-                } else if (palavrasSecundaria.some(p => n.includes(p)) || 
-                          operador.includes('estadual') || 
-                          operador.includes('municipal')) {
-                    nivel = 'Secundária';
-                } else {
-                    // Por padrão, classificar hospitais sem indicadores claros como secundários
-                    nivel = 'Secundária';
-                }
-            } else if (healthcare === 'clinic' || n.includes('clinica')) {
-                perfil = 'Clínica Médica';
-                nivel = 'Primária';
-            } else if (healthcare === 'health_post' || n.includes('posto') || n.includes('ubs') || n.includes('psf')) {
-                perfil = 'Posto de Saúde';
-                nivel = 'Primária';
-            } else if (healthcare === 'health_centre' || n.includes('centro de saude') || n.includes('policlinica') || n.includes('cms')) {
-                perfil = 'Centro de Saúde';
-                nivel = 'Primária';
-            } else if (n.includes('caps') || n.includes('cri') || n.includes('caps ad') || n.includes('saude mental')) {
+            } else if (n.includes('hospital') || healthcare === 'hospital') {
+                if (n.includes('maternidade') || n.includes('matern')) perfil = 'Hospital Maternidade';
+                else if (n.includes('infantil') || n.includes('crianca') || n.includes('pediatria')) perfil = 'Hospital Infantil';
+                else if (n.includes('oncologia') || n.includes('cancer') || n.includes('inca')) perfil = 'Hospital Oncológico';
+                else if (n.includes('psiquiatria') || n.includes('mental') || n.includes('naps')) perfil = 'Hospital Psiquiátrico';
+                else if (n.includes('especializado') || n.includes('ortopedia') || n.includes('cardiologia')) perfil = 'Hospital Especializado';
+                else perfil = 'Hospital Geral';
+            } else if (n.includes('caps') || n.includes('cri') || n.includes('saude mental')) {
                 perfil = 'CAPS';
-                nivel = 'Secundária';
+            } else if (n.includes('policlinica') || healthcare === 'polyclinic') {
+                perfil = 'Policlínica';
+            } else if (n.includes('clinica') || healthcare === 'clinic') {
+                perfil = 'Clínica';
+            } else if (n.includes('ubs') || n.includes('posto') || healthcare === 'health_post') {
+                perfil = 'UBS';
+            } else if (n.includes('centro de saude') || healthcare === 'health_centre') {
+                perfil = 'Centro de Saúde';
             } else if (n.includes('ambulatorio')) {
                 perfil = 'Ambulatório';
-                nivel = 'Primária';
-            } else if (n.includes('laboratorio')) {
-                return null; // Excluir
-            } else {
-                perfil = 'Unidade de Saúde';
+            }
+
+            // Determinar nível de atenção baseado no perfil e palavras-chave
+            let nivel = 'Primária'; // Padrão
+            
+            // Atenção Terciária (hospitais de alta complexidade)
+            if (perfil.includes('Hospital') || n.includes('hospital')) {
+                // Palavras que indicam alta complexidade/terciária
+                const palavrasAltaComplexidade = [
+                    'universitario', 'federal', 'instituto', 'nacional', 'referencia',
+                    'oncologia', 'cancer', 'inca', 'cardio', 'neuro', 'transplante',
+                    'queimado', 'trauma', 'alta complexidade', 'terciario'
+                ];
+                
+                if (palavrasAltaComplexidade.some(p => n.includes(p))) {
+                    nivel = 'Terciária';
+                } else {
+                    // Hospitais gerais são secundários por padrão
+                    nivel = 'Secundária';
+                }
+            }
+            // Atenção Secundária (UPAs, CAPS, pronto-socorros)
+            else if (perfil.includes('UPA') || perfil.includes('Pronto-Socorro') || 
+                     perfil.includes('CAPS') || perfil.includes('Policlínica') ||
+                     n.includes('upa') || n.includes('pronto atendimento') || 
+                     n.includes('pam') || n.includes('cri') || n.includes('cer')) {
+                nivel = 'Secundária';
+            }
+            // Atenção Primária (UBS, postos, centros de saúde, ambulatórios, clínicas)
+            else if (perfil.includes('UBS') || perfil.includes('Posto') || 
+                     perfil.includes('Centro de Saúde') || perfil.includes('Ambulatório') ||
+                     perfil.includes('Clínica') || healthcare === 'clinic' ||
+                     healthcare === 'health_post' || healthcare === 'health_centre') {
                 nivel = 'Primária';
             }
 
@@ -1778,13 +1802,40 @@
 
         function determinarAcolhimento(u) {
             const n = norm(u.nome + u.perfil);
-            if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia')) return 'urgente';
-            if (n.includes('especializad')) return 'especializado';
-            if (n.includes('samu')) return 'samu';
-            if (n.includes('hemoterapia') || n.includes('sangue')) return 'hemoterapia';
-            if (n.includes('psiquiatri') || n.includes('mental')) return 'psiquiatria';
-            if (n.includes('transferencia')) return 'transferencia';
-            if (n.includes('urgencia especializad')) return 'urgencia_especializada';
+            
+            // Urgência/Emergência
+            if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia') || 
+                n.includes('pronto socorro') || n.includes('pronto atendimento')) {
+                return 'urgente';
+            }
+            // Urgência Especializada
+            if (n.includes('urgencia especializad') || (n.includes('urgencia') && 
+                (n.includes('cardio') || n.includes('neuro') || n.includes('trauma')))) {
+                return 'urgencia_especializada';
+            }
+            // Atendimento Especializado
+            if (n.includes('especializad') || n.includes('referencia') || 
+                n.includes('ambulatorio especialidades')) {
+                return 'especializado';
+            }
+            // SAMU
+            if (n.includes('samu') || n.includes('siat')) {
+                return 'samu';
+            }
+            // Hemoterapia
+            if (n.includes('hemoterapia') || n.includes('hemocentro') || n.includes('sangue')) {
+                return 'hemoterapia';
+            }
+            // Psiquiatria/Saúde Mental
+            if (n.includes('psiquiatria') || n.includes('mental') || n.includes('caps')) {
+                return 'psiquiatria';
+            }
+            // Transferência
+            if (n.includes('transferencia') || n.includes('admissao')) {
+                return 'transferencia';
+            }
+            
+            // Padrão: Ambulatorial
             return 'ambulatorial';
         }
 
@@ -1821,8 +1872,9 @@
         // ============================================
         function montarUnidade(tags, lat, lon, osmId, osmType, distancia) {
             const nome = (tags.name || tags['name:pt'] || '').trim();
-            if (!nome) return null; // Ignorar unidades sem nome identificável
-            const classif = classificar(tags, nome);
+            if (!nome) return null;
+            
+            const classif = classificarUnidade(tags, nome);
             if (!classif) return null;
 
             return {
@@ -1838,9 +1890,10 @@
                 osmType,
                 website: tags.website || tags['contact:website'] || tags['contact:url'] || '',
                 distancia,
-                acolhimento: 'ambulatorial', // Será atualizado depois
-                gestao: tags.operator ? (norm(tags.operator).includes('federal') ? 'Federal' : norm(tags.operator).includes('estadual') ? 'Estadual' : 'Municipal') : 'Municipal',
-                cnes: tags['ref:CNES'] || tags['ref:cnes'] || '' // Apenas CNES real informado no OSM
+                acolhimento: 'ambulatorial',
+                gestao: tags.operator ? (norm(tags.operator).includes('federal') ? 'Federal' : 
+                         norm(tags.operator).includes('estadual') ? 'Estadual' : 'Municipal') : 'Municipal',
+                cnes: tags['ref:CNES'] || tags['ref:cnes'] || ''
             };
         }
 
@@ -1890,13 +1943,17 @@
                 const municipio = municipiosPorEstado[uf]?.find(m => m.id === codigoMunicipio);
                 if (!municipio) throw new Error('Município não encontrado');
 
-                // Buscar unidades
+                // Buscar coordenadas do município se necessário
+                if (!municipio.latitude || !municipio.longitude) {
+                    await buscarCoordenadasMunicipio(municipio, uf);
+                }
+
+                // Buscar unidades no OpenStreetMap
                 let unidades = await buscarUnidadesOpenStreetMap(municipio);
 
                 atualizarProgresso(92, 'Finalizando resultados...');
 
                 if (unidades.length === 0) {
-                    // Manter estado e município selecionados para nova tentativa
                     mostrarAlerta('warning', 'Nenhuma unidade encontrada',
                         'Não foram encontradas unidades de saúde para este município. Tente novamente ou selecione outro município.');
                     ocultarLoading();
@@ -1926,6 +1983,31 @@
                 mostrarAlerta('error', 'Erro na busca',
                     'Não foi possível consultar os dados. Tente novamente mais tarde.');
                 ocultarLoading();
+            }
+        }
+
+        async function buscarCoordenadasMunicipio(municipio, uf) {
+            try {
+                const nomeBusca = encodeURIComponent(`${municipio.nome}, ${uf}, Brasil`);
+                const resp = await fetch(
+                    `https://nominatim.openstreetmap.org/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br`,
+                    { headers: { 'User-Agent': 'SaudeBrasil/2.0 (contato@sus.gov.br)' } }
+                );
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.length > 0) {
+                        municipio.latitude = parseFloat(data[0].lat);
+                        municipio.longitude = parseFloat(data[0].lon);
+                        if (data[0].boundingbox) {
+                            const bb = data[0].boundingbox.map(Number);
+                            const dLat = Math.abs(bb[1] - bb[0]);
+                            const dLon = Math.abs(bb[3] - bb[2]);
+                            municipio.area_km2 = dLat * 111 * dLon * 111 * Math.cos(municipio.latitude * Math.PI / 180);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Erro ao buscar coordenadas:', e);
             }
         }
 
@@ -2112,7 +2194,7 @@ out center tags;`;
         }
 
         async function buscarUnidadesProximas(lat, lon) {
-            const raio = 6000;
+            const raio = 6000; // 6km em metros
 
             const excl = OVERPASS_EXCLUIR;
             const query = `
@@ -2156,7 +2238,7 @@ out center tags;
             }
 
             atualizarProgresso(60, 'Identificando município de referência...');
-            let cidadeRef = 'Rio de Janeiro';
+            let cidadeRef = '';
             try {
                 const urlRef = `https://nominatim.openstreetmap.org/reverse` +
                     `?lat=${lat}&lon=${lon}&format=json&zoom=10` +
@@ -2167,7 +2249,7 @@ out center tags;
                 if (resp.ok) {
                     const data = await resp.json();
                     const addr = data.address || {};
-                    cidadeRef = addr.city || addr.town || addr.municipality || addr.county || cidadeRef;
+                    cidadeRef = addr.city || addr.town || addr.municipality || addr.county || '';
                 }
             } catch(e) { console.warn('Nominatim ref falhou:', e); }
 
@@ -2408,7 +2490,7 @@ out center tags;
                     <div class="category-card fade-in">
                         <button class="category-header ${classe}" onclick="toggleCategoria('${nivel}')">
                             <div class="category-title">
-                                <span>🏥</span>
+                                <span>${nivel === 'Primária' ? '🏥' : nivel === 'Secundária' ? '🚑' : '🏨'}</span>
                                 <span>Atenção ${nivel}</span>
                                 <span class="category-count">${unidades.length}</span>
                             </div>
@@ -2435,9 +2517,10 @@ out center tags;
             
             const textoWhatsApp = encodeURIComponent(
                 `*${u.nome}*\n` +
-                `📍 ${u.endereco}\n` +
-                `📞 ${u.telefone}\n` +
+                `📍 ${u.endereco || 'Endereço não informado'}\n` +
+                `📞 ${u.telefone || 'Telefone não informado'}\n` +
                 `🏥 ${u.perfil}\n` +
+                `🏥 Nível: ${u.nivel}\n` +
                 `🚨 ${acolhimentoTexto}\n` +
                 `🗺️ https://www.google.com/maps?q=${u.lat},${u.lon}`
             );
