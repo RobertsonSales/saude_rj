@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saúde Rio - Unidades de Saúde do Rio de Janeiro</title>
+    <title>Saúde Brasil - Unidades de Saúde do Brasil</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1326,8 +1326,8 @@
                     <span>🏥</span>
                     <span>Unidades Hospitalares Públicas</span>
                 </div>
-                <h1>Unidades de Saúde no Rio de Janeiro</h1>
-                <p>Ao clicar em "Buscar Perto de Mim", encontre unidades com canais de contato e localização na WEB, num raio de até 6km. Ou então, escolha um município.</p>
+                <h1>Unidades de Saúde no Brasil</h1>
+                <p>Ao clicar em "Buscar Perto de Mim", encontre unidades com canais de contato e localização na WEB, num raio de até 6km. Ou então, escolha um estado e município.</p>
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="abrirModalMunicipio()">
                         <span>🔍</span>
@@ -1375,7 +1375,7 @@
         <!-- Alert Section -->
         <div id="alertSection" class="hidden"></div>
 
-        <!-- Stats -->
+        <!-- Stats Grid -->
         <div id="statsSection" class="stats-grid hidden">
             <div class="stat-card total">
                 <div class="stat-label">📋 Total de Unidades</div>
@@ -1408,6 +1408,15 @@
                 </button>
             </div>
             <div class="filter-grid">
+                <div class="filter-group">
+                    <label class="filter-label">
+                        <span>🇧🇷</span>
+                        Estado
+                    </label>
+                    <select id="filtroEstado" class="filter-select" onchange="atualizarCidadesFiltros()">
+                        <option value="">Todos os estados</option>
+                    </select>
+                </div>
                 <div class="filter-group">
                     <label class="filter-label">
                         <span>🏥</span>
@@ -1470,7 +1479,7 @@
             <div class="empty-state">
                 <div class="empty-state-icon">🏥</div>
                 <h3>Dados em Tempo Real do CNES</h3>
-                <p>Clique em "Buscar por Município" para consultar as unidades de saúde reais do Rio de Janeiro diretamente do DATASUS.</p>
+                <p>Clique em "Buscar por Município" para consultar as unidades de saúde reais do Brasil diretamente do DATASUS.</p>
             </div>
            <!-- Info Banner -->
            <div class="info-banner">
@@ -1483,7 +1492,7 @@
         <!-- Footer -->
         <footer class="footer">
             <p>Dados fornecidos pelo CNES/DATASUS - Ministério da Saúde</p>
-            <p>© 2026 Saúde Rio - Todos os direitos reservados</p>
+            <p>© 2026 Saúde Brasil - Todos os direitos reservados</p>
         </footer>
     </div>
 
@@ -1496,14 +1505,20 @@
                     Selecione o Município
                 </div>
                 <div class="modal-description">
-                    Escolha o município para buscar as unidades de saúde no CNES.
+                    Escolha o estado e município para buscar as unidades de saúde no CNES.
                 </div>
             </div>
             <div class="modal-body">
                 <div class="filter-group">
+                    <label class="filter-label">Estado</label>
+                    <select id="selectEstado" class="filter-select" onchange="carregarMunicipios()">
+                        <option value="">Selecione um estado</option>
+                    </select>
+                </div>
+                <div class="filter-group">
                     <label class="filter-label">Município</label>
-                    <select id="selectMunicipio" class="filter-select">
-                        <option value="">Carregando municípios...</option>
+                    <select id="selectMunicipio" class="filter-select" disabled>
+                        <option value="">Selecione um estado primeiro</option>
                     </select>
                 </div>
                 <div class="api-status success">
@@ -1590,445 +1605,188 @@
                 ENDPOINT: 'https://nominatim.openstreetmap.org',
                 EMAIL: 'contato@susrio.gov.br'
             },
-            VIACEP: 'https://viacep.com.br/ws'
+            VIACEP: 'https://viacep.com.br/ws',
+            IBGE: 'https://servicodados.ibge.gov.br/api/v1/localidades'
         };
-
-        // ============================================
-        // DADOS DOS MUNICÍPIOS DO RJ (IBGE) - COMPLETO
-        // ============================================
-        const municipiosRJ = [
-            { codigo_ibge: "3300109", nome: "Angra dos Reis", latitude: -23.0011, longitude: -44.3196, area_km2: 825 },
-            { codigo_ibge: "3300158", nome: "Aperibé", latitude: -21.6252, longitude: -42.1017, area_km2: 95 },
-            { codigo_ibge: "3300208", nome: "Araruama", latitude: -22.8697, longitude: -42.3326, area_km2: 638 },
-            { codigo_ibge: "3300224", nome: "Areal", latitude: -22.2283, longitude: -43.1056, area_km2: 111 },
-            { codigo_ibge: "3300232", nome: "Armação dos Búzios", latitude: -22.7528, longitude: -41.8846, area_km2: 70 },
-            { codigo_ibge: "3300257", nome: "Arraial do Cabo", latitude: -22.9774, longitude: -42.0267, area_km2: 152 },
-            { codigo_ibge: "3300307", nome: "Barra do Piraí", latitude: -22.4715, longitude: -43.8269, area_km2: 578 },
-            { codigo_ibge: "3300406", nome: "Barra Mansa", latitude: -22.5481, longitude: -44.1752, area_km2: 548 },
-            { codigo_ibge: "3300455", nome: "Belford Roxo", latitude: -22.7640, longitude: -43.3992, area_km2: 79 },
-            { codigo_ibge: "3300505", nome: "Bom Jardim", latitude: -22.1545, longitude: -42.4251, area_km2: 385 },
-            { codigo_ibge: "3300604", nome: "Bom Jesus do Itabapoana", latitude: -21.1449, longitude: -41.6822, area_km2: 598 },
-            { codigo_ibge: "3300703", nome: "Cabo Frio", latitude: -22.8894, longitude: -42.0286, area_km2: 410 },
-            { codigo_ibge: "3300802", nome: "Cachoeiras de Macacu", latitude: -22.4658, longitude: -42.6523, area_km2: 954 },
-            { codigo_ibge: "3300901", nome: "Cambuci", latitude: -21.5691, longitude: -41.9187, area_km2: 561 },
-            { codigo_ibge: "3300935", nome: "Carapebus", latitude: -22.1821, longitude: -41.6630, area_km2: 306 },
-            { codigo_ibge: "3300950", nome: "Comendador Levy Gasparian", latitude: -22.0284, longitude: -43.3090, area_km2: 107 },
-            { codigo_ibge: "3301008", nome: "Campos dos Goytacazes", latitude: -21.7622, longitude: -41.3181, area_km2: 4032 },
-            { codigo_ibge: "3301107", nome: "Cantagalo", latitude: -21.9797, longitude: -42.3664, area_km2: 749 },
-            { codigo_ibge: "3301156", nome: "Cardoso Moreira", latitude: -21.4848, longitude: -41.6157, area_km2: 514 },
-            { codigo_ibge: "3301206", nome: "Carmo", latitude: -21.9310, longitude: -42.6046, area_km2: 321 },
-            { codigo_ibge: "3301305", nome: "Casimiro de Abreu", latitude: -22.4812, longitude: -42.2066, area_km2: 461 },
-            { codigo_ibge: "3301404", nome: "Conceição de Macabu", latitude: -22.0834, longitude: -41.8719, area_km2: 348 },
-            { codigo_ibge: "3301503", nome: "Cordeiro", latitude: -22.0267, longitude: -42.3648, area_km2: 116 },
-            { codigo_ibge: "3301602", nome: "Duque de Caxias", latitude: -22.7858, longitude: -43.3049, area_km2: 465 },
-            { codigo_ibge: "3301701", nome: "Engenheiro Paulo de Frontin", latitude: -22.5495, longitude: -43.6827, area_km2: 132 },
-            { codigo_ibge: "3301800", nome: "Guapimirim", latitude: -22.5342, longitude: -42.9895, area_km2: 361 },
-            { codigo_ibge: "3301859", nome: "Iguaba Grande", latitude: -22.8492, longitude: -42.2289, area_km2: 51 },
-            { codigo_ibge: "3301875", nome: "Itaboraí", latitude: -22.7474, longitude: -42.8589, area_km2: 430 },
-            { codigo_ibge: "3301909", nome: "Itaguaí", latitude: -22.8636, longitude: -43.7798, area_km2: 272 },
-            { codigo_ibge: "3302006", nome: "Italva", latitude: -21.4296, longitude: -41.7014, area_km2: 293 },
-            { codigo_ibge: "3302055", nome: "Itaocara", latitude: -21.6748, longitude: -42.0758, area_km2: 428 },
-            { codigo_ibge: "3302105", nome: "Itaperuna", latitude: -21.1997, longitude: -41.8799, area_km2: 1105 },
-            { codigo_ibge: "3302204", nome: "Itatiaia", latitude: -22.4897, longitude: -44.5675, area_km2: 225 },
-            { codigo_ibge: "3302253", nome: "Japeri", latitude: -22.6435, longitude: -43.6602, area_km2: 83 },
-            { codigo_ibge: "3302279", nome: "Laje do Muriaé", latitude: -21.2091, longitude: -42.1271, area_km2: 250 },
-            { codigo_ibge: "3302303", nome: "Macaé", latitude: -22.3768, longitude: -41.7848, area_km2: 1215 },
-            { codigo_ibge: "3302402", nome: "Macuco", latitude: -21.9813, longitude: -42.2533, area_km2: 77 },
-            { codigo_ibge: "3302451", nome: "Magé", latitude: -22.6632, longitude: -43.0315, area_km2: 385 },
-            { codigo_ibge: "3302501", nome: "Mangaratiba", latitude: -22.9594, longitude: -44.0409, area_km2: 352 },
-            { codigo_ibge: "3302600", nome: "Maricá", latitude: -22.9354, longitude: -42.8185, area_km2: 362 },
-            { codigo_ibge: "3302709", nome: "Mendes", latitude: -22.5246, longitude: -43.7312, area_km2: 97 },
-            { codigo_ibge: "3302808", nome: "Mesquita", latitude: -22.8028, longitude: -43.4290, area_km2: 39 },
-            { codigo_ibge: "3302857", nome: "Miguel Pereira", latitude: -22.4571, longitude: -43.4803, area_km2: 287 },
-            { codigo_ibge: "3302907", nome: "Miracema", latitude: -21.4148, longitude: -42.1936, area_km2: 303 },
-            { codigo_ibge: "3303004", nome: "Natividade", latitude: -21.0390, longitude: -41.9819, area_km2: 387 },
-            { codigo_ibge: "3303103", nome: "Nilópolis", latitude: -22.8057, longitude: -43.4233, area_km2: 19 },
-            { codigo_ibge: "3303202", nome: "Niterói", latitude: -22.8832, longitude: -43.1238, area_km2: 134 },
-            { codigo_ibge: "3303301", nome: "Nova Friburgo", latitude: -22.2932, longitude: -42.5377, area_km2: 933 },
-            { codigo_ibge: "3303400", nome: "Nova Iguaçu", latitude: -22.7556, longitude: -43.4603, area_km2: 524 },
-            { codigo_ibge: "3303509", nome: "Paracambi", latitude: -22.6078, longitude: -43.7108, area_km2: 179 },
-            { codigo_ibge: "3303608", nome: "Paraíba do Sul", latitude: -22.1585, longitude: -43.3040, area_km2: 580 },
-            { codigo_ibge: "3303707", nome: "Paraty", latitude: -23.2221, longitude: -44.7175, area_km2: 928 },
-            { codigo_ibge: "3303806", nome: "Paty do Alferes", latitude: -22.4309, longitude: -43.4285, area_km2: 319 },
-            { codigo_ibge: "3303855", nome: "Petrópolis", latitude: -22.5200, longitude: -43.1926, area_km2: 795 },
-            { codigo_ibge: "3303905", nome: "Pinheiral", latitude: -22.5172, longitude: -44.0022, area_km2: 77 },
-            { codigo_ibge: "3303954", nome: "Piraí", latitude: -22.6215, longitude: -43.9081, area_km2: 505 },
-            { codigo_ibge: "3304002", nome: "Porciúncula", latitude: -20.9632, longitude: -42.0465, area_km2: 302 },
-            { codigo_ibge: "3304101", nome: "Porto Real", latitude: -22.4175, longitude: -44.2952, area_km2: 51 },
-            { codigo_ibge: "3304119", nome: "Quatis", latitude: -22.4064, longitude: -44.2640, area_km2: 286 },
-            { codigo_ibge: "3304127", nome: "Queimados", latitude: -22.7103, longitude: -43.5613, area_km2: 76 },
-            { codigo_ibge: "3304143", nome: "Quissamã", latitude: -22.1031, longitude: -41.4724, area_km2: 712 },
-            { codigo_ibge: "3304150", nome: "Resende", latitude: -22.4705, longitude: -44.4509, area_km2: 1113 },
-            { codigo_ibge: "3304200", nome: "Rio Bonito", latitude: -22.7085, longitude: -42.6099, area_km2: 462 },
-            { codigo_ibge: "3304309", nome: "Rio Claro", latitude: -22.7200, longitude: -44.1419, area_km2: 841 },
-            { codigo_ibge: "3304408", nome: "Rio das Flores", latitude: -22.1692, longitude: -43.5856, area_km2: 478 },
-            { codigo_ibge: "3304507", nome: "Rio das Ostras", latitude: -22.5174, longitude: -41.9475, area_km2: 228 },
-            { codigo_ibge: "3304523", nome: "Rio de Janeiro", latitude: -22.9129, longitude: -43.2003, area_km2: 1200 },
-            { codigo_ibge: "3304556", nome: "Santa Maria Madalena", latitude: -21.9549, longitude: -42.0097, area_km2: 815 },
-            { codigo_ibge: "3304605", nome: "Santo Antônio de Pádua", latitude: -21.5394, longitude: -42.1802, area_km2: 612 },
-            { codigo_ibge: "3304704", nome: "São Fidélis", latitude: -21.6461, longitude: -41.7469, area_km2: 1028 },
-            { codigo_ibge: "3304803", nome: "São Francisco de Itabapoana", latitude: -21.4702, longitude: -41.1191, area_km2: 1111 },
-            { codigo_ibge: "3304902", nome: "São Gonçalo", latitude: -22.8268, longitude: -43.0634, area_km2: 249 },
-            { codigo_ibge: "3305009", nome: "São João da Barra", latitude: -21.6361, longitude: -41.0511, area_km2: 455 },
-            { codigo_ibge: "3305108", nome: "São João de Meriti", latitude: -22.8058, longitude: -43.3729, area_km2: 35 },
-            { codigo_ibge: "3305132", nome: "São José de Ubá", latitude: -21.3663, longitude: -41.9441, area_km2: 250 },
-            { codigo_ibge: "3305157", nome: "São José do Vale do Rio Preto", latitude: -22.1516, longitude: -42.9244, area_km2: 239 },
-            { codigo_ibge: "3305207", nome: "São Pedro da Aldeia", latitude: -22.8429, longitude: -42.1026, area_km2: 340 },
-            { codigo_ibge: "3305306", nome: "São Sebastião do Alto", latitude: -21.9578, longitude: -42.1328, area_km2: 397 },
-            { codigo_ibge: "3305405", nome: "Sapucaia", latitude: -21.9949, longitude: -42.9142, area_km2: 541 },
-            { codigo_ibge: "3305504", nome: "Saquarema", latitude: -22.9292, longitude: -42.5099, area_km2: 354 },
-            { codigo_ibge: "3305553", nome: "Seropédica", latitude: -22.7524, longitude: -43.7064, area_km2: 284 },
-            { codigo_ibge: "3305603", nome: "Silva Jardim", latitude: -22.6574, longitude: -42.3961, area_km2: 938 },
-            { codigo_ibge: "3305702", nome: "Sumidouro", latitude: -22.0485, longitude: -42.6761, area_km2: 395 },
-            { codigo_ibge: "3305751", nome: "Tanguá", latitude: -22.7334, longitude: -42.7202, area_km2: 146 },
-            { codigo_ibge: "3305801", nome: "Teresópolis", latitude: -22.4165, longitude: -42.9752, area_km2: 770 },
-            { codigo_ibge: "3305900", nome: "Trajano de Moraes", latitude: -22.0638, longitude: -42.0643, area_km2: 589 },
-            { codigo_ibge: "3306007", nome: "Três Rios", latitude: -22.1165, longitude: -43.2185, area_km2: 322 },
-            { codigo_ibge: "3306106", nome: "Valença", latitude: -22.2445, longitude: -43.7129, area_km2: 1304 },
-            { codigo_ibge: "3306155", nome: "Varre-Sai", latitude: -20.9315, longitude: -41.8701, area_km2: 188 },
-            { codigo_ibge: "3306205", nome: "Vassouras", latitude: -22.4059, longitude: -43.6686, area_km2: 538 },
-            { codigo_ibge: "3306304", nome: "Volta Redonda", latitude: -22.5202, longitude: -44.0996, area_km2: 182 }
-        ];
 
         // ============================================
         // VARIÁVEIS GLOBAIS
         // ============================================
+        let estados = [];
+        let municipiosPorEstado = {};
         let todasUnidades = [];
         let unidadesFiltradas = [];
         let localizacaoUsuario = null;
-        let categoriasAbertas = { 'Primária': true, 'Secundária': true, 'Terciária': true };
+        let categoriasAbertas = {
+            'Primária': true,
+            'Secundária': true,
+            'Terciária': true
+        };
         let _buscaAtiva = false;
 
+        const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
+            'sample_collection|physiotherapist|psychotherapist|audiologist|' +
+            'alternative|medical_imaging|blood_donation|veterinary';
+
         // ============================================
-        // FUNÇÕES UTILITÁRIAS
+        // FUNÇÕES AUXILIARES
         // ============================================
+        function norm(str) {
+            return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
         function calcularDistancia(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
         }
 
-        function norm(s) {
-            return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        }
-
-        function mostrarLoading(mensagem = 'Carregando...') {
-            document.getElementById('loadingSection').classList.remove('hidden');
-            document.getElementById('alertSection').classList.add('hidden');
-            document.getElementById('loadingText').textContent = mensagem;
-            const counter = document.getElementById('loadingCounter');
-            if (counter) counter.classList.add('hidden');
-            const tot = document.getElementById('counterTotal');
-            if (tot) tot.textContent = '0';
-            const etapa = document.getElementById('counterEtapa');
-            if (etapa) etapa.textContent = '';
-            atualizarProgresso(10);
-        }
-
-        function ocultarLoading() {
-            document.getElementById('loadingSection').classList.add('hidden');
-        }
-
-        const _reUnidades = /^(\d+)\s+unidade/i;
-
-        function atualizarProgresso(valor, detalhes = '') {
-            document.getElementById('loadingPercent').textContent = valor + '%';
-            document.getElementById('progressFill').style.width = valor + '%';
-            if (detalhes) {
-                document.getElementById('loadingDetails').textContent = detalhes;
-
-                const m = _reUnidades.exec(detalhes);
-                const counter = document.getElementById('loadingCounter');
-                if (m && counter) {
-                    counter.classList.remove('hidden');
-                    const tot = document.getElementById('counterTotal');
-                    if (tot) {
-                        const novoVal = parseInt(m[1], 10);
-                        if (tot.textContent !== String(novoVal)) {
-                            tot.textContent = novoVal;
-                            tot.parentElement.style.transform = 'scale(1.08)';
-                            setTimeout(() => { tot.parentElement.style.transform = 'scale(1)'; }, 180);
-                        }
-                    }
-                    const etapa = document.getElementById('counterEtapa');
-                    if (etapa) {
-                        const parIdx = detalhes.indexOf('(');
-                        etapa.textContent = parIdx > -1 ? detalhes.slice(parIdx) : '';
-                    }
-                } else if (counter && valor >= 92) {
-                    counter.classList.remove('hidden');
-                }
-            }
-        }
-
-        function mostrarAlerta(tipo, titulo, mensagem) {
-            const alertSection = document.getElementById('alertSection');
-            alertSection.classList.remove('hidden');
-            alertSection.innerHTML = `
-                <div class="alert alert-${tipo}">
-                    <span class="alert-icon">${tipo === 'error' ? '❌' : '⚠️'}</span>
-                    <div class="alert-content">
-                        <div class="alert-title">${titulo}</div>
-                        <div>${mensagem}</div>
-                    </div>
-                </div>
-            `;
+        function deduplicar(unidades) {
+            const unicos = new Map();
+            unidades.forEach(u => {
+                const chave = norm(u.nome) + u.lat.toFixed(4) + u.lon.toFixed(4);
+                if (!unicos.has(chave)) unicos.set(chave, u);
+            });
+            return Array.from(unicos.values());
         }
 
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
-        // ============================================
-        // OVERPASS — CONSULTA GENÉRICA
-        // ============================================
         async function consultarOverpass(query) {
             const url = 'https://overpass-api.de/api/interpreter';
             const resp = await fetch(url, {
                 method: 'POST',
-                body: query,
-                headers: { 'Content-Type': 'text/plain' }
+                body: query
             });
-            if (!resp.ok) throw new Error(`Overpass HTTP ${resp.status}`);
-            return resp.json();
+            if (!resp.ok) throw new Error('Overpass falhou');
+            return await resp.json();
         }
 
-        function deduplicar(lista) {
-            const vistos = new Set();
-            return lista.filter(u => {
-                const chave = u.nome.toLowerCase().trim();
-                if (vistos.has(chave)) return false;
-                vistos.add(chave);
-                return true;
-            });
+        function mostrarLoading(texto) {
+            document.getElementById('loadingText').textContent = texto;
+            document.getElementById('loadingDetails').textContent = 'Aguarde...';
+            document.getElementById('loadingPercent').textContent = '0%';
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('loadingSection').classList.remove('hidden');
         }
 
-        // ============================================
-        // CLASSIFICAÇÃO OSM → PERFIL / NÍVEL SUS
-        // ============================================
-        function analisarOperador(tags) {
-            const opType = norm(tags['operator:type'] || '');
-            const operator = norm(tags['operator'] || '');
-            const access = norm(tags['access'] || '');
-
-            if (['public','government','municipal','state','federal'].includes(opType)) return true;
-            if (['private','commercial'].includes(opType)) return false;
-            if (access === 'private') return false;
-
-            const pub = ['prefeitura','secretaria','sus','municipal','governo','estado','federal',
-                         'smsa','sms','sesau','sesab','sesap','smsdc','sms-rio','rio saude',
-                         'pmerj','bombeiro','ministerio da saude'];
-            if (pub.some(p => operator.includes(p))) return true;
-
-            const priv = ['unimed','amil','hapvida','notredame','einstein','sirio','fleury',
-                          'dasa','hermes pardini','rede dor','rede d\'or','ultra','cedimagem',
-                          'santa casa','sao lucas','sao rafael','prevent senior','gndi','intermedica'];
-            if (priv.some(p => operator.includes(p))) return false;
-
-            return null;
+        function ocultarLoading() {
+            document.getElementById('loadingSection').classList.add('hidden');
         }
 
-        const TIPOS_PRIVADOS = new Set([
-            'pharmacy','dentist','doctors','optometrist','psychotherapist',
-            'audiologist','alternative','physiotherapist','laboratory',
-            'sample_collection','medical_imaging'
-        ]);
-
-        const TIPO_INEQUIVOCO = {
-            'hospital':        { perfil: 'Hospital',              nivel: 'Terciária'  },
-            'maternity':       { perfil: 'Maternidade',           nivel: 'Terciária'  },
-            'birthing_centre': { perfil: 'Maternidade',           nivel: 'Terciária'  },
-            'birthing_center': { perfil: 'Maternidade',           nivel: 'Terciária'  },
-            'hospice':         { perfil: 'Cuidados Paliativos',   nivel: 'Terciária'  },
-            'rehabilitation':  { perfil: 'Centro de Reabilitação',nivel: 'Secundária' },
-            'blood_bank':      { perfil: 'Banco de Sangue',       nivel: 'Secundária' },
-            'dialysis':        { perfil: 'Centro de Diálise',     nivel: 'Secundária' },
-            'nursing_home':    { perfil: 'Casa de Repouso',       nivel: 'Secundária' },
-            'health_post':     { perfil: 'Posto de Saúde',        nivel: 'Primária'   },
-            'health_centre':   { perfil: 'Centro de Saúde',       nivel: 'Primária'   }
-        };
-
-        function classificarPorNome(n) {
-            if (/farmac|drogaria|\bdroga\b|otica\b|optica\b|lente\s+de\s+contato/.test(n)) return null;
-            if (/odonto|dental\b|dentist|ortodont/.test(n)) return null;
-            if (/\bvet(erinari)?\b/.test(n)) return null;
-            if (/laboratorio|\blab\b|analise[s]?\s+clinic/.test(n)) return null;
-            if (/\bimagem\b|radiolog|tomograf|ultrassom|mamograf/.test(n)) return null;
-            if (/\bestetica\b|barbearia|salao\s+de/.test(n)) return null;
-            if (/\bparticular\b|\bprivad/.test(n)) return null;
-            if (/fisioterapia|\bpsicolog\b|fono(audiolog)?/.test(n)) return null;
-
-            if (/\bhospital\b/.test(n))
-                return { perfil: 'Hospital', nivel: 'Terciária' };
-            if (/maternidade/.test(n))
-                return { perfil: 'Maternidade', nivel: 'Terciária' };
-            if (/instituto\s+(nacional|estadual|municipal|de\s+puericultura)/.test(n))
-                return { perfil: 'Hospital / Instituto', nivel: 'Terciária' };
-
-            if (/\bupa\b|pronto[\s\-]?atendimento|pronto[\s\-]?socorro/.test(n))
-                return { perfil: 'UPA / Pronto Atendimento', nivel: 'Secundária' };
-            if (/\bcaps\b/.test(n))
-                return { perfil: 'CAPS', nivel: 'Secundária' };
-            if (/policlin/.test(n))
-                return { perfil: 'Policlínica', nivel: 'Secundária' };
-            if (/reabilitac/.test(n))
-                return { perfil: 'Centro de Reabilitação', nivel: 'Secundária' };
-            if (/\bceo\b|centro\s+de\s+especialidade|clinica\s+de\s+especialidade/.test(n))
-                return { perfil: 'Centro de Especialidades', nivel: 'Secundária' };
-            if (/ambulatorio\s+de\s+especialidade/.test(n))
-                return { perfil: 'Ambulatório de Especialidades', nivel: 'Secundária' };
-
-            if (/\bubs\b/.test(n))
-                return { perfil: 'Unidade Básica de Saúde', nivel: 'Primária' };
-            if (/\baps\b/.test(n))
-                return { perfil: 'Unidade Básica de Saúde', nivel: 'Primária' };
-            if (/posto\s+de\s+saude/.test(n))
-                return { perfil: 'Posto de Saúde', nivel: 'Primária' };
-            if (/unidade\s+basica/.test(n))
-                return { perfil: 'Unidade Básica de Saúde', nivel: 'Primária' };
-            if (/\busf\b|unidade\s+de\s+saude\s+da\s+familia/.test(n))
-                return { perfil: 'Unidade de Saúde da Família', nivel: 'Primária' };
-            if (/clinica\s+da\s+familia/.test(n))
-                return { perfil: 'Clínica da Família', nivel: 'Primária' };
-            if (/\besf\b|equipe\s+de\s+saude\s+da\s+familia/.test(n))
-                return { perfil: 'Unidade de Saúde da Família', nivel: 'Primária' };
-            if (/centro\s+municipal\s+de\s+saude|\bcms\b/.test(n))
-                return { perfil: 'Centro Municipal de Saúde', nivel: 'Primária' };
-            if (/centro\s+de\s+saude/.test(n))
-                return { perfil: 'Centro de Saúde', nivel: 'Primária' };
-
-            if (/\bsus\b|municipal|prefeitura|secretaria|saude\s+publica|\bsms\b/.test(n))
-                return { perfil: 'Unidade de Saúde', nivel: 'Primária' };
-
-            return null;
+        function atualizarProgresso(percent, detalhes, etapa = '') {
+            document.getElementById('loadingPercent').textContent = `${percent}%`;
+            document.getElementById('progressFill').style.width = `${percent}%`;
+            document.getElementById('loadingDetails').textContent = detalhes;
+            if (etapa) {
+                document.getElementById('counterEtapa').textContent = etapa;
+                document.getElementById('loadingCounter').classList.remove('hidden');
+            }
         }
 
-        function classificar(tags, nomeBruto) {
-            const nome = nomeBruto || tags.name || tags['name:pt'] || '';
-            if (!nome) return null;
-
-            const nNorm = norm(nome);
-            const healthcare = norm(tags.healthcare || '');
-            const amenity = norm(tags.amenity || '');
-            const tipoOSM = healthcare || amenity;
-
-            const opStatus = analisarOperador(tags);
-            if (opStatus === false) return null;
-
-            if (TIPOS_PRIVADOS.has(tipoOSM) && opStatus !== true) return null;
-
-            const porNome = classificarPorNome(nNorm);
-            if (porNome) return porNome;
-
-            const porTipo = TIPO_INEQUIVOCO[tipoOSM] || null;
-            if (porTipo) return porTipo;
-
-            return null;
+        function mostrarAlerta(tipo, titulo, mensagem) {
+            const alertSection = document.getElementById('alertSection');
+            alertSection.innerHTML = `
+                <div class="alert alert-${tipo}">
+                    <span class="alert-icon">⚠️</span>
+                    <div class="alert-content">
+                        <div class="alert-title">${titulo}</div>
+                        <p>${mensagem}</p>
+                    </div>
+                </div>
+            `;
+            alertSection.classList.remove('hidden');
+            setTimeout(() => alertSection.classList.add('hidden'), 5000);
         }
 
         // ============================================
-        // DETERMINAR TIPO DE ACOLHIMENTO - CORRETO BASEADO NO CNES
+        // CLASSIFICAÇÃO
         // ============================================
-        function determinarAcolhimento(unidade) {
-            const nome = norm(unidade.nome);
-            const perfil = norm(unidade.perfil);
-            const nivel = unidade.nivel;
-            
-            // 1. SAMU / Atendimento Móvel
-            if (nome.includes('samu') || perfil.includes('samu') || 
-                nome.includes('serviço de atendimento móvel')) {
-                return 'samu';
+        function classificar(tags, nome) {
+            const healthcare = tags.healthcare || tags.amenity;
+            const n = norm(nome + (tags.description || ''));
+            if (!healthcare && !n.includes('hospital') && !n.includes('clinica') && !n.includes('upa') && !n.includes('posto')) return null;
+
+            let perfil = 'Hospital Geral';
+            let nivel = 'Secundária';
+
+            if (healthcare === 'hospital' || n.includes('hospital')) {
+                if (n.includes('maternidad') || n.includes('mulher')) perfil = 'Hospital Maternidade';
+                else if (n.includes('infantil') || n.includes('crianca')) perfil = 'Hospital Infantil';
+                else if (n.includes('oncologi') || n.includes('cancer')) perfil = 'Hospital Oncológico';
+                else if (n.includes('psiquiatri') || n.includes('mental')) perfil = 'Hospital Psiquiátrico';
+                else if (n.includes('especializad')) perfil = 'Hospital Especializado';
+                nivel = n.includes('universitari') || n.includes('referencia') ? 'Terciária' : 'Secundária';
+            } else if (healthcare === 'clinic' || n.includes('clinica')) {
+                perfil = 'Clínica Médica';
+                nivel = 'Primária';
+            } else if (healthcare === 'health_post' || n.includes('posto') || n.includes('ubs')) {
+                perfil = 'Posto de Saúde';
+                nivel = 'Primária';
+            } else if (healthcare === 'health_centre') {
+                perfil = 'Centro de Saúde';
+                nivel = 'Primária';
+            } else if (n.includes('upa') || n.includes('urgencia')) {
+                perfil = 'UPA';
+                nivel = 'Secundária';
+            } else if (n.includes('ambulatorio')) {
+                perfil = 'Ambulatório';
+                nivel = 'Primária';
+            } else if (n.includes('laboratorio')) {
+                return null; // Excluir
+            } else {
+                perfil = 'Unidade de Saúde';
+                nivel = 'Primária';
             }
-            
-            // 2. Hemoterapia / Banco de Sangue
-            if (perfil.includes('banco de sangue') || perfil.includes('hemoterapia') ||
-                nome.includes('hemorio') || nome.includes('banco de sangue')) {
-                return 'hemoterapia';
-            }
-            
-            // 3. Atendimento Psiquiátrico
-            if (perfil.includes('caps') || perfil.includes('centro de atenção psicossocial') ||
-                nome.includes('hospital psiquiátrico') || nome.includes('instituto de psiquiatria')) {
-                return 'psiquiatria';
-            }
-            
-            // 4. UPAs e Pronto Atendimento (urgência geral)
-            if (perfil.includes('upa') || perfil.includes('pronto atendimento') ||
-                perfil.includes('pronto socorro') || perfil.includes('emergência') ||
-                nome.includes('upa') || nome.includes('pronto atendimento')) {
-                return 'urgente';
-            }
-            
-            // 5. Hospitais Terciários - Classificação diferenciada
-            if (nivel === 'Terciária') {
-                // Hospitais de referência nacional/estadual (transferência)
-                if (nome.includes('instituto nacional') || 
-                    nome.includes('instituto estadual') ||
-                    nome.includes('hospital federal') ||
-                    nome.includes('hospital universitário') ||
-                    nome.includes('hospital de referência')) {
-                    return 'transferencia';
-                }
-                
-                // Hospitais gerais com emergência
-                if (perfil.includes('hospital geral') || perfil.includes('hospital')) {
-                    return 'urgente';
-                }
-                
-                // Hospitais especializados
-                if (perfil.includes('instituto') || perfil.includes('especializado')) {
-                    return 'urgencia_especializada';
-                }
-            }
-            
-            // 6. Atendimento Especializado (nível secundário)
-            if (nivel === 'Secundária') {
-                if (perfil.includes('policlinica') || perfil.includes('centro de especialidades') ||
-                    perfil.includes('ambulatório de especialidades')) {
-                    return 'especializado';
-                }
-            }
-            
-            // 7. Atenção Primária - Ambulatorial
-            if (nivel === 'Primária') {
-                return 'ambulatorial';
-            }
-            
-            // Padrão
+
+            return { perfil, nivel };
+        }
+
+        function determinarAcolhimento(u) {
+            const n = norm(u.nome + u.perfil);
+            if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia')) return 'urgente';
+            if (n.includes('especializad')) return 'especializado';
+            if (n.includes('samu')) return 'samu';
+            if (n.includes('hemoterapia') || n.includes('sangue')) return 'hemoterapia';
+            if (n.includes('psiquiatri') || n.includes('mental')) return 'psiquiatria';
+            if (n.includes('transferencia')) return 'transferencia';
+            if (n.includes('urgencia especializad')) return 'urgencia_especializada';
             return 'ambulatorial';
         }
 
-        function getIconeAcolhimento(tipo) {
-            switch(tipo) {
-                case 'urgente': return '🚨';
-                case 'urgencia_especializada': return '🏥⚡';
-                case 'ambulatorial': return '🩺';
-                case 'transferencia': return '🚑';
-                case 'especializado': return '🔬';
-                case 'samu': return '🚑📞';
-                case 'hemoterapia': return '🩸';
-                case 'psiquiatria': return '🧠';
-                default: return '🏥';
-            }
+        function getIconeAcolhimento(acolhimento) {
+            const icones = {
+                urgente: '🚨',
+                urgencia_especializada: '🏥⚡',
+                ambulatorial: '🩺',
+                transferencia: '🚑',
+                especializado: '🔬',
+                samu: '🚑📞',
+                hemoterapia: '🩸',
+                psiquiatria: '🧠'
+            };
+            return icones[acolhimento] || '🩺';
         }
 
-        function getTextoAcolhimento(tipo) {
-            switch(tipo) {
-                case 'urgente': return 'Urgência/Emergência Geral';
-                case 'urgencia_especializada': return 'Urgência Especializada';
-                case 'ambulatorial': return 'Atendimento Ambulatorial';
-                case 'transferencia': return 'Admissão por Transferência';
-                case 'especializado': return 'Atendimento Especializado';
-                case 'samu': return 'SAMU / Atendimento Móvel';
-                case 'hemoterapia': return 'Hemoterapia / Banco de Sangue';
-                case 'psiquiatria': return 'Atendimento Psiquiátrico';
-                default: return 'Atendimento Geral';
-            }
+        function getTextoAcolhimento(acolhimento) {
+            const textos = {
+                urgente: 'Urgência/Emergência Geral',
+                urgencia_especializada: 'Urgência Especializada',
+                ambulatorial: 'Atendimento Ambulatorial',
+                transferencia: 'Admissão por Transferência',
+                especializado: 'Atendimento Especializado',
+                samu: 'SAMU',
+                hemoterapia: 'Hemoterapia',
+                psiquiatria: 'Psiquiatria'
+            };
+            return textos[acolhimento] || 'Atendimento Geral';
         }
 
         // ============================================
@@ -2065,13 +1823,7 @@
             const select = document.getElementById('selectMunicipio');
             select.innerHTML = '<option value="">Selecione um município</option>';
             
-            municipiosRJ.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(m => {
-                const option = document.createElement('option');
-                option.value = m.codigo_ibge;
-                option.textContent = m.nome;
-                select.appendChild(option);
-            });
-            
+            // municipiosRJ removido, carregado dinamicamente
             document.getElementById('modalMunicipio').classList.add('active');
         }
 
@@ -2079,15 +1831,11 @@
             document.getElementById('modalMunicipio').classList.remove('active');
         }
 
-        // Tipos que devem ser excluídos na origem
-        const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
-            'sample_collection|physiotherapist|psychotherapist|audiologist|' +
-            'alternative|medical_imaging|blood_donation|veterinary';
-
         async function buscarPorMunicipio() {
+            const uf = document.getElementById('selectEstado').value;
             const codigoMunicipio = document.getElementById('selectMunicipio').value;
-            if (!codigoMunicipio) {
-                mostrarAlerta('warning', 'Atenção', 'Selecione um município para continuar.');
+            if (!uf || !codigoMunicipio) {
+                mostrarAlerta('warning', 'Atenção', 'Selecione um estado e município para continuar.');
                 return;
             }
 
@@ -2097,11 +1845,16 @@
             mostrarLoading('Iniciando busca de unidades de saúde...');
 
             try {
-                const municipio = municipiosRJ.find(m => m.codigo_ibge === codigoMunicipio);
+                const municipio = municipiosPorEstado[uf].find(m => m.id === codigoMunicipio);
                 if (!municipio) throw new Error('Município não encontrado');
 
-                // Buscar no OpenStreetMap
-                const unidades = await buscarUnidadesOpenStreetMap(municipio);
+                // Priorizar CNES
+                let unidades = await buscarUnidadesCNES(codigoMunicipio);
+
+                if (unidades.length === 0) {
+                    atualizarProgresso(20, 'Buscando complemento no OpenStreetMap...');
+                    unidades = await buscarUnidadesOpenStreetMap(municipio);
+                }
 
                 atualizarProgresso(92, 'Finalizando resultados...');
 
@@ -2671,7 +2424,7 @@ out center tags;
                     <div class="unit-info">
                         <div class="info-row">
                             <span class="info-icon">📍</span>
-                            <span class="info-loc-text">${u.cidade ? u.cidade + (u.bairro ? " – " + u.bairro : " – carregando bairro…") : "Carregando localização…"}</span>
+                            <span class="info-loc-text">${u.cidade ? u.cidade + (u.bairro ? " – " + u.bairro : "") : "Carregando localização…"}</span>
                         </div>
                         ${u.endereco ? `
                             <div class="info-row">
@@ -2737,7 +2490,7 @@ out center tags;
         }
 
         // ============================================
-        // FUNÇÕES DE PDF - FORMATO A5 HORIZONTAL COM INFORMAÇÕES COMPLETAS
+        // FUNÇÕES DE PDF - FORMATO A5 HORIZONTAL com informações completas
         // ============================================
         function gerarConteudoPDF_A5() {
             const dataAtual = new Date().toLocaleDateString('pt-BR', {
@@ -2997,7 +2750,7 @@ out center tags;
                 pdf.addImage(imgData, 'PNG', x, y, width, height);
                 
                 const dataAtual = new Date().toISOString().split('T')[0];
-                pdf.save(`Unidades_SUS_RJ_${dataAtual}_A5.pdf`);
+                pdf.save(`Unidades_SUS_BR_${dataAtual}_A5.pdf`);
 
                 ocultarLoading();
             } catch (error) {
@@ -3062,7 +2815,7 @@ out center tags;
                 
                 const link = document.createElement('a');
                 link.href = pdfUrl;
-                link.download = 'Unidades_SUS_RJ_A5.pdf';
+                link.download = 'Unidades_SUS_BR_A5.pdf';
                 document.body.appendChild(link);
                 
                 alert('✅ PDF gerado com sucesso!\n\n' +
@@ -3129,10 +2882,10 @@ out center tags;
             ws['!cols'] = colWidths;
 
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Unidades SUS RJ');
+            XLSX.utils.book_append_sheet(wb, ws, 'Unidades SUS BR');
 
             const dataAtual = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `Unidades_SUS_RJ_${dataAtual}.xlsx`);
+            XLSX.writeFile(wb, `Unidades_SUS_BR_${dataAtual}.xlsx`);
         }
 
         // ============================================
@@ -3146,18 +2899,12 @@ out center tags;
             });
         });
 
-        // Inicializar selects dos municípios
+        // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
-            const select = document.getElementById('selectMunicipio');
-            select.innerHTML = '<option value="">Selecione um município</option>';
-            
-            municipiosRJ.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(m => {
-                const option = document.createElement('option');
-                option.value = m.codigo_ibge;
-                option.textContent = m.nome;
-                select.appendChild(option);
-            });
+            carregarEstados();
+            document.getElementById('selectEstado').addEventListener('change', () => carregarMunicipios(document.getElementById('selectEstado').value));
         });
+
     </script>
 </body>
 </html>
