@@ -708,78 +708,60 @@
       .cards-grid { grid-template-columns: 1fr; }
     }
 
-    /* ─── PDF PREVIEW MODAL ─── */
-    .pdf-modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(11,31,58,0.78);
-      z-index: 2000;
-      display: flex; align-items: center; justify-content: center;
-      animation: fadeIn 0.2s ease;
-    }
-    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-    .pdf-modal {
-      background: var(--surface);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-lg);
-      display: flex; flex-direction: column;
-      width: min(96vw, 980px);
-      height: min(92vh, 720px);
-      overflow: hidden;
-    }
-    .pdf-modal-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 22px;
-      border-bottom: 1px solid var(--border);
-      background: var(--navy);
-      color: #fff;
-      flex-shrink: 0;
-      gap: 12px;
-    }
-    .pdf-modal-title {
-      font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem; flex: 1;
-    }
-    .pdf-modal-subtitle { font-size: 0.75rem; color: rgba(255,255,255,0.55); margin-top: 2px; }
-    .pdf-modal-actions { display: flex; gap: 8px; flex-shrink: 0; }
-    .pdf-modal-body { flex: 1; overflow: hidden; background: #555; }
-    .pdf-modal-body iframe { width: 100%; height: 100%; border: none; display: block; }
-
     /* ─── NIVEL COLORS ─── */
     .nivel-primaria { --nivel-color: #00A878; }
     .nivel-secundaria { --nivel-color: #1565C0; }
     .nivel-terciaria { --nivel-color: #E53935; }
-  </style>
-    .pdf-modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(11,31,58,0.75);
+
+    /* ─── MODAL ─── */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
       z-index: 2000;
-      display: flex; align-items: center; justify-content: center;
-      animation: fadeIn 0.2s ease;
+      justify-content: center;
+      align-items: center;
     }
-    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-    .pdf-modal {
-      background: var(--surface);
+    .modal.visible {
+      display: flex;
+    }
+    .modal-content {
+      background: white;
       border-radius: var(--radius);
+      max-width: 90%;
+      max-height: 90%;
+      overflow: auto;
       box-shadow: var(--shadow-lg);
-      display: flex; flex-direction: column;
-      width: min(96vw, 960px);
-      height: min(90vh, 700px);
-      overflow: hidden;
     }
-    .pdf-modal-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 20px;
+    .modal-header {
+      padding: 20px 24px;
       border-bottom: 1px solid var(--border);
-      background: var(--navy);
-      color: #fff;
-      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .pdf-modal-title {
-      font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem;
+    .modal-header h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--navy);
     }
-    .pdf-modal-actions { display: flex; gap: 8px; }
-    .pdf-modal-body { flex: 1; overflow: hidden; }
-    .pdf-modal-body iframe {
-      width: 100%; height: 100%; border: none;
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .modal-close:hover {
+      color: var(--red);
+    }
+    .modal-body {
+      padding: 24px;
     }
   </style>
 </head>
@@ -897,7 +879,7 @@
     </div>
     <div class="geo-radius-row">
       <span class="geo-radius-label">Raio (km):</span>
-      <input type="number" class="geo-radius-input form-control" id="geoRaio" value="3" min="0.5" max="6" step="0.5">
+      <input type="number" class="geo-radius-input form-control" id="geoRaio" value="3" min="0.5" max="50" step="0.5">
     </div>
     <button class="btn btn-geo" onclick="usarGeolocalizacao()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>
@@ -981,26 +963,18 @@
 
 </div><!-- /main-wrapper -->
 
-<div id="pdfModalOverlay" class="pdf-modal-overlay" style="display:none;" onclick="if(event.target===this)fecharModalPDF()">
-  <div class="pdf-modal">
-    <div class="pdf-modal-header">
-      <div>
-        <div class="pdf-modal-title">Prévia do Relatório PDF — SaúdeBR CNES/DATASUS</div>
-        <div class="pdf-modal-subtitle" id="pdfModalSubtitle">Formato A5 Horizontal</div>
-      </div>
-      <div class="pdf-modal-actions">
-        <button class="btn btn-amber btn-sm" id="btnDownloadPDF">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Baixar PDF
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="fecharModalPDF()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          Fechar
-        </button>
-      </div>
+<!-- ─── MODAL PARA VISUALIZAÇÃO DO PDF ─── -->
+<div class="modal" id="pdfModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Visualização do PDF</h3>
+      <button class="modal-close" onclick="fecharModalPDF()">&times;</button>
     </div>
-    <div class="pdf-modal-body">
-      <iframe id="pdfModalIframe" title="Prévia PDF"></iframe>
+    <div class="modal-body">
+      <iframe id="pdfFrame" style="width: 100%; height: 70vh; border: none;"></iframe>
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="btn btn-primary" onclick="baixarPDF()">Baixar PDF</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1017,7 +991,7 @@ const CNES_BASE      = 'https://apidadosabertos.saude.gov.br/cnes';
 const IBGE_API       = 'https://servicodados.ibge.gov.br/api/v1/localidades';
 const NOMINATIM_API  = 'https://nominatim.openstreetmap.org';
 const MAX_UNITS_PER_CALL = 50;
-const MAX_TOTAL_UNITS    = 1000;
+const MAX_TOTAL_UNITS    = 5000;
 const FETCH_TIMEOUT_MS   = 18000;   // 18 s por chamada
 const MAX_RETRIES        = 3;       // tentativas por estratégia
 
@@ -1042,46 +1016,45 @@ const ESTADOS = [
   {sg:'SP',nome:'São Paulo',co:'35'},{sg:'SE',nome:'Sergipe',co:'28'},{sg:'TO',nome:'Tocantins',co:'17'}
 ];
 
-// Mapeamento tp_unidade → nível + acolhimento
-// Regra: urgência/emergência pertence a atenção secundária ou terciária
+// Mapeamento tp_unidade → nível + acolhimento (corrigido para evitar classificação incorreta)
 const TP_MAP = {
-  '01':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Posto de Saúde' },
-  '02':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Centro de Saúde/UBS' },
-  '04':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Policlínica' },
-  '05':{ nivel:'terciaria',  tags:['ambulatorial','urgencia'],nome:'Hospital Geral' },
-  '07':{ nivel:'terciaria',  tags:['ambulatorial'],           nome:'Hospital Especializado' },
-  '15':{ nivel:'terciaria',  tags:['ambulatorial','urgencia'],nome:'Unidade Mista' },
-  '20':{ nivel:'secundaria', tags:['urgencia'],               nome:'Pronto Atendimento / UPA' },
-  '21':{ nivel:'terciaria',  tags:['urgencia'],               nome:'Pronto Socorro Geral' },
-  '22':{ nivel:'terciaria',  tags:['urgencia'],               nome:'Pronto Socorro Especializado' },
-  '32':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Saúde Indígena' },
-  '36':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Clínica/Centro de Especialidade' },
-  '39':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Apoio Diagnose/Terapia' },
-  '40':{ nivel:'secundaria', tags:['urgencia'],               nome:'Unidade Móvel Terrestre' },
-  '42':{ nivel:'secundaria', tags:['urgencia'],               nome:'Unidade Móvel Fluvial' },
-  '43':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Farmácia' },
-  '50':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Vigilância em Saúde' },
-  '60':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Cooperativa/Empresa' },
-  '61':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'CAPS' },
-  '62':{ nivel:'terciaria',  tags:['ambulatorial'],           nome:'Hospital/Dia Isolado' },
-  '67':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Laboratório Saúde Pública' },
-  '68':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Central de Regulação' },
-  '69':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Centro de Apoio à Saúde da Família' },
-  '70':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Centro Hemoterapia/Hematologia' },
-  '71':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Banco de Leite Humano' },
-  '72':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Unidade Regime Residencial' },
-  '73':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Posto de Saúde Rural' },
-  '74':{ nivel:'terciaria',  tags:['maternidade'],            nome:'Centro de Parto Normal' },
-  '75':{ nivel:'terciaria',  tags:['maternidade','urgencia'], nome:'Hospital Maternidade' },
-  '76':{ nivel:'terciaria',  tags:['urgencia'],               nome:'Central de Reg. de Urgências/SAMU' },
-  '79':{ nivel:'secundaria', tags:['traumatologia'],          nome:'Oficina Ortopédica' },
-  '80':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Laboratório Próteses Dentárias' },
-  '81':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Laboratório Central Saúde Pública' },
-  '82':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Atenção Domiciliar' },
-  '83':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Polo Academia da Saúde' },
-  '84':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Central Abastecimento Farmacêutico' },
-  '85':{ nivel:'primaria',   tags:['ambulatorial'],           nome:'Centro de Imunização' },
-  '86':{ nivel:'secundaria', tags:['ambulatorial'],           nome:'Serviço de Atenção Especializada' },
+  '01':{ nivel:'primaria', tags:['ambulatorial'], nome:'Posto de Saúde' },
+  '02':{ nivel:'primaria', tags:['ambulatorial'], nome:'Centro de Saúde/UBS' },
+  '04':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Policlínica' },
+  '05':{ nivel:'terciaria', tags:['ambulatorial','urgencia','internacao'], nome:'Hospital Geral' },
+  '07':{ nivel:'terciaria', tags:['ambulatorial','internacao'], nome:'Hospital Especializado' },
+  '15':{ nivel:'terciaria', tags:['ambulatorial','urgencia','internacao'], nome:'Unidade Mista' },
+  '20':{ nivel:'secundaria', tags:['urgencia'], nome:'Pronto Atendimento' },
+  '21':{ nivel:'terciaria', tags:['urgencia','internacao'], nome:'Pronto Socorro Geral' },
+  '22':{ nivel:'terciaria', tags:['urgencia','internacao'], nome:'Pronto Socorro Especializado' },
+  '32':{ nivel:'primaria', tags:['ambulatorial'], nome:'Saúde Indígena' },
+  '36':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Clínica/Centro de Especialidade' },
+  '39':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Apoio Diagnose/Terapia' },
+  '40':{ nivel:'primaria', tags:['urgencia'], nome:'Unidade Móvel Terrestre' },
+  '42':{ nivel:'primaria', tags:['urgencia'], nome:'Unidade Móvel Fluvial' },
+  '43':{ nivel:'primaria', tags:['ambulatorial'], nome:'Farmácia' },
+  '50':{ nivel:'primaria', tags:['ambulatorial'], nome:'Vigilância em Saúde' },
+  '60':{ nivel:'primaria', tags:['ambulatorial'], nome:'Cooperativa/Empresa' },
+  '61':{ nivel:'secundaria', tags:['ambulatorial'], nome:'CAPS' },
+  '62':{ nivel:'terciaria', tags:['ambulatorial','internacao'], nome:'Hospital/Dia Isolado' },
+  '67':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Laboratório Saúde Pública' },
+  '68':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Central de Regulação' },
+  '69':{ nivel:'primaria', tags:['ambulatorial'], nome:'Centro de Apoio à Saúde da Família' },
+  '70':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Centro Hemoterapia/Hematologia' },
+  '71':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Banco de Leite Humano' },
+  '72':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Unidade Regime Residencial' },
+  '73':{ nivel:'primaria', tags:['ambulatorial'], nome:'Posto de Saúde Rural' },
+  '74':{ nivel:'terciaria', tags:['maternidade'], nome:'Centro de Parto Normal' },
+  '75':{ nivel:'terciaria', tags:['maternidade','internacao'], nome:'Hospital Maternidade' },
+  '76':{ nivel:'terciaria', tags:['urgencia'], nome:'Central de Regulação de Urgências' },
+  '79':{ nivel:'secundaria', tags:['traumatologia','ambulatorial'], nome:'Oficina Ortopédica' },
+  '80':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Laboratório Próteses Dentárias' },
+  '81':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Laboratório Central Saúde Pública' },
+  '82':{ nivel:'primaria', tags:['ambulatorial'], nome:'Atenção Domiciliar' },
+  '83':{ nivel:'primaria', tags:['ambulatorial'], nome:'Polo Academia da Saúde' },
+  '84':{ nivel:'primaria', tags:['ambulatorial'], nome:'Central de Abastecimento Farmacêutico' },
+  '85':{ nivel:'primaria', tags:['ambulatorial'], nome:'Centro de Imunização' },
+  '86':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Serviço de Atenção Especializada' },
 };
 
 const NIVEL_CONFIG = {
@@ -1095,6 +1068,7 @@ const ACOLHIMENTO_CONFIG = {
   urgencia:     { label:'Urgência/Emergência', tagClass:'unit-tag-urgencia',     emoji:'🚨' },
   maternidade:  { label:'Maternidade',          tagClass:'unit-tag-maternidade',  emoji:'🤱' },
   traumatologia:{ label:'Traumatologia',        tagClass:'unit-tag-traumatologia',emoji:'🦴' },
+  internacao:   { label:'Internação',           tagClass:'unit-tag-ambulatorial', emoji:'🏥' },
 };
 
 const GESTAO_MAP = { M:'Municipal', E:'Estadual', F:'Federal', D:'Dupla Gestão' };
@@ -1108,6 +1082,7 @@ let userLocation = null;
 let geoSearchMode = false;
 let currentMunicipioCode = null;
 let isLoading = false;
+let pdfBlob = null;
 
 // ═══════════════════════════════════════════════════
 //  INICIALIZAÇÃO
@@ -1175,9 +1150,6 @@ function onMunicipioChange() {
   allUnits = [];
   filteredUnits = [];
   geoSearchMode = false;
-  if (code) {
-    // Auto-open filter and suggest search
-  }
 }
 
 function limparFiltros() {
@@ -1289,7 +1261,6 @@ async function fetchCNES(path) {
 /** Extrai o array de estabelecimentos de qualquer envelope que a API retorne */
 function extractItems(data) {
   if (!data) return null;
-  // Envelopes conhecidos da API CNES/DATASUS
   for (const key of ['estabelecimentos','data','result','results','items']) {
     if (Array.isArray(data[key])) return data[key];
   }
@@ -1302,60 +1273,66 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ═══════════════════════════════════════════════════
 //  NORMALIZAÇÃO DE CAMPOS DA API CNES
 // ═══════════════════════════════════════════════════
-/**
- * A API CNES/DATASUS usa diferentes schemas em versões distintas.
- * Esta função unifica todos os campos possíveis em um objeto padronizado.
- */
 function normalizeUnit(raw) {
-  // ── identificação ──
-  // ATENÇÃO: raw.nome pode ser nome do responsável técnico, NÃO da unidade. Excluído.
-  const co_cnes     = String(raw.co_cnes || raw.cnes || raw.CO_CNES || '').trim();
-  const no_fantasia = String(raw.no_fantasia   || raw.nome_fantasia || raw.NO_FANTASIA   || '').trim();
-  const no_razao    = String(raw.no_razao_social || raw.razao_social || raw.NO_RAZAO_SOCIAL
-                           || raw.no_estabelecimento || raw.estabelecimento || '').trim();
-  // Nome preferencial: fantasia → razão social → fallback com CNES
-  const _nome = no_fantasia || no_razao || (co_cnes ? `Unidade CNES ${co_cnes}` : 'Unidade sem nome');
+  const co_cnes     = raw.co_cnes || raw.cnes || raw.CO_CNES || '';
+  const no_fantasia = (raw.no_fantasia || raw.nome_fantasia || raw.NO_FANTASIA || '').trim();
+  const no_razao    = (raw.no_razao_social || raw.razao_social || raw.NO_RAZAO_SOCIAL || raw.nome || '').trim();
+  const nome        = no_fantasia || no_razao || `CNES ${co_cnes}`;
 
-  // ── tipo e classificação ──
-  const tp_unidade      = String(raw.tp_unidade || raw.TP_UNIDADE || raw.co_tipo_unidade || raw.tp_pfpj || '').trim();
-  const ds_tipo_unidade = String(raw.ds_tipo_unidade || raw.tipo_unidade || raw.DS_TIPO_UNIDADE
-                               || raw.descricao_tipo || raw.ds_tipo || '').trim();
+  const tp_unidade      = String(raw.tp_unidade || raw.TP_UNIDADE || raw.co_tipo_unidade || '');
+  const ds_tipo_unidade = (raw.ds_tipo_unidade || raw.tipo_unidade || raw.DS_TIPO_UNIDADE || raw.descricao_tipo || '').trim();
 
-  // ── endereço ──
-  const ds_tipo_log = String(raw.ds_tipo_logradouro || raw.tipo_logradouro || '').trim();
-  const no_log      = String(raw.no_logradouro  || raw.ds_logradouro  || raw.logradouro
-                           || raw.NO_LOGRADOURO || '').trim();
-  const nu_endereco = String(raw.nu_endereco || raw.numero || raw.NU_ENDERECO || '').trim();
-  const ds_compl    = String(raw.ds_complemento || raw.complemento || '').trim();
-  const no_bairro   = String(raw.no_bairro  || raw.bairro  || raw.NO_BAIRRO  || '').trim();
-  const no_municipio= String(raw.no_municipio|| raw.municipio|| raw.NO_MUNICIPIO || raw.cidade || '').trim();
-  const sg_uf       = String(raw.sg_uf || raw.uf || raw.SG_UF || raw.estado || '').trim().toUpperCase();
-  const co_cep      = String(raw.co_cep || raw.cep || raw.CO_CEP || '').replace(/\D/g,'');
+  const ds_tipo_log = (raw.ds_tipo_logradouro || raw.tipo_logradouro || '').trim();
+  const no_log      = (raw.no_logradouro  || raw.ds_logradouro || raw.logradouro || raw.NO_LOGRADOURO || '').trim();
+  const nu_endereco = (raw.nu_endereco    || raw.numero        || raw.NU_ENDERECO || '').toString().trim();
+  const ds_compl    = (raw.ds_complemento || raw.complemento   || '').trim();
+  const no_bairro   = (raw.no_bairro      || raw.bairro        || raw.NO_BAIRRO   || '').trim();
+  const no_municipio= (raw.no_municipio   || raw.municipio     || raw.NO_MUNICIPIO || raw.cidade || '').trim();
+  const sg_uf       = (raw.sg_uf          || raw.uf            || raw.SG_UF       || raw.estado || '').trim().toUpperCase();
+  const co_cep      = (raw.co_cep         || raw.cep           || raw.CO_CEP      || '').toString().replace(/\D/g,'');
 
-  // ── contato ──
-  const nu_telefone = String(raw.nu_telefone || raw.telefone || raw.fone || raw.NU_TELEFONE || '').replace(/\D/g,'');
-  const ds_email    = String(raw.ds_email || raw.email || raw.DS_EMAIL || '').trim().toLowerCase();
+  const nu_telefone = (raw.nu_telefone || raw.telefone || raw.fone || raw.NU_TELEFONE || '').toString().replace(/\D/g,'');
+  const ds_email    = (raw.ds_email    || raw.email    || raw.DS_EMAIL || '').trim().toLowerCase();
 
-  // ── coordenadas: API BR pode retornar vírgula como separador decimal ──
-  function parseCoord(v) {
-    if (!v && v !== 0) return 0;
-    return parseFloat(String(v).replace(',', '.')) || 0;
-  }
-  const nu_latitude  = parseCoord(raw.nu_latitude  || raw.latitude  || raw.lat || raw.NU_LATITUDE);
-  const nu_longitude = parseCoord(raw.nu_longitude || raw.longitude || raw.lng || raw.lon || raw.NU_LONGITUDE);
+  const nu_latitude  = parseFloat(raw.nu_latitude  || raw.latitude  || raw.lat || raw.NU_LATITUDE  || 0) || null;
+  const nu_longitude = parseFloat(raw.nu_longitude || raw.longitude || raw.lng || raw.lon || raw.NU_LONGITUDE || 0) || null;
 
-  // ── gestão ──
-  const tp_gestao = String(raw.tp_gestao || raw.gestao || raw.TP_GESTAO || '').toUpperCase().charAt(0) || '';
+  const tp_gestao = (raw.tp_gestao || raw.gestao || raw.TP_GESTAO || '').toString().toUpperCase().charAt(0) || '';
 
   return {
-    co_cnes, no_fantasia, no_razao_social: no_razao, _nome,
+    co_cnes, no_fantasia, no_razao_social: no_razao, _nome: nome,
     tp_unidade, ds_tipo_unidade,
     ds_tipo_logradouro: ds_tipo_log, no_logradouro: no_log,
     nu_endereco, ds_complemento: ds_compl, no_bairro, no_municipio, sg_uf, co_cep,
     nu_telefone, ds_email,
     nu_latitude, nu_longitude,
     tp_gestao,
+    _raw: raw
   };
+}
+
+// ═══════════════════════════════════════════════════
+//  CLASSIFICAÇÃO DE UNIDADES (recebe unidade já normalizada)
+// ═══════════════════════════════════════════════════
+function classifyUnit(u) {
+  const tpCode  = String(u.tp_unidade || '').replace(/\D/g,'').padStart(2,'0');
+  let nivel   = 'primaria';
+  let tags    = ['ambulatorial'];
+  let tipoNome = u.ds_tipo_unidade || 'Unidade de Saúde';
+
+  if (TP_MAP[tpCode]) {
+    nivel    = TP_MAP[tpCode].nivel;
+    tags     = [...TP_MAP[tpCode].tags];
+    tipoNome = TP_MAP[tpCode].nome;
+  }
+
+  // Remove tags inadequadas para o nível
+  if (nivel === 'primaria') {
+    tags = tags.filter(t => !['urgencia', 'internacao', 'maternidade'].includes(t));
+    if (!tags.includes('ambulatorial')) tags.push('ambulatorial');
+  }
+
+  return { ...u, _nivel: nivel, _tags: tags, _tipoNome: tipoNome };
 }
 
 // ═══════════════════════════════════════════════════
@@ -1373,11 +1350,6 @@ async function buscarUnidades() {
   await fetchUnidades(coMunicipio, munNome, false);
 }
 
-/**
- * @param {string}  coMunicipio  Código IBGE do município (6 dígitos)
- * @param {string}  munNome      Nome para exibição
- * @param {boolean} geoMode      Se true, NÃO renderiza — deixa applyGeoFilter() fazer isso
- */
 async function fetchUnidades(coMunicipio, munNome = '', geoMode = false) {
   if (isLoading) return;
   isLoading = true;
@@ -1408,7 +1380,6 @@ async function fetchUnidades(coMunicipio, munNome = '', geoMode = false) {
       const items = extractItems(data);
       if (!items || items.length === 0) break;
 
-      // Atualiza total a partir do envelope
       if (!total) {
         total = parseInt(data.total ?? data.count ?? data.totalRecords ?? 0) || null;
       }
@@ -1429,7 +1400,7 @@ async function fetchUnidades(coMunicipio, munNome = '', geoMode = false) {
       offset += items.length;
       if (items.length < MAX_UNITS_PER_CALL || allUnits.length >= MAX_TOTAL_UNITS) break;
 
-      await delay(120); // pausa leve entre páginas
+      await delay(120);
     }
 
     updateProgressCard('Concluído!', 100, allUnits.length);
@@ -1438,11 +1409,10 @@ async function fetchUnidades(coMunicipio, munNome = '', geoMode = false) {
       if (!geoMode) showEmpty();
     } else {
       if (geoMode) {
-        // Não renderiza aqui — applyGeoFilter fará isso em seguida
         console.log(`[GEO] ${allUnits.length} unidades carregadas; aguardando filtro de distância.`);
       } else {
         filteredUnits = [...allUnits];
-        applyLocalFilters(); // aplica filtros UI e renderiza
+        applyLocalFilters();
         showNotification(`✅ ${allUnits.length} unidades carregadas!`, 'success');
       }
     }
@@ -1459,7 +1429,6 @@ async function fetchUnidades(coMunicipio, munNome = '', geoMode = false) {
     isLoading = false;
     btnBuscar.disabled = false;
     btnBuscar.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Buscar Unidades`;
-    // Esconde progress card após breve delay para o usuário ver "Concluído"
     setTimeout(hideProgressCard, 900);
   }
 }
@@ -1490,7 +1459,6 @@ async function geoPositionObtida(pos) {
   setGeoStatus(`📍 GPS: (${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}) — identificando município...`);
 
   try {
-    // 1. Reverse geocoding via Nominatim
     const nomUrl = `${NOMINATIM_API}/reverse?format=json&lat=${userLocation.lat}&lon=${userLocation.lng}&addressdetails=1&accept-language=pt-BR`;
     const nomResp = await fetchWithTimeout(nomUrl, 10000);
     if (!nomResp.ok) throw new Error('Nominatim indisponível');
@@ -1499,27 +1467,22 @@ async function geoPositionObtida(pos) {
     const addr      = nomData.address || {};
     const cityName  = addr.city || addr.town || addr.municipality || addr.county || addr.village || '';
     const stateCode = (addr['ISO3166-2-lvl4'] || '').split('-')[1] || '';
-    const stateName = addr.state || '';
-    const uf        = stateCode || stateName;
+    const uf        = stateCode || addr.state || '';
 
     if (!cityName) throw new Error('Município não identificado nas coordenadas');
 
     setGeoStatus(`🏙️ Município detectado: ${cityName} — ${uf}. Buscando código IBGE...`);
 
-    // 2. Código IBGE do município
     const ibgeCode = await buscarCodigoIBGE(cityName, uf);
     if (!ibgeCode) throw new Error(`Município "${cityName}" não localizado no IBGE`);
 
     setGeoStatus(`📋 Código IBGE ${ibgeCode} — carregando todas as unidades para filtrar em ${raio} km...`);
 
-    // 3. Sincroniza seletores de UI (bônus de UX — não bloqueia)
     sincronizarSeletores(uf, cityName, ibgeCode).catch(() => {});
 
-    // 4. Carrega unidades em geoMode=true (sem renderizar ainda)
     geoSearchMode = true;
     await fetchUnidades(ibgeCode, cityName, true);
 
-    // 5. Agora aplica filtro de distância e renderiza
     if (allUnits.length > 0) {
       applyGeoFilter();
     } else {
@@ -1533,7 +1496,6 @@ async function geoPositionObtida(pos) {
     setGeoStatus(`⚠️ ${e.message}`);
     showNotification(`Erro na busca por proximidade: ${e.message}`, 'error');
     hideProgressCard();
-    // Fallback: se já há dados de busca anterior, filtra por distância
     if (allUnits.length > 0) {
       setGeoStatus(`⚠️ Usando dados anteriores. Filtrando por distância...`);
       geoSearchMode = true;
@@ -1543,10 +1505,8 @@ async function geoPositionObtida(pos) {
 }
 
 async function buscarCodigoIBGE(cityName, stateHint) {
-  // 1. Tenta busca direta pelo nome exato no IBGE
   const normalizado = cityName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-  // Tenta via UF se tiver pista do estado
   let estados = stateHint
     ? [stateHint.toUpperCase()]
     : ESTADOS.map(e => e.sg);
@@ -1556,7 +1516,6 @@ async function buscarCodigoIBGE(cityName, stateHint) {
       const r = await fetchWithTimeout(`${IBGE_API}/estados/${uf}/municipios`, 8000);
       if (!r.ok) continue;
       const lista = await r.json();
-      // Busca fuzzy por nome normalizado
       const match = lista.find(m => {
         const mn = m.nome.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
         return mn === normalizado || mn.includes(normalizado) || normalizado.includes(mn);
@@ -1565,7 +1524,6 @@ async function buscarCodigoIBGE(cityName, stateHint) {
     } catch(_) { /* continua */ }
   }
 
-  // Fallback: tenta busca nacional (todos os municípios — pesado mas último recurso)
   try {
     const r = await fetchWithTimeout(`${IBGE_API}/municipios`, 15000);
     if (r.ok) {
@@ -1587,12 +1545,10 @@ async function sincronizarSeletores(uf, cityName, ibgeCode) {
     const selMun    = document.getElementById('selectMunicipio');
     const ufUpper   = uf.toUpperCase();
 
-    // Seta UF
     if ([...selEstado.options].some(o => o.value === ufUpper)) {
       selEstado.value = ufUpper;
     }
 
-    // Popula municípios se ainda não populados
     if (selMun.options.length <= 1 || selMun.disabled) {
       const r = await fetchWithTimeout(`${IBGE_API}/estados/${ufUpper}/municipios`, 8000);
       if (r.ok) {
@@ -1609,11 +1565,10 @@ async function sincronizarSeletores(uf, cityName, ibgeCode) {
       }
     }
 
-    // Seta município
     const opt = [...selMun.options].find(o => o.value === ibgeCode);
     if (opt) selMun.value = ibgeCode;
     currentMunicipioCode = ibgeCode;
-  } catch(_) { /* não critico — só UX */ }
+  } catch(_) { /* não critico */ }
 }
 
 function applyGeoFilter() {
@@ -1623,11 +1578,11 @@ function applyGeoFilter() {
   const withCoords = [], noCoords = [];
   allUnits.forEach(u => {
     const lat = u.nu_latitude, lng = u.nu_longitude;
-    if (lat && lng && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001) {
+    if (lat && lng && !isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 0.0001 && Math.abs(lng) > 0.0001) {
       const dist = haversine(userLocation.lat, userLocation.lng, lat, lng);
       if (dist <= raio) withCoords.push({ ...u, _distance: dist });
     } else {
-      noCoords.push(u); // sem coordenadas — não podemos calcular distância
+      noCoords.push(u);
     }
   });
 
@@ -1666,53 +1621,6 @@ function haversine(lat1, lon1, lat2, lon2) {
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-// ═══════════════════════════════════════════════════
-//  CLASSIFICAÇÃO DE UNIDADES (recebe unidade já normalizada)
-// ═══════════════════════════════════════════════════
-function classifyUnit(u) {
-  const tpCode  = String(u.tp_unidade || '').replace(/\D/g,'').padStart(2,'0');
-  const norm    = s => String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const dsDesc  = norm(u.ds_tipo_unidade);
-  const nomeStr = norm(u._nome) + ' ' + norm(u.no_razao_social);
-
-  let nivel    = 'primaria';
-  let tags     = ['ambulatorial'];
-  let tipoNome = u.ds_tipo_unidade || 'Unidade de Saúde';
-
-  // 1. Pelo código de tipo — mais confiável
-  if (TP_MAP[tpCode]) {
-    nivel    = TP_MAP[tpCode].nivel;
-    tags     = [...TP_MAP[tpCode].tags];
-    tipoNome = TP_MAP[tpCode].nome;
-  } else {
-    // 2. Fallback por keywords
-    if (/HOSPITAL|UTI|TERAPIA INTENSIVA|ALTA COMPLEXIDADE/.test(dsDesc)) {
-      nivel = 'terciaria'; tags = ['ambulatorial','urgencia'];
-    } else if (/PRONTO SOCORRO|UPA|URGENCIA|EMERGENCIA/.test(dsDesc)) {
-      nivel = 'terciaria'; tags = ['urgencia'];
-    } else if (/POLICLINICA|ESPECIALIDADE|AMBULATORIO|CAPS|CLINICA/.test(dsDesc)) {
-      nivel = 'secundaria'; tags = ['ambulatorial'];
-    }
-  }
-
-  // 3. Enriquecimento por keywords de acolhimento específico
-  const allText = dsDesc + ' ' + nomeStr;
-  if (/MATERNIDADE|MATERNO|PARTO|NEONATAL|OBSTETRI/.test(allText)) {
-    tags = [...new Set([...tags, 'maternidade'])];
-    if (nivel === 'primaria') nivel = 'terciaria';
-  }
-  if (/TRAUMA|ORTOPEDIA|ORTOPEDIC|FRATURA|REABILITACAO/.test(allText)) {
-    tags = [...new Set([...tags, 'traumatologia'])];
-  }
-  // REGRA: urgência/emergência não pertence à atenção primária
-  if (nivel !== 'primaria' && /URGENCIA|EMERGENCIA|PRONTO SOCORRO|\bUPA\b|\bSAMU\b/.test(allText)) {
-    tags = [...new Set([...tags, 'urgencia'])];
-  }
-
-  if (!tags.length) tags = ['ambulatorial'];
-  return { ...u, _nivel: nivel, _tags: tags, _tipoNome: tipoNome };
 }
 
 // ═══════════════════════════════════════════════════
@@ -1762,8 +1670,6 @@ function renderInitial() {
 }
 
 function showLoading(munNome) {
-  // O progresso principal está no searchProgressCard acima do dashboard.
-  // Aqui apenas mostramos uma mensagem mínima no painel de resultados.
   document.getElementById('resultsSection').innerHTML = `
     <div class="status-box" style="padding:32px 40px;">
       <p style="color:var(--text-muted);font-size:0.88rem;">⏳ Carregando unidades de saúde${munNome ? ' de ' + munNome : ''}…</p>
@@ -1801,13 +1707,13 @@ function showError(msg) {
 function renderResults(units) {
   if (!units.length) { showEmpty(); return; }
 
-  // Group by nivel + tag
   const groups = {};
   const groupOrder = [
     { nivel:'terciaria', tag:'urgencia' },
     { nivel:'terciaria', tag:'maternidade' },
-    { nivel:'terciaria', tag:'traumatologia' },
+    { nivel:'terciaria', tag:'internacao' },
     { nivel:'terciaria', tag:'ambulatorial' },
+    { nivel:'secundaria', tag:'urgencia' },
     { nivel:'secundaria', tag:'ambulatorial' },
     { nivel:'secundaria', tag:'traumatologia' },
     { nivel:'primaria', tag:'ambulatorial' },
@@ -1835,9 +1741,9 @@ function renderResults(units) {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         Exportar Excel
       </button>
-      <button class="btn btn-amber btn-sm" onclick="exportarPDF()">
+      <button class="btn btn-amber btn-sm" onclick="visualizarPDF()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Exportar PDF A5
+        Visualizar PDF A5
       </button>
     </div>
   </div>`;
@@ -1851,16 +1757,16 @@ function renderResults(units) {
 
     const groupUnits = groups[key];
     const nConf = NIVEL_CONFIG[nivel];
-    const aConf = ACOLHIMENTO_CONFIG[tag];
+    const aConf = ACOLHIMENTO_CONFIG[tag] || { label: tag, emoji: '📋', tagClass: '' };
 
     html += `
     <div class="group-section nivel-${nivel}">
       <div class="group-header" onclick="toggleGroup('${key.replace('|','-')}')">
         <div class="group-header-left">
-          <div class="group-header-icon" style="background:${nConf.bg};color:${nConf.color};width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">${nConf.emoji}</div>
+          <span style="font-size:1.5rem">${nConf.emoji} ${aConf.emoji}</span>
           <div>
             <div class="group-name">${nConf.label} — ${aConf.label}</div>
-            <div class="group-meta">${groupUnits.length} unidade${groupUnits.length !== 1 ? 's' : ''} • clique para expandir/recolher</div>
+            <div class="group-meta">Clique para visualizar as unidades</div>
           </div>
           <span class="group-pill" style="background:${nConf.bg};color:${nConf.color}">${nConf.label}</span>
           <span class="group-pill" style="background:#f0f0f0;color:#555">${aConf.label}</span>
@@ -1880,12 +1786,11 @@ function renderResults(units) {
     </div>`;
   });
 
-  // Demais grupos não cobertos
   Object.keys(groups).forEach(key => {
     if (renderedKeys.has(key)) return;
     const [nivel, tag] = key.split('|');
     const nConf = NIVEL_CONFIG[nivel] || NIVEL_CONFIG.primaria;
-    const aConf = ACOLHIMENTO_CONFIG[tag] || ACOLHIMENTO_CONFIG.ambulatorial;
+    const aConf = ACOLHIMENTO_CONFIG[tag] || { label: tag, emoji: '📋', tagClass: '' };
     const groupUnits = groups[key];
 
     html += `
@@ -1915,7 +1820,6 @@ function renderResults(units) {
 }
 
 function renderUnitCard(u, nConf, currentTag) {
-  // Usa campos normalizados (_nome, no_logradouro, etc.)
   const nome     = u._nome || u.no_fantasia || u.no_razao_social || 'Unidade sem nome';
   const rua      = [u.ds_tipo_logradouro, u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
   const bairro   = u.no_bairro   || '';
@@ -1929,19 +1833,18 @@ function renderUnitCard(u, nConf, currentTag) {
 
   const enderecoCompleto = [rua, bairro, municipio, uf, cep ? 'CEP ' + cep : ''].filter(Boolean).join(', ');
 
-  // Links externos
   const lat = u.nu_latitude, lng = u.nu_longitude;
   const mapsQuery = encodeURIComponent(`${nome} ${enderecoCompleto}`);
-  const mapsUrl   = (lat && lng)
+  const mapsUrl   = (lat && lng && !isNaN(lat) && !isNaN(lng))
     ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
     : `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
   const googleSearch = `https://www.google.com/search?q=${encodeURIComponent(nome + ' ' + municipio + ' ' + uf + ' saúde')}`;
-  const cnesUrl   = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
-  const waText    = `🏥 *${nome}*\n📍 ${enderecoCompleto}${tel ? '\n📞 ' + tel : ''}${cnesUrl ? '\n🔗 ' + cnesUrl : ''}`;
+  const cnesUrl   = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha/${cnes}` : '';
+  const waText    = `🏥 *${nome}*\n📍 ${enderecoCompleto}${tel ? '\n📞 ' + tel : ''}`;
   const waUrl     = `https://wa.me/?text=${encodeURIComponent(waText)}`;
 
   const distBadge = u._distance != null
-    ? `<span class="unit-tag unit-tag-ambulatorial unit-distance">📍 ${u._distance.toFixed(1)} km</span>`
+    ? `<span class="unit-tag unit-distance">📍 ${u._distance.toFixed(1)} km</span>`
     : '';
 
   const gestaoClass = u.tp_gestao === 'M' ? 'unit-tag-municipal'
@@ -1978,7 +1881,6 @@ function renderUnitCard(u, nConf, currentTag) {
   </div>`;
 }
 
-// ─ micro ícones inline ─
 const iconPin    = () => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
 const iconHome   = () => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>`;
 const iconPhone  = () => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.63a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 8.03a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>`;
@@ -2005,7 +1907,7 @@ function exportarExcel() {
   try {
     const wb = XLSX.utils.book_new();
     const niveisOrdem = ['terciaria','secundaria','primaria'];
-    const tagsOrdem = ['urgencia','maternidade','traumatologia','ambulatorial'];
+    const tagsOrdem = ['urgencia','maternidade','internacao','traumatologia','ambulatorial'];
 
     niveisOrdem.forEach(nivel => {
       tagsOrdem.forEach(tag => {
@@ -2013,11 +1915,11 @@ function exportarExcel() {
         if (!units.length) return;
 
         const nConf = NIVEL_CONFIG[nivel];
-        const aConf = ACOLHIMENTO_CONFIG[tag];
-        const sheetName = `${nConf.label.substring(0,10)} - ${aConf.label.substring(0,10)}`.substring(0,31);
+        const aConf = ACOLHIMENTO_CONFIG[tag] || { label: tag };
+        const sheetName = `${nConf.label.substring(0,8)} - ${aConf.label.substring(0,8)}`.substring(0,31);
 
         const rows = [
-          ['CNES','Nome / Fantasia','Razão Social','Tipo de Unidade','Nível de Atenção','Acolhimento','Gestão','Logradouro','Número','Complemento','Bairro','Município','UF','CEP','Telefone','E-mail','Latitude','Longitude','Link CNES','Google Maps']
+          ['CNES','Nome Fantasia','Razão Social','Tipo Unidade','Nível','Acolhimentos','Gestão','Logradouro','Número','Complemento','Bairro','Município','UF','CEP','Telefone','E-mail','Latitude','Longitude','Link CNES','Google Maps']
         ];
 
         units.forEach(u => {
@@ -2025,8 +1927,10 @@ function exportarExcel() {
             const cnes    = u.co_cnes || '';
             const lat     = u.nu_latitude  || '';
             const lng     = u.nu_longitude || '';
-            const cnesUrl = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
-            const mapsUrl = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : '';
+            const cnesUrl = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha/${cnes}` : '';
+            const mapsUrl = (lat && lng && !isNaN(lat) && !isNaN(lng)) 
+              ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+              : '';
             const cep     = u.co_cep ? String(u.co_cep).replace(/^(\d{5})(\d{3})$/, '$1-$2') : '';
 
           rows.push([
@@ -2054,20 +1958,15 @@ function exportarExcel() {
         });
 
         const ws = XLSX.utils.aoa_to_sheet(rows);
-
-        // Style header
-        const range = XLSX.utils.decode_range(ws['!ref']);
         ws['!cols'] = [
           {wch:10},{wch:35},{wch:35},{wch:30},{wch:18},{wch:30},{wch:14},
           {wch:30},{wch:8},{wch:15},{wch:20},{wch:20},{wch:5},{wch:10},
           {wch:15},{wch:25},{wch:12},{wch:12},{wch:50},{wch:50}
         ];
-
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
       });
     });
 
-    // Aba Resumo
     const resumoRows = [
       ['RELATÓRIO DE UNIDADES DE SAÚDE PÚBLICA — SaúdeBR / CNES-DATASUS'],
       [`Gerado em: ${new Date().toLocaleString('pt-BR')}`],
@@ -2077,7 +1976,7 @@ function exportarExcel() {
     niveisOrdem.forEach(nivel => {
       tagsOrdem.forEach(tag => {
         const count = filteredUnits.filter(u => u._nivel === nivel && u._tags.includes(tag)).length;
-        if (count) resumoRows.push([NIVEL_CONFIG[nivel].label, ACOLHIMENTO_CONFIG[tag].label, count]);
+        if (count) resumoRows.push([NIVEL_CONFIG[nivel].label, (ACOLHIMENTO_CONFIG[tag]?.label || tag), count]);
       });
     });
     resumoRows.push(['','TOTAL GERAL', filteredUnits.length]);
@@ -2095,75 +1994,66 @@ function exportarExcel() {
 }
 
 // ═══════════════════════════════════════════════════
-//  EXPORT PDF A5 HORIZONTAL — sem emoji, com pré-visualização
+//  VISUALIZAÇÃO E EXPORTAÇÃO PDF
 // ═══════════════════════════════════════════════════
-let _pdfBlobUrl  = null;
-let _pdfFilename = '';
-
-function fecharModalPDF() {
-  document.getElementById('pdfModalOverlay').style.display = 'none';
-  document.getElementById('pdfModalIframe').src = '';
-  if (_pdfBlobUrl) { URL.revokeObjectURL(_pdfBlobUrl); _pdfBlobUrl = null; }
+function visualizarPDF() {
+  if (!filteredUnits.length) { showNotification('Nenhuma unidade para exportar.', 'error'); return; }
+  gerarPDF(true);
 }
 
-function exportarPDF() {
+function baixarPDF() {
   if (!filteredUnits.length) { showNotification('Nenhuma unidade para exportar.', 'error'); return; }
+  gerarPDF(false);
+}
 
+function gerarPDF(visualizar = true) {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
-    const W = 210, H = 148, margin = 10;
+    const W = 210, H = 148;
+    const margin = 10;
 
-    const munNome = document.getElementById('selectMunicipio')
-      .options[document.getElementById('selectMunicipio').selectedIndex]?.text || 'Brasil';
+    const munNome = document.getElementById('selectMunicipio').options[document.getElementById('selectMunicipio').selectedIndex]?.text || '';
     const ufSel = document.getElementById('selectEstado').value || '';
-    const dataGer = new Date().toLocaleString('pt-BR');
 
-    // ────────────────── CAPA ──────────────────
+    // Capa
     doc.setFillColor(11, 31, 58);
     doc.rect(0, 0, W, H, 'F');
-
-    // Faixa decorativa teal
     doc.setFillColor(0, 168, 120);
-    doc.rect(0, H - 24, W, 24, 'F');
-
-    // Cruz (logo)
+    doc.rect(0, H - 25, W, 25, 'F');
     doc.setDrawColor(255, 255, 255);
     doc.setLineWidth(4);
-    doc.line(W/2 - 12, H/2 - 30, W/2 + 12, H/2 - 30);
-    doc.line(W/2, H/2 - 42, W/2, H/2 - 18);
-
+    doc.line(W/2 - 12, H/2 - 28, W/2 + 12, H/2 - 28);
+    doc.line(W/2, H/2 - 40, W/2, H/2 - 16);
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.text('SaudeBR', W/2, H/2 - 5, { align: 'center' });
-
+    doc.setFontSize(22);
+    doc.text('SaúdeBR', W/2, H/2 - 4, { align: 'center' });
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
+    doc.setFontSize(10);
     doc.setTextColor(180, 230, 210);
-    doc.text('Localizador de Unidades de Saude Publica', W/2, H/2 + 5, { align: 'center' });
-    doc.text('CNES / DATASUS - Ministerio da Saude do Brasil', W/2, H/2 + 12, { align: 'center' });
+    doc.text('Localizador de Unidades de Saúde Pública', W/2, H/2 + 5, { align: 'center' });
+    doc.text('CNES / DATASUS — Ministério da Saúde', W/2, H/2 + 12, { align: 'center' });
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`${munNome}${ufSel ? ' - ' + ufSel : ''}`, W/2, H/2 + 24, { align: 'center' });
+    if (munNome) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${munNome}${ufSel ? ' — ' + ufSel : ''}`, W/2, H/2 + 24, { align: 'center' });
+    }
 
+    doc.setFillColor(0, 168, 120);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.setTextColor(255, 255, 255);
-    doc.text(`Gerado em ${dataGer}  |  Total de unidades: ${filteredUnits.length}`, W/2, H - 10, { align: 'center' });
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} | Total: ${filteredUnits.length} unidades`, W/2, H - 12, { align: 'center' });
 
-    // ────────────────── SEÇÕES ──────────────────
     const niveisOrdem = ['terciaria','secundaria','primaria'];
-    const tagsOrdem   = ['urgencia','maternidade','traumatologia','ambulatorial'];
-
-    const nivelLabels = { terciaria:'Atencao Terciaria', secundaria:'Atencao Secundaria', primaria:'Atencao Primaria' };
-    const tagLabels   = { urgencia:'Urgencia / Emergencia', maternidade:'Maternidade', traumatologia:'Traumatologia', ambulatorial:'Ambulatorial' };
+    const tagsOrdem = ['urgencia','maternidade','internacao','traumatologia','ambulatorial'];
     const nivelColors = {
-      terciaria:  [229, 57,  53 ],
-      secundaria: [21,  101, 192],
-      primaria:   [0,   168, 120],
+      terciaria:  { r:229, g:57,  b:53  },
+      secundaria: { r:21,  g:101, b:192 },
+      primaria:   { r:0,   g:168, b:120 },
     };
 
     niveisOrdem.forEach(nivel => {
@@ -2171,130 +2061,110 @@ function exportarPDF() {
         const units = filteredUnits.filter(u => u._nivel === nivel && u._tags.includes(tag));
         if (!units.length) return;
 
-        const [cr, cg, cb] = nivelColors[nivel];
+        const nc = nivelColors[nivel];
+        const nConf = NIVEL_CONFIG[nivel];
+        const aConf = ACOLHIMENTO_CONFIG[tag] || { label: tag, emoji: '' };
 
         doc.addPage('a5', 'landscape');
-
-        // Cabeçalho da seção
-        doc.setFillColor(cr, cg, cb);
-        doc.rect(0, 0, W, 20, 'F');
+        doc.setFillColor(nc.r, nc.g, nc.b);
+        doc.rect(0, 0, W, 18, 'F');
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
         doc.setTextColor(255, 255, 255);
-        doc.text(`${nivelLabels[nivel]}  /  ${tagLabels[tag]}`, margin, 13);
+        doc.text(`${nConf.emoji} ${nConf.label}  ·  ${aConf.emoji} ${aConf.label}`, margin, 12);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text(`${units.length} unidade${units.length !== 1 ? 's' : ''}`, W - margin, 13, { align: 'right' });
+        doc.text(`${units.length} unidades`, W - margin, 12, { align: 'right' });
 
-        // Tabela
-        const tableRows = units.map((u, idx) => {
+        const tableBody = units.map((u, idx) => {
           const rua      = [u.ds_tipo_logradouro, u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
-          const bairro   = u.no_bairro || '';
-          const mun      = [u.no_municipio, u.sg_uf].filter(Boolean).join(' - ');
-          const cep      = u.co_cep ? String(u.co_cep).replace(/^(\d{5})(\d{3})$/,'$1-$2') : '';
+          const bairro   = u.no_bairro   || '';
+          const municipio= [u.no_municipio, u.sg_uf].filter(Boolean).join(' — ');
+          const cep      = u.co_cep ? String(u.co_cep).replace(/^(\d{5})(\d{3})$/, '$1-$2') : '';
           const tel      = u.nu_telefone ? formatPhone(u.nu_telefone) : '';
           const cnes     = u.co_cnes || '';
-          const endereco = [rua, bairro, mun, cep ? 'CEP ' + cep : ''].filter(Boolean).join('\n');
+          const endereco = [rua, bairro, municipio, cep ? 'CEP '+cep : ''].filter(Boolean).join('\n');
           const contato  = [tel, u.ds_email].filter(Boolean).join('\n');
-          // Link completo ao CNES
-          const cnesLink = cnes
-            ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}`
-            : '-';
+          const cnesLink = cnes ? `cnes.datasus.gov.br/.../${cnes}` : '';
           return [
-            String(idx + 1),
-            u._nome || u.no_fantasia || u.no_razao_social || '-',
-            u._tipoNome || u.ds_tipo_unidade || '-',
-            GESTAO_MAP[u.tp_gestao] || '-',
-            endereco || '-',
-            contato  || '-',
-            cnesLink,
+            `${idx+1}`,
+            u._nome || u.no_fantasia || u.no_razao_social || '—',
+            u.ds_tipo_unidade || '—',
+            GESTAO_MAP[u.tp_gestao] || '—',
+            endereco || '—',
+            contato  || '—',
+            cnesLink || '—',
           ];
         });
 
         doc.autoTable({
-          startY: 24,
-          head: [['#', 'Nome / Estabelecimento', 'Tipo', 'Gestao', 'Endereco', 'Contato', 'Link CNES']],
-          body: tableRows,
+          startY: 22,
+          head: [['#','Nome / Estabelecimento','Tipo','Gestão','Endereço','Contato','CNES']],
+          body: tableBody,
           theme: 'grid',
           styles: {
-            fontSize: 6.2,
-            cellPadding: 1.8,
+            fontSize: 6.5,
+            cellPadding: 2,
             overflow: 'linebreak',
-            lineColor: [215, 225, 240],
+            lineColor: [220, 230, 240],
             lineWidth: 0.2,
             textColor: [15, 30, 55],
             font: 'helvetica',
           },
           headStyles: {
-            fillColor: [cr, cg, cb],
-            textColor: [255, 255, 255],
+            fillColor: [nc.r, nc.g, nc.b],
+            textColor: [255,255,255],
             fontStyle: 'bold',
-            fontSize: 6.8,
+            fontSize: 7,
           },
-          alternateRowStyles: { fillColor: [246, 249, 253] },
+          alternateRowStyles: { fillColor: [245, 248, 252] },
           columnStyles: {
-            0: { cellWidth: 7,  halign: 'center' },
-            1: { cellWidth: 44 },
-            2: { cellWidth: 28 },
+            0: { cellWidth: 8, halign: 'center' },
+            1: { cellWidth: 45 },
+            2: { cellWidth: 30 },
             3: { cellWidth: 18 },
-            4: { cellWidth: 38 },
-            5: { cellWidth: 26 },
-            6: { cellWidth: 45, fontSize: 5.5 },
+            4: { cellWidth: 40 },
+            5: { cellWidth: 28 },
+            6: { cellWidth: 35 },
           },
           margin: { left: margin, right: margin },
-          didDrawPage: data => {
-            // Faixa de cor no topo de páginas continuadas
-            const pg = doc.internal.getCurrentPageInfo().pageNumber;
-            if (data.pageCount > 1 && pg > 1) {
-              doc.setFillColor(cr, cg, cb);
-              doc.rect(0, 0, W, 8, 'F');
+          didDrawPage: (data) => {
+            if (data.pageCount > 1) {
+              doc.setFillColor(nc.r, nc.g, nc.b, 0.15);
               doc.setFont('helvetica', 'bold');
-              doc.setFontSize(6.5);
-              doc.setTextColor(255, 255, 255);
-              doc.text(`${nivelLabels[nivel]} / ${tagLabels[tag]} — continuacao`, margin, 5.5);
+              doc.setFontSize(7);
+              doc.setTextColor(nc.r, nc.g, nc.b);
+              doc.text(`${nConf.label} — ${aConf.label} (continuação)`, margin, 7);
             }
-            // Rodapé
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(5.8);
-            doc.setTextColor(160, 160, 160);
-            doc.text('SaudeBR | CNES/DATASUS - Ministerio da Saude', margin, H - 3.5);
-            doc.text(`pag. ${pg}`, W - margin, H - 3.5, { align: 'right' });
-          },
+            doc.setFontSize(6);
+            doc.setTextColor(150, 150, 150);
+            doc.text('SaúdeBR | CNES/DATASUS — Ministério da Saúde', margin, H - 4);
+            doc.text(`Pág. ${doc.internal.getCurrentPageInfo().pageNumber}`, W - margin, H - 4, { align: 'right' });
+          }
         });
       });
     });
 
-    // ── Gera blob, mostra modal de pré-visualização ──
-    const pdfBlob = doc.output('blob');
-    if (_pdfBlobUrl) URL.revokeObjectURL(_pdfBlobUrl);
-    _pdfBlobUrl = URL.createObjectURL(pdfBlob);
-
-    const munSafe = munNome.replace(/[^a-zA-Z0-9]/g,'_');
-    _pdfFilename  = `SaudeBR_CNES_${munSafe}_${Date.now()}.pdf`;
-
-    document.getElementById('pdfModalSubtitle').textContent =
-      `A5 Horizontal · ${filteredUnits.length} unidades · ${dataGer}`;
-    document.getElementById('pdfModalIframe').src = _pdfBlobUrl;
-
-    const overlay = document.getElementById('pdfModalOverlay');
-    overlay.style.display = 'flex';
-
-    // Botão de download
-    const btnDl = document.getElementById('btnDownloadPDF');
-    btnDl.onclick = () => {
-      const a = document.createElement('a');
-      a.href     = _pdfBlobUrl;
-      a.download = _pdfFilename;
-      a.click();
-      showNotification('PDF baixado com sucesso!', 'success');
-    };
-
-    showNotification('Prévia do PDF gerada. Revise e clique em Baixar PDF.', 'success');
-
+    if (visualizar) {
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      document.getElementById('pdfFrame').src = pdfUrl;
+      document.getElementById('pdfModal').classList.add('visible');
+    } else {
+      const munNomeSafe = munNome.replace(/[^a-zA-Z0-9]/g, '_');
+      doc.save(`SaudeBR_CNES_${munNomeSafe}_${Date.now()}.pdf`);
+      showNotification('✅ PDF A5 baixado com sucesso!', 'success');
+    }
   } catch(e) {
-    console.error('[PDF]', e);
-    showNotification('Erro ao gerar o PDF. Verifique o console.', 'error');
+    console.error(e);
+    showNotification('Erro ao gerar o PDF. Tente novamente.', 'error');
   }
+}
+
+function fecharModalPDF() {
+  document.getElementById('pdfModal').classList.remove('visible');
+  document.getElementById('pdfFrame').src = '';
 }
 
 // ═══════════════════════════════════════════════════
