@@ -47,7 +47,7 @@
       overflow-x: hidden;
     }
 
-    /* HEADER */
+    /* ─── HEADER ─── */
     header {
       background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, #1a4a7a 100%);
       padding: 0;
@@ -102,14 +102,14 @@
       text-transform: uppercase;
     }
 
-    /* MAIN LAYOUT */
+    /* ─── MAIN LAYOUT ─── */
     .main-wrapper {
       max-width: 1440px;
       margin: 0 auto;
       padding: 24px 28px 60px;
     }
 
-    /* FILTER PANEL */
+    /* ─── FILTER PANEL ─── */
     .filter-section {
       background: var(--surface);
       border-radius: var(--radius);
@@ -198,120 +198,265 @@
       font-family: 'Fira Sans', sans-serif;
       font-size: 0.88rem;
       color: var(--text);
-      transition: border-color 0.2s, box-shadow 0.2s;
+      transition: all 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
     }
     .form-control:focus {
       outline: none;
       border-color: var(--teal);
-      box-shadow: 0 0 0 3px rgba(0,168,120,0.15);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(0,168,120,0.1);
     }
-    select.form-control { cursor: pointer; }
+    select.form-control {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235A6E85' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
 
-    /* GEOLOCATION PANEL */
-    .geo-panel {
-      background: var(--blue-pale);
-      border: 1px solid var(--blue);
-      border-radius: var(--radius-sm);
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .geo-title {
-      font-family: 'Outfit', sans-serif;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--blue);
-      margin-bottom: 8px;
-    }
-    .geo-controls {
+    .filter-actions {
       display: flex;
       gap: 12px;
-      align-items: end;
       flex-wrap: wrap;
-    }
-    .geo-status {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-top: 8px;
+      align-items: center;
     }
 
-    /* BUTTONS */
+    /* ─── BUTTONS ─── */
     .btn {
-      font-family: 'Outfit', sans-serif;
-      font-weight: 600;
-      border: none;
-      border-radius: var(--radius-sm);
-      padding: 10px 20px;
-      font-size: 0.88rem;
-      cursor: pointer;
-      transition: all 0.2s;
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      padding: 11px 22px;
+      border-radius: var(--radius-sm);
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
       white-space: nowrap;
     }
     .btn-primary {
-      background: var(--teal);
-      color: #FFFFFF;
-      box-shadow: 0 2px 8px rgba(0,168,120,0.3);
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-light) 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0,168,120,0.3);
     }
-    .btn-primary:hover { background: var(--teal-light); box-shadow: 0 4px 12px rgba(0,168,120,0.4); }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(0,168,120,0.4);
+    }
     .btn-secondary {
       background: var(--bg);
-      color: var(--text);
-      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border: 1.5px solid var(--border);
     }
-    .btn-secondary:hover { background: var(--surface); }
-    .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+    .btn-secondary:hover { background: #fff; border-color: var(--teal); color: var(--teal); }
+    .btn-navy {
+      background: var(--navy);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(11,31,58,0.25);
+    }
+    .btn-navy:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(11,31,58,0.35); }
     .btn-amber {
-      background: var(--amber);
-      color: #FFFFFF;
-      box-shadow: 0 2px 8px rgba(245,166,35,0.3);
+      background: linear-gradient(135deg, var(--amber) 0%, #F7BE50 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(245,166,35,0.35);
     }
-    .btn-amber:hover { background: #F6B035; box-shadow: 0 4px 12px rgba(245,166,35,0.4); }
+    .btn-amber:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(245,166,35,0.45); }
+    .btn-geo {
+      background: linear-gradient(135deg, var(--blue) 0%, #1976D2 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(21,101,192,0.3);
+    }
+    .btn-geo:hover { transform: translateY(-1px); }
+    .btn-danger { background: var(--red-pale); color: var(--red); border: 1.5px solid rgba(229,57,53,0.2); }
+    .btn-danger:hover { background: var(--red); color: #fff); }
+    .btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+    .btn-icon { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 8px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
-    /* RESULTS SECTION */
-    .results-section {
+    /* ─── GEO SECTION ─── */
+    .geo-section {
+      background: linear-gradient(135deg, var(--blue-pale), #d8e8ff);
+      border: 1px solid rgba(21,101,192,0.2);
+      border-radius: var(--radius);
+      padding: 18px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .geo-info { flex: 1; }
+    .geo-info h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--blue);
+    }
+    .geo-info p { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+    .geo-radius-row { display: flex; align-items: center; gap: 10px; }
+    .geo-radius-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+    .geo-radius-input {
+      width: 80px;
+      background: #fff;
+      border: 1.5px solid rgba(21,101,192,0.3);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-family: 'Fira Sans', sans-serif;
+      font-size: 0.88rem;
+      text-align: center;
+    }
+
+    /* ─── DASHBOARD CARDS ─── */
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
       background: var(--surface);
       border-radius: var(--radius);
-      box-shadow: var(--shadow-sm);
+      padding: 20px;
       border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      position: relative;
       overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--card-accent, var(--teal));
+    }
+    .stat-card-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 12px;
+      font-size: 1.2rem;
+    }
+    .stat-card-value {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 2rem;
+      line-height: 1;
+      color: var(--navy);
+      transition: all 0.5s;
+    }
+    .stat-card-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+    .stat-card-sublabel { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+
+    /* ─── RESULTS SECTION ─── */
     .results-header {
-      padding: 18px 24px;
-      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      margin-bottom: 16px;
       flex-wrap: wrap;
       gap: 12px;
     }
     .results-title {
       font-family: 'Outfit', sans-serif;
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 1.1rem;
       color: var(--navy);
     }
     .results-count {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      background: var(--bg);
-      padding: 4px 10px;
+      background: var(--teal-pale);
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 4px 12px;
       border-radius: 20px;
+      margin-left: 8px;
+    }
+    .export-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
-    /* UNIT CARDS */
-    .unit-grid {
+    /* ─── GROUP SECTIONS ─── */
+    .group-section {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .group-header {
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    .group-header:hover { background: var(--bg); }
+    .group-header-left {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .group-pill {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.78rem;
+      padding: 4px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .group-name {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--navy);
+    }
+    .group-meta { font-size: 0.78rem; color: var(--text-muted); }
+    .group-count {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      color: var(--navy);
+      min-width: 60px;
+      text-align: right;
+    }
+    .group-arrow { color: var(--text-muted); transition: transform 0.3s; }
+    .group-arrow.open { transform: rotate(90deg); }
+
+    .group-body {
+      border-top: 1px solid var(--border);
+      padding: 20px;
+      display: none;
+    }
+    .group-body.open { display: block; }
+
+    .cards-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-      gap: 20px;
-      padding: 24px;
+      gap: 16px;
     }
+
+    /* ─── UNIT CARDS ─── */
     .unit-card {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
+      padding: 18px;
       transition: all 0.2s;
       position: relative;
       overflow: hidden;
@@ -321,94 +466,225 @@
       box-shadow: var(--shadow-md);
       transform: translateY(-2px);
     }
-    .unit-header {
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
+    .unit-card-accent {
+      position: absolute;
+      top: 0; left: 0;
+      width: 4px;
+      height: 100%;
+    }
+    .unit-card-inner { padding-left: 8px; }
+    .unit-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
     }
     .unit-name {
       font-family: 'Outfit', sans-serif;
       font-weight: 700;
-      font-size: 1.1rem;
+      font-size: 0.95rem;
       color: var(--navy);
       line-height: 1.3;
-      margin-bottom: 6px;
     }
-    .unit-type {
-      display: inline-block;
-      font-size: 0.75rem;
+    .unit-type-badge {
+      font-size: 0.65rem;
       font-weight: 600;
-      padding: 4px 8px;
+      padding: 3px 8px;
       border-radius: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
     }
-    .unit-type.primary { background: var(--teal-pale); color: var(--teal); }
-    .unit-type.emergency { background: var(--red-pale); color: var(--red); }
-    .unit-type.specialized { background: var(--purple-pale); color: var(--purple); }
-    .unit-type.hospital { background: var(--blue-pale); color: var(--blue); }
-
-    .unit-info {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .unit-info-item {
+    .unit-info-row {
       display: flex;
       align-items: flex-start;
       gap: 8px;
-      font-size: 0.85rem;
+      margin-bottom: 6px;
+      font-size: 0.82rem;
       color: var(--text-muted);
     }
-    .unit-info-item i {
-      color: var(--teal);
-      margin-top: 2px;
-      flex-shrink: 0;
-    }
-    .unit-info-item strong {
-      color: var(--text);
+    .unit-info-row svg { flex-shrink: 0; margin-top: 1px; color: var(--text-light); }
+    .unit-cnes {
+      font-size: 0.7rem;
+      color: var(--text-light);
       font-weight: 500;
+      margin-bottom: 10px;
+      font-family: 'Outfit', sans-serif;
     }
-
-    .unit-footer {
+    .unit-tags {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 5px;
+      margin-bottom: 12px;
     }
-    .unit-distance {
-      font-size: 0.8rem;
-      color: var(--amber);
+    .unit-tag {
+      font-size: 0.65rem;
       font-weight: 600;
-      background: var(--amber-pale);
-      padding: 4px 8px;
+      padding: 3px 8px;
       border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
+    .unit-tag-urgencia { background: var(--red-pale); color: var(--red); }
+    .unit-tag-ambulatorial { background: var(--teal-pale); color: var(--teal); }
+    .unit-tag-maternidade { background: var(--purple-pale); color: var(--purple); }
+    .unit-tag-traumatologia { background: var(--amber-pale); color: #C07A00; }
+    .unit-tag-federal { background: #E8F0FE; color: var(--blue); }
+    .unit-tag-estadual { background: #FFF8EC; color: #9C6E00; }
+    .unit-tag-municipal { background: var(--teal-pale); color: #006B4F; }
+    .unit-distance { background: var(--blue-pale); color: var(--blue); }
     .unit-actions {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+    .unit-actions .btn-icon {
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1.5px solid var(--border);
+      transition: all 0.2s;
+    }
+    .unit-actions .btn-icon:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-pale); }
+    .unit-actions .btn-icon.whatsapp:hover { border-color: #25D366; color: #25D366; background: #E8FBF0; }
+    .unit-actions .btn-icon.maps:hover { border-color: #EA4335; color: #EA4335; background: #FDECEA; }
+    .unit-actions .btn-icon.search:hover { border-color: #4285F4; color: #4285F4; background: #E8F0FE; }
+
+    /* ─── LOADING / EMPTY / ERROR ─── */
+    .status-box {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 60px 40px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .status-box .status-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .status-box h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+    .status-box p { font-size: 0.88rem; color: var(--text-muted); max-width: 400px; margin: 0 auto; }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--teal-pale);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-bar-wrap {
+      max-width: 360px;
+      margin: 16px auto 0;
+      background: var(--border);
+      border-radius: 10px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--teal), var(--teal-light));
+      border-radius: 10px;
+      transition: width 0.4s ease;
     }
 
-    /* MODAL */
-    .modal {
+    /* ─── SEARCH PROGRESS CARD ─── */
+    .search-progress-card {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      border-radius: var(--radius);
+      padding: 20px 28px;
+      margin-bottom: 20px;
       display: none;
+      align-items: center;
+      gap: 20px;
+      border: 1px solid rgba(0,168,120,0.25);
+      box-shadow: var(--shadow-md);
+      animation: slideDown 0.3s ease;
+    }
+    .search-progress-card.visible { display: flex; }
+    .search-progress-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(0,200,150,0.25);
+      border-top-color: var(--teal-light);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    .search-progress-info { flex: 1; min-width: 0; }
+    .search-progress-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: #fff;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .search-progress-hint {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+      min-height: 16px;
+    }
+    .search-progress-bar-wrap {
+      flex: 1;
+      max-width: 260px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 10px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .search-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--teal), var(--teal-light));
+      border-radius: 10px;
+      transition: width 0.4s ease;
+    }
+    .search-progress-count {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+      color: var(--teal-light);
+      min-width: 48px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ─── PDF PREVIEW MODAL ─── */
+    .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 1000;
-      animation: fadeIn 0.2s;
+      background: rgba(11,31,58,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
     }
-    .modal.open { display: flex; align-items: center; justify-content: center; }
+    .modal-overlay.visible { display: flex; }
     .modal-content {
       background: var(--surface);
       border-radius: var(--radius);
-      box-shadow: var(--shadow-lg);
-      max-width: 90vw;
+      max-width: 900px;
+      width: 100%;
       max-height: 90vh;
-      overflow: auto;
-      animation: slideUp 0.3s;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-lg);
     }
     .modal-header {
       padding: 20px 24px;
@@ -424,952 +700,1317 @@
       color: var(--navy);
     }
     .modal-close {
-      background: none;
+      width: 32px; height: 32px;
+      border-radius: 8px;
       border: none;
-      font-size: 1.5rem;
+      background: var(--bg);
       color: var(--text-muted);
       cursor: pointer;
-      padding: 4px;
-      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: all 0.2s;
     }
-    .modal-close:hover { background: var(--bg); color: var(--text); }
-    .modal-body { padding: 24px; }
+    .modal-close:hover { background: var(--red-pale); color: var(--red); }
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .pdf-preview-frame {
+      width: 100%;
+      min-height: 500px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #f5f5f5;
+    }
 
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideUp { from { transform: translateY(20px); } to { transform: translateY(0); } }
-
-    /* NOTIFICATIONS */
+    /* ─── NOTIFICATION ─── */
     .notification {
       position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 16px 20px;
-      border-radius: var(--radius-sm);
+      bottom: 24px;
+      right: 24px;
+      background: var(--navy);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: var(--radius);
+      font-size: 0.85rem;
       box-shadow: var(--shadow-lg);
-      z-index: 2000;
-      animation: slideInRight 0.3s;
-      max-width: 320px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 1000;
+      animation: slideInRight 0.3s ease;
+      max-width: 340px;
     }
-    .notification.success { background: var(--teal); color: #FFFFFF; }
-    .notification.error { background: var(--red); color: #FFFFFF; }
-    .notification.warning { background: var(--amber); color: #FFFFFF; }
-    .notification.info { background: var(--blue); color: #FFFFFF; }
-
+    .notification.success { background: var(--teal); }
+    .notification.error { background: var(--red); }
     @keyframes slideInRight {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
     }
 
-    /* LOADING */
-    .loading {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255,255,255,0.3);
-      border-radius: 50%;
-      border-top-color: #FFFFFF;
-      animation: spin 1s ease-in-out infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* EMPTY STATE */
-    .empty-state {
+    /* ─── FOOTER ─── */
+    .footer {
       text-align: center;
-      padding: 60px 24px;
-      color: var(--text-muted);
-    }
-    .empty-state i {
-      font-size: 4rem;
+      padding: 20px;
+      font-size: 0.75rem;
       color: var(--text-light);
-      margin-bottom: 16px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
     }
-    .empty-state h3 {
-      font-family: 'Outfit', sans-serif;
-      font-weight: 600;
-      font-size: 1.1rem;
-      color: var(--text);
-      margin-bottom: 8px;
+    .footer a { color: var(--teal); text-decoration: none; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 640px) {
+      .main-wrapper { padding: 16px 14px 40px; }
+      .header-inner { padding: 14px 16px; }
+      .header-titles h1 { font-size: 1.2rem; }
+      .dashboard { grid-template-columns: repeat(2, 1fr); }
+      .cards-grid { grid-template-columns: 1fr; }
+      .geo-section { flex-direction: column; align-items: stretch; }
+      .modal-content { max-height: 95vh; }
     }
 
-    /* RESPONSIVE */
-    @media (max-width: 768px) {
-      .header-inner { padding: 16px 20px; }
-      .header-titles h1 { font-size: 1.3rem; }
-      .main-wrapper { padding: 16px 20px 40px; }
-      .filter-grid { grid-template-columns: 1fr; }
-      .unit-grid { grid-template-columns: 1fr; padding: 16px; }
-      .geo-controls { flex-direction: column; align-items: stretch; }
-    }
+    /* ─── NIVEL COLORS ─── */
+    .nivel-primaria { --nivel-color: #00A878; }
+    .nivel-secundaria { --nivel-color: #1565C0; }
+    .nivel-terciaria { --nivel-color: #E53935; }
   </style>
 </head>
 <body>
-  <!-- HEADER -->
-  <header>
-    <div class="header-inner">
-      <div class="logo-mark">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/>
-        </svg>
-      </div>
-      <div class="header-titles">
-        <h1>SaúdeBR <span>Localizador CNES</span></h1>
-        <p>Encontre unidades de saúde pública próximas a você</p>
-      </div>
-      <div class="header-badge">Beta</div>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="header-inner">
+    <div class="logo-mark">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 4v20M4 14h20" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="12" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      </svg>
     </div>
-  </header>
+    <div class="header-titles">
+      <h1>Saúde<span>BR</span> &mdash; Localizador CNES</h1>
+      <p>Dados em tempo real • Ministério da Saúde / DATASUS • Todas as esferas de gestão</p>
+    </div>
+    <span class="header-badge">🟢 Online</span>
+  </div>
+</header>
 
-  <!-- MAIN CONTENT -->
-  <div class="main-wrapper">
-    <!-- FILTER SECTION -->
-    <section class="filter-section">
-      <div class="filter-header" onclick="toggleFilter()">
-        <div class="filter-header-left">
-          <div class="filter-header-icon">
-            <i class="fas fa-filter"></i>
-          </div>
-          <div>
-            <div class="filter-title">Filtros de Busca</div>
-            <div class="filter-subtitle">Personalize sua busca por unidades de saúde</div>
-          </div>
+<!-- ═══ MAIN ═══ -->
+<div class="main-wrapper">
+
+  <!-- ─── FILTROS ─── -->
+  <div class="filter-section">
+    <div class="filter-header" onclick="toggleFilter()">
+      <div class="filter-header-left">
+        <div class="filter-header-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
         </div>
-        <button class="filter-toggle-btn">
-          <span>Expandir</span>
-          <i class="fas fa-chevron-down filter-toggle-arrow"></i>
-        </button>
-      </div>
-      
-      <div class="filter-body" id="filterBody">
-        <!-- Geolocation Panel -->
-        <div class="geo-panel">
-          <div class="geo-title">
-            <i class="fas fa-location-dot"></i>
-            Busca por Localização
-          </div>
-          <div class="geo-controls">
-            <div class="form-group">
-              <label class="form-label">Raio de Busca (km)</label>
-              <input type="number" id="geoRaio" class="form-control" value="6" min="1" max="50" step="0.5">
-            </div>
-            <button class="btn btn-primary" onclick="buscarPorLocalizacao()">
-              <i class="fas fa-crosshairs"></i>
-              Buscar Próximo a Mim
-            </button>
-          </div>
-          <div class="geo-status" id="geoStatus">
-            Detecta automaticamente seu município via GPS e busca unidades no raio configurado
-          </div>
-        </div>
-
-        <!-- Filter Grid -->
-        <div class="filter-grid">
-          <div class="form-group">
-            <label class="form-label">Estado</label>
-            <select id="estado" class="form-control" onchange="carregarMunicipios()">
-              <option value="">Selecione um estado</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Município</label>
-            <select id="municipio" class="form-control">
-              <option value="">Selecione um município</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Tipo de Unidade</label>
-            <select id="tipo" class="form-control">
-              <option value="">Todos os tipos</option>
-              <option value="UBS">UBS - Unidade Básica de Saúde</option>
-              <option value="UC">UC - Unidade de Consulta</option>
-              <option value="UPA">UPA - Unidade de Pronto Atendimento</option>
-              <option value="HOSPITAL">Hospital</option>
-              <option value="ESPECIALIZADA">Unidade Especializada</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Perfil</label>
-            <select id="perfil" class="form-control">
-              <option value="">Todos os perfis</option>
-              <option value="ATENCAO_PRIMARIA">Atenção Primária</option>
-              <option value="URG_EMERG">Urgência/Emergência</option>
-              <option value="ESPECIALIZADO">Especializado</option>
-              <option value="HOSPITALAR">Hospitalar</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Forma de Acolhimento</label>
-            <select id="acolhimento" class="form-control">
-              <option value="">Todas as formas</option>
-              <option value="CENTRAL">Central</option>
-              <option value="DISTRITO">Distrito</option>
-              <option value="ESPECIALIZADO">Especializado</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Busca por Nome</label>
-            <input type="text" id="buscaNome" class="form-control" placeholder="Nome da unidade ou profissional">
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-          <button class="btn btn-primary" onclick="buscarUnidades()">
-            <i class="fas fa-search"></i>
-            Buscar Unidades
-          </button>
-          <button class="btn btn-secondary" onclick="limparFiltros()">
-            <i class="fas fa-eraser"></i>
-            Limpar Filtros
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- RESULTS SECTION -->
-    <section class="results-section">
-      <div class="results-header">
         <div>
-          <div class="results-title">Resultados da Busca</div>
-          <div class="results-count" id="resultsCount">Nenhuma busca realizada</div>
-        </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-primary btn-sm" onclick="exportarExcel()">
-            <i class="fas fa-file-excel"></i>
-            Exportar Excel
-          </button>
-          <button class="btn btn-amber btn-sm" onclick="visualizarPDF()">
-            <i class="fas fa-file-pdf"></i>
-            Visualizar PDF
-          </button>
+          <div class="filter-title">Filtros de Busca</div>
+          <div class="filter-subtitle">Estado, município, perfil de atenção e formas de acolhimento</div>
         </div>
       </div>
-      
-      <div id="resultsContainer">
-        <div class="empty-state">
-          <i class="fas fa-hospital"></i>
-          <h3>Nenhuma busca realizada</h3>
-          <p>Use os filtros acima para encontrar unidades de saúde próximas</p>
-        </div>
-      </div>
-    </section>
-  </div>
+      <button class="filter-toggle-btn" id="filterToggleBtn">
+        <span>Expandir</span>
+        <span class="filter-toggle-arrow" id="filterArrow">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+      </button>
+    </div>
 
-  <!-- PDF PREVIEW MODAL -->
-  <div id="pdfModal" class="modal">
-    <div class="modal-content" style="width: 90%; max-width: 800px;">
-      <div class="modal-header">
-        <div class="modal-title">Visualizar PDF</div>
-        <button class="modal-close" onclick="fecharPDFModal()">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div id="pdfPreview" style="min-height: 400px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; background: white;"></div>
-        <div style="margin-top: 20px; text-align: center;">
-          <button class="btn btn-primary" onclick="baixarPDF()">
-            <i class="fas fa-download"></i>
-            Baixar PDF
-          </button>
+    <div class="filter-body" id="filterBody">
+      <div class="filter-grid">
+        <div class="form-group">
+          <label class="form-label">Estado (UF)</label>
+          <select class="form-control" id="selectEstado" onchange="onEstadoChange()">
+            <option value="">— Selecione —</option>
+          </select>
         </div>
+        <div class="form-group">
+          <label class="form-label">Município</label>
+          <select class="form-control" id="selectMunicipio" onchange="onMunicipioChange()" disabled>
+            <option value="">— Selecione o estado primeiro —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bairro</label>
+          <input type="text" class="form-control" id="inputBairro" placeholder="Ex: Centro, Jardim..." oninput="applyLocalFilters()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Perfil / Nível de Atenção</label>
+          <select class="form-control" id="selectNivel" onchange="applyLocalFilters()">
+            <option value="">Todos os Níveis</option>
+            <option value="primaria">Atenção Primária</option>
+            <option value="secundaria">Atenção Secundária</option>
+            <option value="terciaria">Atenção Terciária</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Forma de Acolhimento</label>
+          <select class="form-control" id="selectAcolhimento" onchange="applyLocalFilters()">
+            <option value="">Todas as Formas</option>
+            <option value="ambulatorial">Atendimento Ambulatorial</option>
+            <option value="urgencia">Urgência / Emergência</option>
+            <option value="maternidade">Maternidade</option>
+            <option value="traumatologia">Traumatologia</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Esfera de Gestão</label>
+          <select class="form-control" id="selectGestao" onchange="applyLocalFilters()">
+            <option value="">Todas</option>
+            <option value="M">Municipal</option>
+            <option value="E">Estadual</option>
+            <option value="F">Federal</option>
+            <option value="D">Dupla</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button class="btn btn-primary" onclick="buscarUnidades()" id="btnBuscar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          Buscar Unidades
+        </button>
+        <button class="btn btn-secondary" onclick="limparFiltros()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.57"/></svg>
+          Limpar Filtros
+        </button>
       </div>
     </div>
   </div>
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- ─── GEOLOCALIZAÇÃO ─── -->
+  <div class="geo-section">
+    <div style="font-size: 1.8rem;">📍</div>
+    <div class="geo-info">
+      <h3>Busca por Proximidade Geográfica</h3>
+      <p id="geoStatus">Detecta automaticamente sua localização via GPS e busca unidades no raio configurado.</p>
+    </div>
+    <div class="geo-radius-row">
+      <span class="geo-radius-label">Raio (km):</span>
+      <input type="number" class="geo-radius-input form-control" id="geoRaio" value="6" min="0.5" max="50" step="0.5">
+    </div>
+    <button class="btn btn-geo" onclick="usarGeolocalizacao()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>
+      Usar Minha Localização
+    </button>
+  </div>
+
+  <!-- ─── SEARCH PROGRESS CARD ─── -->
+  <div class="search-progress-card" id="searchProgressCard">
+    <div class="search-progress-spinner"></div>
+    <div class="search-progress-info">
+      <div class="search-progress-title" id="spTitle">Consultando CNES/DATASUS...</div>
+      <div class="search-progress-hint" id="spHint">Iniciando conexão...</div>
+    </div>
+    <div class="search-progress-bar-wrap">
+      <div class="search-progress-bar" id="spBar" style="width:5%"></div>
+    </div>
+    <div class="search-progress-count" id="spCount">0</div>
+  </div>
+
+  <!-- ─── DASHBOARD ─── -->
+  <div class="dashboard" id="dashboard">
+    <div class="stat-card" style="--card-accent: var(--teal);">
+      <div class="stat-card-icon" style="background: var(--teal-pale); color: var(--teal);">🏥</div>
+      <div class="stat-card-value" id="statTotal">—</div>
+      <div class="stat-card-label">Total de Unidades</div>
+      <div class="stat-card-sublabel">encontradas</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #00A878;">
+      <div class="stat-card-icon" style="background: #E8F8F3; color: #00A878;">🏠</div>
+      <div class="stat-card-value" id="statPrimaria">—</div>
+      <div class="stat-card-label">Atenção Primária</div>
+      <div class="stat-card-sublabel">UBS, ESF, CAPS...</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--blue);">
+      <div class="stat-card-icon" style="background: var(--blue-pale); color: var(--blue);">🔬</div>
+      <div class="stat-card-value" id="statSecundaria">—</div>
+      <div class="stat-card-label">Atenção Secundária</div>
+      <div class="stat-card-sublabel">Policlínicas, esp...</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--red);">
+      <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🏨</div>
+      <div class="stat-card-value" id="statTerciaria">—</div>
+      <div class="stat-card-label">Atenção Terciária</div>
+      <div class="stat-card-sublabel">Hospitais, UTI...</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--red);">
+      <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🚨</div>
+      <div class="stat-card-value" id="statUrgencia">—</div>
+      <div class="stat-card-label">Urgência/Emergência</div>
+      <div class="stat-card-sublabel">UPAs, PS, SAMU</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--purple);">
+      <div class="stat-card-icon" style="background: var(--purple-pale); color: var(--purple);">🤱</div>
+      <div class="stat-card-value" id="statMaternidade">—</div>
+      <div class="stat-card-label">Maternidades</div>
+      <div class="stat-card-sublabel">Parto e neonatal</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--amber);">
+      <div class="stat-card-icon" style="background: var(--amber-pale); color: var(--amber);">🦴</div>
+      <div class="stat-card-value" id="statTraumatologia">—</div>
+      <div class="stat-card-label">Traumatologia</div>
+      <div class="stat-card-sublabel">Ortopedia, trauma</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #9C27B0;">
+      <div class="stat-card-icon" style="background: #F3E5F5; color: #9C27B0;">🏛️</div>
+      <div class="stat-card-value" id="statAmbulatorial">—</div>
+      <div class="stat-card-label">Ambulatorial</div>
+      <div class="stat-card-sublabel">Consultas/exames</div>
+    </div>
+  </div>
+
+  <!-- ─── RESULTADOS ─── -->
+  <div id="resultsSection">
+    <div class="status-box">
+      <span class="status-icon">🔍</span>
+      <h3>Pronto para buscar</h3>
+      <p>Selecione estado e município nos filtros e clique em <strong>Buscar Unidades</strong>, ou use <strong>Usar Minha Localização</strong> para detecção automática.</p>
+    </div>
+  </div>
+
+</div><!-- /main-wrapper -->
+
+<!-- ═══ PDF PREVIEW MODAL ═══ -->
+<div class="modal-overlay" id="pdfModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title">Preview do Relatório PDF</h3>
+      <button class="modal-close" onclick="closePDFModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <iframe id="pdfPreviewFrame" class="pdf-preview-frame"></iframe>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closePDFModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="downloadPDFFromModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Baixar PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  Dados obtidos em tempo real via <a href="https://apidadosabertos.saude.gov.br/cnes" target="_blank">API CNES/DATASUS</a> — Ministério da Saúde do Brasil &nbsp;|&nbsp; SaúdeBR Localizador v2.0
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIGURAÇÃO & CONSTANTES
+// ═══════════════════════════════════════════════════
+const CNES_BASE      = 'https://apidadosabertos.saude.gov.br/cnes';
+const IBGE_API       = 'https://servicodados.ibge.gov.br/api/v1/localidades';
+const NOMINATIM_API  = 'https://nominatim.openstreetmap.org';
+
+// API CORS Proxies para fallback
+const CORS_PROXIES = [
+  url => url,  // Tentativa direta primeiro
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`
+];
+
+// Estado da aplicação
+let allUnits = [];
+let filteredUnits = [];
+let currentGeoPosition = null;
+let estadosMunicipios = {};
+let currentPDFBlob = null;
+
+// Constantes para classificação
+const ESTADOS = [
+  {sg:'AC',nome:'Acre',co:'12'},{sg:'AL',nome:'Alagoas',co:'27'},{sg:'AP',nome:'Amapá',co:'16'},
+  {sg:'AM',nome:'Amazonas',co:'13'},{sg:'BA',nome:'Bahia',co:'29'},{sg:'CE',nome:'Ceará',co:'23'},
+  {sg:'DF',nome:'Distrito Federal',co:'53'},{sg:'ES',nome:'Espírito Santo',co:'32'},
+  {sg:'GO',nome:'Goiás',co:'52'},{sg:'MA',nome:'Maranhão',co:'21'},{sg:'MT',nome:'Mato Grosso',co:'51'},
+  {sg:'MS',nome:'Mato Grosso do Sul',co:'50'},{sg:'MG',nome:'Minas Gerais',co:'31'},
+  {sg:'PA',nome:'Pará',co:'15'},{sg:'PB',nome:'Paraíba',co:'25'},{sg:'PR',nome:'Paraná',co:'41'},
+  {sg:'PE',nome:'Pernambuco',co:'26'},{sg:'PI',nome:'Piauí',co:'22'},{sg:'RJ',nome:'Rio de Janeiro',co:'33'},
+  {sg:'RN',nome:'Rio Grande do Norte',co:'24'},{sg:'RS',nome:'Rio Grande do Sul',co:'43'},
+  {sg:'RO',nome:'Rondônia',co:'11'},{sg:'RR',nome:'Roraima',co:'14'},{sg:'SC',nome:'Santa Catarina',co:'42'},
+  {sg:'SP',nome:'São Paulo',co:'35'},{sg:'SE',nome:'Sergipe',co:'28'},{sg:'TO',nome:'Tocantins',co:'17'}
+];
+
+// ═══════════════════════════════════════════════════
+//  INICIALIZAÇÃO
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  carregarEstados();
+  console.log('SaúdeBR Localizador CNES v2.0 iniciado');
+});
+
+// ═══════════════════════════════════════════════════
+//  INTERFACE - FILTROS
+// ═══════════════════════════════════════════════════
+function toggleFilter() {
+  const body = document.getElementById('filterBody');
+  const arrow = document.getElementById('filterArrow');
+  const btn = document.getElementById('filterToggleBtn');
   
-  <script>
-    // VARIÁVEIS GLOBAIS
-    let allUnits = [];
-    let filteredUnits = [];
-    let currentPdfContent = null;
-    let userLocation = null;
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+  
+  if (body.classList.contains('open')) {
+    btn.querySelector('span').textContent = 'Recolher';
+  } else {
+    btn.querySelector('span').textContent = 'Expandir';
+  }
+}
 
-    // ESTADOS BRASILEIROS
-    const estados = [
-      { sigla: 'AC', nome: 'Acre' },
-      { sigla: 'AL', nome: 'Alagoas' },
-      { sigla: 'AP', nome: 'Amapá' },
-      { sigla: 'AM', nome: 'Amazonas' },
-      { sigla: 'BA', nome: 'Bahia' },
-      { sigla: 'CE', nome: 'Ceará' },
-      { sigla: 'DF', nome: 'Distrito Federal' },
-      { sigla: 'ES', nome: 'Espírito Santo' },
-      { sigla: 'GO', nome: 'Goiás' },
-      { sigla: 'MA', nome: 'Maranhão' },
-      { sigla: 'MT', nome: 'Mato Grosso' },
-      { sigla: 'MS', nome: 'Mato Grosso do Sul' },
-      { sigla: 'MG', nome: 'Minas Gerais' },
-      { sigla: 'PA', nome: 'Pará' },
-      { sigla: 'PB', nome: 'Paraíba' },
-      { sigla: 'PR', nome: 'Paraná' },
-      { sigla: 'PE', nome: 'Pernambuco' },
-      { sigla: 'PI', nome: 'Piauí' },
-      { sigla: 'RJ', nome: 'Rio de Janeiro' },
-      { sigla: 'RN', nome: 'Rio Grande do Norte' },
-      { sigla: 'RS', nome: 'Rio Grande do Sul' },
-      { sigla: 'RO', nome: 'Rondônia' },
-      { sigla: 'RR', nome: 'Roraima' },
-      { sigla: 'SC', nome: 'Santa Catarina' },
-      { sigla: 'SP', nome: 'São Paulo' },
-      { sigla: 'SE', nome: 'Sergipe' },
-      { sigla: 'TO', nome: 'Tocantins' }
-    ];
+async function carregarEstados() {
+  const select = document.getElementById('selectEstado');
+  
+  ESTADOS.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(est => {
+    const opt = document.createElement('option');
+    opt.value = est.sg;
+    opt.textContent = `${est.sg} — ${est.nome}`;
+    opt.dataset.codigo = est.co;
+    select.appendChild(opt);
+  });
+}
 
-    // INICIALIZAÇÃO
-    document.addEventListener('DOMContentLoaded', function() {
-      carregarEstados();
-      carregarDadosExemplo();
+async function onEstadoChange() {
+  const select = document.getElementById('selectEstado');
+  const selectMun = document.getElementById('selectMunicipio');
+  const uf = select.value;
+  
+  selectMun.innerHTML = '<option value="">Carregando municípios...</option>';
+  selectMun.disabled = true;
+  
+  if (!uf) {
+    selectMun.innerHTML = '<option value="">— Selecione o estado primeiro —</option>';
+    return;
+  }
+  
+  try {
+    const response = await fetchWithCORS(`${IBGE_API}/estados/${uf}/municipios`);
+    const municipios = await response.json();
+    
+    estadosMunicipios[uf] = municipios;
+    
+    selectMun.innerHTML = '<option value="">— Selecione um município —</option>';
+    municipios.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(mun => {
+      const opt = document.createElement('option');
+      opt.value = mun.id;
+      opt.textContent = mun.nome;
+      opt.dataset.nome = mun.nome;
+      selectMun.appendChild(opt);
     });
+    
+    selectMun.disabled = false;
+  } catch (error) {
+    console.error('Erro ao carregar municípios:', error);
+    showNotification('Erro ao carregar municípios', 'error');
+    selectMun.innerHTML = '<option value="">Erro ao carregar</option>';
+  }
+}
 
-    // CARREGAR ESTADOS
-    function carregarEstados() {
-      const selectEstado = document.getElementById('estado');
-      selectEstado.innerHTML = '<option value="">Selecione um estado</option>';
-      
-      estados.forEach(estado => {
-        const option = document.createElement('option');
-        option.value = estado.sigla;
-        option.textContent = `${estado.sigla} - ${estado.nome}`;
-        selectEstado.appendChild(option);
-      });
+function onMunicipioChange() {
+  // Opcional: pode adicionar lógica aqui se necessário
+}
+
+function limparFiltros() {
+  document.getElementById('selectEstado').value = '';
+  document.getElementById('selectMunicipio').value = '';
+  document.getElementById('selectMunicipio').disabled = true;
+  document.getElementById('selectMunicipio').innerHTML = '<option value="">— Selecione o estado primeiro —</option>';
+  document.getElementById('inputBairro').value = '';
+  document.getElementById('selectNivel').value = '';
+  document.getElementById('selectAcolhimento').value = '';
+  document.getElementById('selectGestao').value = '';
+  
+  allUnits = [];
+  filteredUnits = [];
+  renderResults();
+  showNotification('Filtros limpos', 'success');
+}
+
+// ═══════════════════════════════════════════════════
+//  BUSCA DE UNIDADES
+// ═══════════════════════════════════════════════════
+async function buscarUnidades() {
+  const selectEstado = document.getElementById('selectEstado');
+  const selectMunicipio = document.getElementById('selectMunicipio');
+  
+  const uf = selectEstado.value;
+  const codigoIBGE = selectMunicipio.value;
+  
+  if (!uf || !codigoIBGE) {
+    showNotification('Selecione estado e município', 'error');
+    return;
+  }
+  
+  const nomeMunicipio = selectMunicipio.options[selectMunicipio.selectedIndex].dataset.nome;
+  
+  showSearchProgress(true);
+  updateSearchProgress(10, 'Conectando à API CNES...', `Buscando em ${nomeMunicipio}/${uf}`);
+  
+  try {
+    // Buscar todas as unidades do município
+    const units = await fetchAllUnitsFromMunicipio(codigoIBGE, uf);
+    
+    updateSearchProgress(90, 'Processando dados...', `${units.length} unidades encontradas`);
+    
+    // Enriquecer dados
+    await enrichUnitsData(units);
+    
+    allUnits = units;
+    applyLocalFilters();
+    
+    updateSearchProgress(100, 'Concluído!', `${units.length} unidades carregadas`);
+    
+    setTimeout(() => {
+      showSearchProgress(false);
+      showNotification(`${units.length} unidades encontradas em ${nomeMunicipio}`, 'success');
+    }, 800);
+    
+  } catch (error) {
+    console.error('Erro na busca:', error);
+    showSearchProgress(false);
+    showNotification('Erro ao buscar unidades: ' + error.message, 'error');
+  }
+}
+
+async function fetchAllUnitsFromMunicipio(codigoIBGE, uf) {
+  const url = `${CNES_BASE}/estabelecimentos?municipio=${codigoIBGE}&limit=1000`;
+  
+  try {
+    const response = await fetchWithCORS(url);
+    const data = await response.json();
+    
+    if (!data || !Array.isArray(data)) {
+      throw new Error('Resposta inválida da API');
     }
+    
+    return data.map(u => processUnitData(u, uf));
+  } catch (error) {
+    console.error('Erro ao buscar do CNES:', error);
+    throw error;
+  }
+}
 
-    // CARREGAR MUNICÍPIOS (integração com API do IBGE)
-    async function carregarMunicipios() {
-      const estado = document.getElementById('estado').value;
-      const selectMunicipio = document.getElementById('municipio');
-      
-      selectMunicipio.innerHTML = '<option value="">Carregando municípios...</option>';
-      selectMunicipio.disabled = true;
-      
-      if (estado) {
-        try {
-          // Buscar municípios do IBGE
-          const response = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estado}/municipios`);
-          const municipios = await response.json();
-          
-          selectMunicipio.innerHTML = '<option value="">Selecione um município</option>';
-          
-          municipios.forEach(municipio => {
-            const option = document.createElement('option');
-            option.value = municipio.nome;
-            option.textContent = `${municipio.nome}`;
-            option.dataset.ibge = municipio.id;
-            selectMunicipio.appendChild(option);
-          });
-          
-          selectMunicipio.disabled = false;
-        } catch (error) {
-          console.error('Erro ao carregar municípios:', error);
-          selectMunicipio.innerHTML = '<option value="">Erro ao carregar municípios</option>';
-          selectMunicipio.disabled = true;
-        }
+function processUnitData(rawUnit, uf) {
+  const unit = {
+    cnes: rawUnit.codigo_cnes || rawUnit.codCNES || rawUnit.CO_CNES || '',
+    nome: rawUnit.nome_fantasia || rawUnit.NO_FANTASIA || rawUnit.nome || '',
+    razaoSocial: rawUnit.nome_empresarial || rawUnit.NO_RAZAO_SOCIAL || '',
+    endereco: montarEndereco(rawUnit),
+    bairro: rawUnit.bairro || rawUnit.NO_BAIRRO || '',
+    municipio: rawUnit.municipio || rawUnit.NO_MUNICIPIO || '',
+    uf: uf,
+    cep: rawUnit.cep || rawUnit.CO_CEP || '',
+    telefone: rawUnit.telefone || rawUnit.NU_TELEFONE || '',
+    email: rawUnit.email || '',
+    latitude: parseFloat(rawUnit.latitude || rawUnit.NU_LATITUDE || 0),
+    longitude: parseFloat(rawUnit.longitude || rawUnit.NU_LONGITUDE || 0),
+    tipoUnidade: rawUnit.tipo_unidade || rawUnit.TP_UNIDADE || '',
+    gestao: rawUnit.esfera_administrativa || rawUnit.TP_GESTAO || '',
+    natureza: rawUnit.natureza_organizacao || '',
+    vinculoSUS: rawUnit.vinculo_sus || rawUnit.ST_VINCUL_SUS || '',
+    // Classificações
+    nivel: '',
+    acolhimentos: [],
+    // Dados enriquecidos
+    distancia: null,
+    enderecoCompleto: '',
+    telefoneFormatado: ''
+  };
+  
+  // Classificar nível e acolhimentos
+  classificarUnidade(unit, rawUnit);
+  
+  return unit;
+}
+
+function montarEndereco(rawUnit) {
+  const logradouro = rawUnit.logradouro || rawUnit.NO_LOGRADOURO || '';
+  const numero = rawUnit.numero || rawUnit.NU_ENDERECO || '';
+  const complemento = rawUnit.complemento || rawUnit.NO_COMPLEMENTO || '';
+  
+  let end = logradouro;
+  if (numero) end += `, ${numero}`;
+  if (complemento) end += ` - ${complemento}`;
+  
+  return end;
+}
+
+function classificarUnidade(unit, rawData) {
+  // Classificação de nível baseada no tipo de unidade
+  const tipo = (rawData.tipo_unidade || rawData.TP_UNIDADE || '').toUpperCase();
+  const nome = (unit.nome || '').toUpperCase();
+  
+  // Atenção Primária
+  if (
+    tipo.includes('POSTO') || tipo.includes('BASICA') || tipo.includes('ESF') ||
+    tipo.includes('CAPS') || tipo.includes('NASF') ||
+    nome.includes('UBS') || nome.includes('POSTO') || nome.includes('ESF') ||
+    nome.includes('ESTRATEGIA') || nome.includes('FAMILIA')
+  ) {
+    unit.nivel = 'primaria';
+  }
+  // Atenção Terciária (Hospitais)
+  else if (
+    tipo.includes('HOSPITAL') || tipo.includes('HOSP') ||
+    nome.includes('HOSPITAL') || nome.includes('HOSP')
+  ) {
+    unit.nivel = 'terciaria';
+  }
+  // Atenção Secundária
+  else if (
+    tipo.includes('POLICLINICA') || tipo.includes('AMBULATORIO') ||
+    tipo.includes('ESPECIALIZADO') || tipo.includes('UPA') ||
+    nome.includes('POLICLINICA') || nome.includes('AMBULATORIO')
+  ) {
+    unit.nivel = 'secundaria';
+  }
+  else {
+    unit.nivel = 'secundaria'; // Default
+  }
+  
+  // Formas de acolhimento
+  unit.acolhimentos = [];
+  
+  // Ambulatorial (maioria das unidades)
+  if (tipo.includes('AMBULATORIO') || unit.nivel === 'primaria' || unit.nivel === 'secundaria') {
+    unit.acolhimentos.push('ambulatorial');
+  }
+  
+  // Urgência/Emergência - APENAS para unidades terciárias ou UPA
+  if (
+    unit.nivel === 'terciaria' ||
+    tipo.includes('UPA') || tipo.includes('URGENCIA') || tipo.includes('EMERGENCIA') ||
+    tipo.includes('PRONTO SOCORRO') || tipo.includes('SAMU') ||
+    nome.includes('UPA') || nome.includes('URGENCIA') || nome.includes('EMERGENCIA') ||
+    nome.includes('PRONTO SOCORRO')
+  ) {
+    unit.acolhimentos.push('urgencia');
+  }
+  
+  // Maternidade
+  if (
+    tipo.includes('MATERNIDADE') || tipo.includes('PARTO') ||
+    nome.includes('MATERNIDADE') || nome.includes('PARTO')
+  ) {
+    unit.acolhimentos.push('maternidade');
+  }
+  
+  // Traumatologia
+  if (
+    tipo.includes('TRAUMATOLOGIA') || tipo.includes('ORTOPEDIA') ||
+    nome.includes('TRAUMA') || nome.includes('ORTOP')
+  ) {
+    unit.acolhimentos.push('traumatologia');
+  }
+  
+  // Se não tem nenhum, pelo menos ambulatorial
+  if (unit.acolhimentos.length === 0) {
+    unit.acolhimentos.push('ambulatorial');
+  }
+}
+
+async function enrichUnitsData(units) {
+  // Enriquecer dados básicos
+  for (const unit of units) {
+    // Endereço completo
+    unit.enderecoCompleto = `${unit.endereco}, ${unit.bairro}, ${unit.municipio}/${unit.uf}`;
+    if (unit.cep) unit.enderecoCompleto += ` - CEP: ${unit.cep}`;
+    
+    // Telefone formatado
+    if (unit.telefone) {
+      const tel = unit.telefone.replace(/\D/g, '');
+      if (tel.length >= 10) {
+        const ddd = tel.substring(0, 2);
+        const parte1 = tel.substring(2, tel.length - 4);
+        const parte2 = tel.substring(tel.length - 4);
+        unit.telefoneFormatado = `(${ddd}) ${parte1}-${parte2}`;
       } else {
-        selectMunicipio.innerHTML = '<option value="">Selecione um município</option>';
-        selectMunicipio.disabled = false;
+        unit.telefoneFormatado = unit.telefone;
       }
     }
-
-    // CARREGAR DADOS EXEMPLO (simulando API CNES/DATASUS)
-    function carregarDadosExemplo() {
-      // Dados de exemplo para o Rio de Janeiro com coordenadas reais
-      allUnits = [
-        {
-          id: 1,
-          nome: "UBS Vila da Penha Dr. João Silva",
-          tipo: "UBS",
-          perfil: "ATENCAO_PRIMARIA",
-          acolhimento: "CENTRAL",
-          estado: "RJ",
-          municipio: "Rio de Janeiro",
-          endereco: "Rua Vila da Penha, 123 - Vila da Penha",
-          telefone: "(21) 3399-1234",
-          email: "ubsvilapenha.rj@saude.gov.br",
-          latitude: -22.8204,
-          longitude: -43.2861,
-          cnes: "1234567",
-          profissional: "Dr. João Silva"
-        },
-        {
-          id: 2,
-          nome: "UBS Méier Dra. Maria Santos",
-          tipo: "UBS",
-          perfil: "ATENCAO_PRIMARIA",
-          acolhimento: "CENTRAL",
-          estado: "RJ",
-          municipio: "Rio de Janeiro",
-          endereco: "Rua Dias da Cruz, 456 - Méier",
-          telefone: "(21) 3399-5678",
-          email: "ubsmeier.rj@saude.gov.br",
-          latitude: -22.8631,
-          longitude: -43.2875,
-          cnes: "1234568",
-          profissional: "Dra. Maria Santos"
-        },
-        {
-          id: 3,
-          nome: "UPA Tijuca Dr. Pedro Oliveira",
-          tipo: "UPA",
-          perfil: "URG_EMERG",
-          acolhimento: "ESPECIALIZADO",
-          estado: "RJ",
-          municipio: "Rio de Janeiro",
-          endereco: "Rua Mariz e Barros, 789 - Tijuca",
-          telefone: "(21) 3399-9012",
-          email: "upatijuca.rj@saude.gov.br",
-          latitude: -22.9311,
-          longitude: -43.2294,
-          cnes: "1234569",
-          profissional: "Dr. Pedro Oliveira"
-        },
-        {
-          id: 4,
-          nome: "UBS Copacabana Dra. Ana Costa",
-          tipo: "UBS",
-          perfil: "ATENCAO_PRIMARIA",
-          acolhimento: "DISTRITO",
-          estado: "RJ",
-          municipio: "Rio de Janeiro",
-          endereco: "Rua Barata Ribeiro, 321 - Copacabana",
-          telefone: "(21) 3399-3456",
-          email: "ubscopacabana.rj@saude.gov.br",
-          latitude: -22.9711,
-          longitude: -43.1822,
-          cnes: "1234570",
-          profissional: "Dra. Ana Costa"
-        },
-        {
-          id: 5,
-          nome: "UBS Botafogo Dr. Carlos Mendes",
-          tipo: "UBS",
-          perfil: "ATENCAO_PRIMARIA",
-          acolhimento: "CENTRAL",
-          estado: "RJ",
-          municipio: "Rio de Janeiro",
-          endereco: "Rua Voluntários da Pátria, 654 - Botafogo",
-          telefone: "(21) 3399-7890",
-          email: "ubsbotafogo.rj@saude.gov.br",
-          latitude: -22.9511,
-          longitude: -43.1867,
-          cnes: "1234571",
-          profissional: "Dr. Carlos Mendes"
-        },
-        {
-          id: 6,
-          nome: "UBS Leblon Dra. Paula Rocha",
-          tipo: "UBS",
-          perfil: "ATENCAO_PRIMARIA",
-          acolhimento: "CENTRAL",
-          estado: "RJ",
-          municipio: "Rio de Janeiro",
-          endereco: "Avenida Delfim Moreira, 987 - Leblon",
-          telefone: "(21) 3399-2468",
-          email: "ubsleblon.rj@saude.gov.br",
-          latitude: -22.9833,
-          longitude: -43.2178,
-          cnes: "1234572",
-          profissional: "Dra. Paula Rocha"
+    
+    // Geocoding para unidades sem coordenadas
+    if (!unit.latitude || !unit.longitude || unit.latitude === 0) {
+      try {
+        const coords = await geocodeAddress(unit.enderecoCompleto);
+        if (coords) {
+          unit.latitude = coords.lat;
+          unit.longitude = coords.lon;
         }
-      ];
-    }
-
-    // FUNÇÕES DE BUSCA
-    function toggleFilter() {
-      const body = document.getElementById('filterBody');
-      const arrow = document.querySelector('.filter-toggle-arrow');
-      const button = document.querySelector('.filter-toggle-btn span');
-      
-      body.classList.toggle('open');
-      arrow.classList.toggle('open');
-      button.textContent = body.classList.contains('open') ? 'Recolher' : 'Expandir';
-    }
-
-    async function buscarPorLocalizacao() {
-      const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
-      
-      if (!navigator.geolocation) {
-        showNotification('Geolocalização não suportada pelo navegador.', 'error');
-        return;
-      }
-
-      setGeoStatus('📍 Solicitando localização...');
-
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          userLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
-
-          setGeoStatus(`📍 Localização obtida. Buscando unidades em até ${raio} km...`);
-          
-          try {
-            // Buscar dados reais do CNES/DATASUS
-            await buscarDadosCNES(userLocation, raio);
-          } catch (error) {
-            console.error('Erro ao buscar dados do CNES:', error);
-            // Fallback para dados de exemplo
-            filtrarPorProximidade(userLocation, raio);
-          }
-        },
-        (error) => {
-          let mensagem = 'Erro ao obter localização.';
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              mensagem = 'Permissão de localização negada. Ative o GPS ou use filtros manuais.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              mensagem = 'Localização indisponível. Verifique se o GPS está ativo.';
-              break;
-            case error.TIMEOUT:
-              mensagem = 'Tempo limite ao obter localização. Tente novamente.';
-              break;
-          }
-          setGeoStatus(`❌ ${mensagem}`);
-          showNotification(mensagem, 'error');
-        },
-        { timeout: 10000, enableHighAccuracy: true }
-      );
-    }
-
-    // BUSCAR DADOS DO CNES/DATASUS
-    async function buscarDadosCNES(location, raio) {
-      setGeoStatus('🔍 Buscando dados do CNES/DATASUS...');
-      
-      // Simular busca na API do CNES
-      // Em produção, isso seria uma chamada real para:
-      // https://apidadosabertos.saude.gov.br/cnes/estabelecimentos
-      
-      // Por enquanto, usar dados de exemplo e filtrar por proximidade
-      filtrarPorProximidade(location, raio);
-    }
-
-    // FILTRAR POR PROXIMIDADE (CORRIGIDO)
-    function filtrarPorProximidade(location, raio) {
-      // Filtrar unidades por distância usando a fórmula de Haversine
-      const unidadesProximas = allUnits.filter(unidade => {
-        if (!unidade.latitude || !unidade.longitude) return false;
-        
-        const distancia = calcularDistancia(
-          location.lat, location.lng,
-          unidade.latitude, unidade.longitude
-        );
-        
-        return distancia <= raio;
-      }).map(unidade => ({
-        ...unidade,
-        _distancia: calcularDistancia(
-          location.lat, location.lng,
-          unidade.latitude, unidade.longitude
-        )
-      })).sort((a, b) => a._distancia - b._distancia);
-
-      if (unidadesProximas.length > 0) {
-        filteredUnits = unidadesProximas;
-        exibirResultados();
-        setGeoStatus(`📍 ${unidadesProximas.length} unidades encontradas em até ${raio} km da sua localização`);
-      } else {
-        setGeoStatus(`📍 Nenhuma unidade encontrada em até ${raio} km. Tente aumentar o raio de busca.`);
-        showNotification(`Nenhuma unidade encontrada em até ${raio} km. Tente aumentar o raio.`, 'warning');
+      } catch (e) {
+        console.warn(`Geocoding falhou para ${unit.nome}`);
       }
     }
+  }
+}
 
-    // BUSCAR UNIDADES COM FILTROS (CORRIGIDO)
-    function buscarUnidades() {
-      const filtros = {
-        estado: document.getElementById('estado').value,
-        municipio: document.getElementById('municipio').value,
-        tipo: document.getElementById('tipo').value,
-        perfil: document.getElementById('perfil').value,
-        acolhimento: document.getElementById('acolhimento').value,
-        nome: document.getElementById('buscaNome').value.toLowerCase()
+async function geocodeAddress(address) {
+  try {
+    const url = `${NOMINATIM_API}/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'SaudeBR-Localizador/2.0'
+      }
+    });
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lon: parseFloat(data[0].lon)
       };
-
-      // Buscar unidades do CNES/DATASUS baseado nos filtros
-      buscarDadosCNESComFiltros(filtros);
     }
+  } catch (error) {
+    console.warn('Erro no geocoding:', error);
+  }
+  
+  return null;
+}
 
-    // BUSCAR DADOS DO CNES COM FILTROS
-    async function buscarDadosCNESComFiltros(filtros) {
-      setGeoStatus('🔍 Buscando unidades do CNES/DATASUS...');
+// ═══════════════════════════════════════════════════
+//  GEOLOCALIZAÇÃO
+// ═══════════════════════════════════════════════════
+async function usarGeolocalizacao() {
+  if (!navigator.geolocation) {
+    showNotification('Geolocalização não suportada pelo navegador', 'error');
+    return;
+  }
+  
+  showSearchProgress(true);
+  updateSearchProgress(10, 'Obtendo sua localização...', 'Aguarde autorização GPS');
+  
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      currentGeoPosition = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude
+      };
       
-      // Simular busca na API do CNES com filtros
-      // Em produção, isso seria uma chamada real para:
-      // https://apidadosabertos.saude.gov.br/cnes/estabelecimentos
+      updateSearchProgress(30, 'Localização obtida!', `Lat: ${currentGeoPosition.lat.toFixed(4)}, Lon: ${currentGeoPosition.lon.toFixed(4)}`);
       
-      // Por enquanto, filtrar os dados de exemplo
-      filtrarUnidades(filtros);
-    }
-
-    // FILTRAR UNIDADES (CORRIGIDO)
-    function filtrarUnidades(filtros) {
-      // Filtrar unidades com base nos critérios
-      filteredUnits = allUnits.filter(unidade => {
-        // Filtro por estado
-        if (filtros.estado && unidade.estado !== filtros.estado) return false;
+      try {
+        // Reverse geocoding para descobrir município
+        const location = await reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon);
         
-        // Filtro por município
-        if (filtros.municipio && unidade.municipio !== filtros.municipio) return false;
+        if (!location || !location.municipio) {
+          throw new Error('Não foi possível determinar o município');
+        }
         
-        // Filtro por tipo
-        if (filtros.tipo && unidade.tipo !== filtros.tipo) return false;
+        updateSearchProgress(50, 'Município detectado', location.municipio);
         
-        // Filtro por perfil - IMPORTANTE: separar ATENCAO_PRIMARIA de URG_EMERG
-        if (filtros.perfil && unidade.perfil !== filtros.perfil) return false;
+        // Buscar unidades próximas
+        const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
+        const units = await fetchUnitsNearLocation(currentGeoPosition, raio, location);
         
-        // Filtro por acolhimento
-        if (filtros.acolhimento && unidade.acolhimento !== filtros.acolhimento) return false;
+        updateSearchProgress(90, 'Calculando distâncias...', `${units.length} unidades encontradas`);
         
-        // Filtro por nome
-        if (filtros.nome && !unidade.nome.toLowerCase().includes(filtros.nome) && 
-            !unidade.profissional.toLowerCase().includes(filtros.nome)) return false;
+        // Calcular distâncias
+        units.forEach(u => {
+          if (u.latitude && u.longitude) {
+            u.distancia = calculateDistance(
+              currentGeoPosition.lat,
+              currentGeoPosition.lon,
+              u.latitude,
+              u.longitude
+            );
+          }
+        });
         
-        return true;
-      });
-
-      setGeoStatus(`📋 ${filteredUnits.length} unidades encontradas com os filtros aplicados`);
-      exibirResultados();
-    }
-
-    // LIMPAR FILTROS
-    function limparFiltros() {
-      document.getElementById('estado').value = '';
-      document.getElementById('municipio').value = '';
-      document.getElementById('tipo').value = '';
-      document.getElementById('perfil').value = '';
-      document.getElementById('acolhimento').value = '';
-      document.getElementById('buscaNome').value = '';
-      document.getElementById('geoRaio').value = '6';
-      
-      filteredUnits = [];
-      exibirResultados();
-      setGeoStatus('Detecta automaticamente seu município via GPS e busca unidades no raio configurado');
-    }
-
-    // EXIBIR RESULTADOS (CORRIGIDO)
-    function exibirResultados() {
-      const container = document.getElementById('resultsContainer');
-      const resultsCount = document.getElementById('resultsCount');
-      
-      if (filteredUnits.length === 0) {
-        resultsCount.textContent = 'Nenhuma unidade encontrada';
-        container.innerHTML = `
-          <div class="empty-state">
-            <i class="fas fa-hospital"></i>
-            <h3>Nenhuma unidade encontrada</h3>
-            <p>Revise os filtros e tente novamente</p>
-          </div>
-        `;
-        return;
+        // Ordenar por distância
+        units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
+        
+        allUnits = units;
+        applyLocalFilters();
+        
+        updateSearchProgress(100, 'Concluído!', `${units.length} unidades no raio de ${raio}km`);
+        
+        setTimeout(() => {
+          showSearchProgress(false);
+          showNotification(`${units.length} unidades encontradas próximas a você`, 'success');
+          document.getElementById('geoStatus').textContent = 
+            `📍 Sua localização: ${location.municipio}/${location.uf} • ${units.length} unidades no raio de ${raio}km`;
+        }, 800);
+        
+      } catch (error) {
+        console.error('Erro na busca por proximidade:', error);
+        showSearchProgress(false);
+        showNotification('Erro: ' + error.message, 'error');
       }
-
-      resultsCount.textContent = `${filteredUnits.length} unidade(s) encontrada(s)`;
-
-      const grid = document.createElement('div');
-      grid.className = 'unit-grid';
-
-      filteredUnits.forEach(unidade => {
-        const card = criarCardUnidade(unidade);
-        grid.appendChild(card);
-      });
-
-      container.innerHTML = '';
-      container.appendChild(grid);
+    },
+    (error) => {
+      showSearchProgress(false);
+      let msg = 'Erro ao obter localização';
+      
+      if (error.code === error.PERMISSION_DENIED) {
+        msg = 'Permissão de localização negada';
+      } else if (error.code === error.POSITION_UNAVAILABLE) {
+        msg = 'Localização indisponível';
+      } else if (error.code === error.TIMEOUT) {
+        msg = 'Tempo esgotado ao obter localização';
+      }
+      
+      showNotification(msg, 'error');
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
     }
+  );
+}
 
-    // CRIAR CARD DA UNIDADE (CORRIGIDO)
-    function criarCardUnidade(unidade) {
-      const card = document.createElement('div');
-      card.className = 'unit-card';
+async function reverseGeocode(lat, lon) {
+  try {
+    const url = `${NOMINATIM_API}/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'SaudeBR-Localizador/2.0'
+      }
+    });
+    const data = await response.json();
+    
+    if (data && data.address) {
+      const municipio = data.address.city || data.address.town || data.address.municipality || data.address.county;
+      const uf = data.address.state;
+      const estado = ESTADOS.find(e => e.nome === uf);
+      
+      return {
+        municipio: municipio,
+        uf: estado ? estado.sg : uf,
+        estado: estado
+      };
+    }
+  } catch (error) {
+    console.error('Erro no reverse geocoding:', error);
+  }
+  
+  return null;
+}
 
-      const tipoPerfil = obterTipoPerfil(unidade.perfil);
-      const distancia = unidade._distancia ? `${unidade._distancia.toFixed(1)} km` : '';
+async function fetchUnitsNearLocation(position, raioKm, location) {
+  // Primeiro, buscar todas as unidades do município detectado
+  let units = [];
+  
+  if (location && location.estado) {
+    try {
+      // Buscar código IBGE do município
+      const response = await fetchWithCORS(`${IBGE_API}/estados/${location.estado.sg}/municipios`);
+      const municipios = await response.json();
+      const munData = municipios.find(m => m.nome.toUpperCase() === location.municipio.toUpperCase());
+      
+      if (munData) {
+        units = await fetchAllUnitsFromMunicipio(munData.id, location.estado.sg);
+        await enrichUnitsData(units);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar unidades do município:', error);
+    }
+  }
+  
+  // Filtrar apenas as que estão dentro do raio
+  const filtered = units.filter(u => {
+    if (!u.latitude || !u.longitude || u.latitude === 0) return false;
+    
+    const dist = calculateDistance(position.lat, position.lon, u.latitude, u.longitude);
+    return dist <= raioKm;
+  });
+  
+  return filtered;
+}
 
-      card.innerHTML = `
-        <div class="unit-header">
-          <div class="unit-name">${unidade.nome}</div>
-          <div class="unit-type ${tipoPerfil.classe}">${tipoPerfil.nome}</div>
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Raio da Terra em km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const dist = R * c;
+  
+  return dist;
+}
+
+function toRad(deg) {
+  return deg * (Math.PI / 180);
+}
+
+// ═══════════════════════════════════════════════════
+//  FILTROS LOCAIS
+// ═══════════════════════════════════════════════════
+function applyLocalFilters() {
+  const bairro = document.getElementById('inputBairro').value.toLowerCase().trim();
+  const nivel = document.getElementById('selectNivel').value;
+  const acolhimento = document.getElementById('selectAcolhimento').value;
+  const gestao = document.getElementById('selectGestao').value;
+  
+  filteredUnits = allUnits.filter(u => {
+    // Filtro de bairro
+    if (bairro && !u.bairro.toLowerCase().includes(bairro)) {
+      return false;
+    }
+    
+    // Filtro de nível
+    if (nivel && u.nivel !== nivel) {
+      return false;
+    }
+    
+    // Filtro de acolhimento
+    if (acolhimento && !u.acolhimentos.includes(acolhimento)) {
+      return false;
+    }
+    
+    // Filtro de gestão
+    if (gestao && u.gestao !== gestao) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  renderResults();
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDERIZAÇÃO DE RESULTADOS
+// ═══════════════════════════════════════════════════
+function renderResults() {
+  updateDashboard();
+  
+  const container = document.getElementById('resultsSection');
+  
+  if (filteredUnits.length === 0) {
+    container.innerHTML = `
+      <div class="status-box">
+        <span class="status-icon">🔍</span>
+        <h3>Nenhuma unidade encontrada</h3>
+        <p>Tente ajustar os filtros ou realizar uma nova busca.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Agrupar por nível
+  const groups = {
+    primaria: filteredUnits.filter(u => u.nivel === 'primaria'),
+    secundaria: filteredUnits.filter(u => u.nivel === 'secundaria'),
+    terciaria: filteredUnits.filter(u => u.nivel === 'terciaria')
+  };
+  
+  let html = `
+    <div class="results-header">
+      <div>
+        <h2 class="results-title">
+          Resultados
+          <span class="results-count">${filteredUnits.length}</span>
+        </h2>
+      </div>
+      <div class="export-row">
+        <button class="btn btn-amber btn-sm" onclick="exportToExcel()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Exportar Excel
+        </button>
+        <button class="btn btn-navy btn-sm" onclick="exportToPDF()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Exportar PDF
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // Renderizar grupos
+  const groupConfigs = [
+    { key: 'primaria', label: 'Atenção Primária', color: '#00A878', icon: '🏠' },
+    { key: 'secundaria', label: 'Atenção Secundária', color: '#1565C0', icon: '🔬' },
+    { key: 'terciaria', label: 'Atenção Terciária', color: '#E53935', icon: '🏨' }
+  ];
+  
+  groupConfigs.forEach(cfg => {
+    if (groups[cfg.key].length > 0) {
+      html += renderGroup(cfg, groups[cfg.key]);
+    }
+  });
+  
+  container.innerHTML = html;
+}
+
+function renderGroup(config, units) {
+  const groupId = `group-${config.key}`;
+  
+  let html = `
+    <div class="group-section">
+      <div class="group-header" onclick="toggleGroup('${groupId}')">
+        <div class="group-header-left">
+          <span class="group-pill" style="background: ${config.color}22; color: ${config.color};">
+            ${config.icon}
+          </span>
+          <div>
+            <div class="group-name">${config.label}</div>
+            <div class="group-meta">${units.length} unidade${units.length !== 1 ? 's' : ''} encontrada${units.length !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div class="group-count">${units.length}</div>
+          <span class="group-arrow" id="${groupId}-arrow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </span>
+        </div>
+      </div>
+      <div class="group-body" id="${groupId}">
+        <div class="cards-grid">
+          ${units.map(u => renderUnitCard(u, config.color)).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  return html;
+}
+
+function renderUnitCard(unit, accentColor) {
+  const nome = unit.nome || unit.razaoSocial || 'Sem nome';
+  const gestaoLabel = {'M': 'Municipal', 'E': 'Estadual', 'F': 'Federal', 'D': 'Dupla'}[unit.gestao] || '';
+  const gestaoClass = {'M': 'municipal', 'E': 'estadual', 'F': 'federal', 'D': 'federal'}[unit.gestao] || 'municipal';
+  
+  let tagsHTML = '';
+  
+  // Tag de gestão
+  if (gestaoLabel) {
+    tagsHTML += `<span class="unit-tag unit-tag-${gestaoClass}">${gestaoLabel}</span>`;
+  }
+  
+  // Tags de acolhimento
+  unit.acolhimentos.forEach(a => {
+    const labels = {
+      'ambulatorial': 'Ambulatorial',
+      'urgencia': 'Urgência/Emergência',
+      'maternidade': 'Maternidade',
+      'traumatologia': 'Traumatologia'
+    };
+    tagsHTML += `<span class="unit-tag unit-tag-${a}">${labels[a] || a}</span>`;
+  });
+  
+  // Tag de distância
+  if (unit.distancia !== null && unit.distancia !== undefined) {
+    tagsHTML += `<span class="unit-tag unit-distance">${unit.distancia.toFixed(1)} km</span>`;
+  }
+  
+  // Botões de ação
+  let actionsHTML = '';
+  
+  // Link CNES
+  if (unit.cnes) {
+    const cnesLink = `http://cnes.datasus.gov.br/pages/estabelecimentos/exibir.jsp?codCNES=${unit.cnes}`;
+    actionsHTML += `
+      <button class="btn-icon search" onclick="window.open('${cnesLink}', '_blank')" title="Ver no CNES">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </button>
+    `;
+  }
+  
+  // Google Maps
+  if (unit.latitude && unit.longitude && unit.latitude !== 0) {
+    const mapsLink = `https://www.google.com/maps/search/?api=1&query=${unit.latitude},${unit.longitude}`;
+    actionsHTML += `
+      <button class="btn-icon maps" onclick="window.open('${mapsLink}', '_blank')" title="Ver no Google Maps">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+        </svg>
+      </button>
+    `;
+  }
+  
+  // WhatsApp
+  if (unit.telefoneFormatado) {
+    const telClean = unit.telefone.replace(/\D/g, '');
+    const whatsappLink = `https://wa.me/55${telClean}`;
+    actionsHTML += `
+      <button class="btn-icon whatsapp" onclick="window.open('${whatsappLink}', '_blank')" title="Contato WhatsApp">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+        </svg>
+      </button>
+    `;
+  }
+  
+  return `
+    <div class="unit-card">
+      <div class="unit-card-accent" style="background: ${accentColor};"></div>
+      <div class="unit-card-inner">
+        <div class="unit-card-header">
+          <h3 class="unit-name">${nome}</h3>
         </div>
         
-        <div class="unit-info">
-          <div class="unit-info-item">
-            <i class="fas fa-map-marker-alt"></i>
-            <div>
-              <strong>Endereço:</strong> ${unidade.endereco}
-            </div>
+        ${unit.enderecoCompleto ? `
+          <div class="unit-info-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            <span>${unit.enderecoCompleto}</span>
           </div>
-          
-          <div class="unit-info-item">
-            <i class="fas fa-phone"></i>
-            <div>
-              <strong>Telefone:</strong> ${unidade.telefone}
-            </div>
+        ` : ''}
+        
+        ${unit.telefoneFormatado ? `
+          <div class="unit-info-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            <span>${unit.telefoneFormatado}</span>
           </div>
-          
-          <div class="unit-info-item">
-            <i class="fas fa-envelope"></i>
-            <div>
-              <strong>Email:</strong> ${unidade.email}
-            </div>
+        ` : ''}
+        
+        ${unit.email ? `
+          <div class="unit-info-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+            </svg>
+            <span>${unit.email}</span>
           </div>
-          
-          <div class="unit-info-item">
-            <i class="fas fa-user-md"></i>
-            <div>
-              <strong>Profissional:</strong> ${unidade.profissional}
-            </div>
-          </div>
-          
-          <div class="unit-info-item">
-            <i class="fas fa-hospital"></i>
-            <div>
-              <strong>CNES:</strong> ${unidade.cnes}
-            </div>
-          </div>
+        ` : ''}
+        
+        ${unit.cnes ? `<div class="unit-cnes">CNES: ${unit.cnes}</div>` : ''}
+        
+        <div class="unit-tags">
+          ${tagsHTML}
         </div>
         
-        <div class="unit-footer">
-          ${distancia ? `<div class="unit-distance">📍 ${distancia}</div>` : ''}
+        ${actionsHTML ? `
           <div class="unit-actions">
-            <button class="btn btn-sm btn-secondary" onclick="verDetalhes('${unidade.id}')">
-              <i class="fas fa-info-circle"></i>
-              Detalhes
-            </button>
-            <a href="https://cnes.datasus.gov.br/Exibe_Ficha_Estabelecimento.asp?Vco_Unidade=${unidade.cnes}" 
-               target="_blank" class="btn btn-sm btn-primary">
-              <i class="fas fa-external-link-alt"></i>
-              CNES
-            </a>
+            ${actionsHTML}
           </div>
-        </div>
-      `;
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
 
-      return card;
+function toggleGroup(groupId) {
+  const body = document.getElementById(groupId);
+  const arrow = document.getElementById(`${groupId}-arrow`);
+  
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+function updateDashboard() {
+  document.getElementById('statTotal').textContent = filteredUnits.length;
+  
+  const primaria = filteredUnits.filter(u => u.nivel === 'primaria').length;
+  const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria').length;
+  const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria').length;
+  
+  const urgencia = filteredUnits.filter(u => u.acolhimentos.includes('urgencia')).length;
+  const maternidade = filteredUnits.filter(u => u.acolhimentos.includes('maternidade')).length;
+  const traumatologia = filteredUnits.filter(u => u.acolhimentos.includes('traumatologia')).length;
+  const ambulatorial = filteredUnits.filter(u => u.acolhimentos.includes('ambulatorial')).length;
+  
+  document.getElementById('statPrimaria').textContent = primaria;
+  document.getElementById('statSecundaria').textContent = secundaria;
+  document.getElementById('statTerciaria').textContent = terciaria;
+  document.getElementById('statUrgencia').textContent = urgencia;
+  document.getElementById('statMaternidade').textContent = maternidade;
+  document.getElementById('statTraumatologia').textContent = traumatologia;
+  document.getElementById('statAmbulatorial').textContent = ambulatorial;
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORTAÇÃO
+// ═══════════════════════════════════════════════════
+function exportToExcel() {
+  if (filteredUnits.length === 0) {
+    showNotification('Nenhuma unidade para exportar', 'error');
+    return;
+  }
+  
+  const data = filteredUnits.map(u => ({
+    'CNES': u.cnes,
+    'Nome da Unidade': u.nome || u.razaoSocial,
+    'Nível de Atenção': {'primaria': 'Primária', 'secundaria': 'Secundária', 'terciaria': 'Terciária'}[u.nivel] || '',
+    'Formas de Acolhimento': u.acolhimentos.join(', '),
+    'Endereço': unit.enderecoCompleto,
+    'Bairro': u.bairro,
+    'Município': u.municipio,
+    'UF': u.uf,
+    'CEP': u.cep,
+    'Telefone': u.telefoneFormatado || u.telefone,
+    'Email': u.email,
+    'Esfera de Gestão': {'M': 'Municipal', 'E': 'Estadual', 'F': 'Federal', 'D': 'Dupla'}[u.gestao] || '',
+    'Latitude': u.latitude || '',
+    'Longitude': u.longitude || '',
+    'Distância (km)': u.distancia ? u.distancia.toFixed(2) : '',
+    'Link CNES': u.cnes ? `http://cnes.datasus.gov.br/pages/estabelecimentos/exibir.jsp?codCNES=${u.cnes}` : ''
+  }));
+  
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Unidades de Saúde');
+  
+  const fileName = `SaudeBR_Unidades_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  
+  showNotification(`Arquivo Excel exportado: ${fileName}`, 'success');
+}
+
+function exportToPDF() {
+  if (filteredUnits.length === 0) {
+    showNotification('Nenhuma unidade para exportar', 'error');
+    return;
+  }
+  
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p', 'mm', 'a4');
+  
+  // Título
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SaúdeBR - Unidades de Saúde', 105, 15, { align: 'center' });
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Relatório gerado em ${new Date().toLocaleString('pt-BR')}`, 105, 22, { align: 'center' });
+  doc.text(`Total de unidades: ${filteredUnits.length}`, 105, 28, { align: 'center' });
+  
+  // Tabela
+  const tableData = filteredUnits.map(u => [
+    u.cnes || '',
+    u.nome || u.razaoSocial || '',
+    {'primaria': 'Primária', 'secundaria': 'Secundária', 'terciaria': 'Terciária'}[u.nivel] || '',
+    u.acolhimentos.join(', '),
+    u.enderecoCompleto || '',
+    u.telefoneFormatado || u.telefone || '',
+    u.cnes ? `http://cnes.datasus.gov.br/pages/estabelecimentos/exibir.jsp?codCNES=${u.cnes}` : ''
+  ]);
+  
+  doc.autoTable({
+    startY: 35,
+    head: [['CNES', 'Nome', 'Nível', 'Acolhimento', 'Endereço', 'Telefone', 'Link CNES']],
+    body: tableData,
+    styles: {
+      fontSize: 8,
+      cellPadding: 2
+    },
+    headStyles: {
+      fillColor: [11, 31, 58],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { cellWidth: 20 },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 40 },
+      5: { cellWidth: 25 },
+      6: { cellWidth: 25 }
     }
+  });
+  
+  // Gerar blob e mostrar preview
+  currentPDFBlob = doc.output('blob');
+  const blobUrl = URL.createObjectURL(currentPDFBlob);
+  
+  document.getElementById('pdfPreviewFrame').src = blobUrl;
+  document.getElementById('pdfModal').classList.add('visible');
+}
 
-    // OBTER TIPO DE PERFIL (CORRIGIDO)
-    function obterTipoPerfil(perfil) {
-      switch(perfil) {
-        case 'ATENCAO_PRIMARIA':
-          return { nome: 'Atenção Primária', classe: 'primary' };
-        case 'URG_EMERG':
-          return { nome: 'Urgência/Emergência', classe: 'emergency' };
-        case 'ESPECIALIZADO':
-          return { nome: 'Especializado', classe: 'specialized' };
-        case 'HOSPITALAR':
-          return { nome: 'Hospitalar', classe: 'hospital' };
-        default:
-          return { nome: 'Outro', classe: 'primary' };
-      }
-    }
+function closePDFModal() {
+  document.getElementById('pdfModal').classList.remove('visible');
+  document.getElementById('pdfPreviewFrame').src = '';
+}
 
-    // VER DETALHES
-    function verDetalhes(id) {
-      const unidade = filteredUnits.find(u => u.id == id);
-      if (!unidade) return;
+function downloadPDFFromModal() {
+  if (!currentPDFBlob) return;
+  
+  const fileName = `SaudeBR_Unidades_${new Date().toISOString().split('T')[0]}.pdf`;
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(currentPDFBlob);
+  link.download = fileName;
+  link.click();
+  
+  showNotification(`PDF baixado: ${fileName}`, 'success');
+  closePDFModal();
+}
 
-      showNotification(`Detalhes da unidade ${unidade.nome} - Em desenvolvimento`, 'info');
-    }
-
-    // FUNÇÕES DE EXPORTAÇÃO
-    function exportarExcel() {
-      if (!filteredUnits.length) {
-        showNotification('Nenhuma unidade para exportar.', 'error');
-        return;
-      }
-
-      const dados = filteredUnits.map((u, index) => ({
-        'Nº': index + 1,
-        'Nome da Unidade': u.nome,
-        'Tipo': u.tipo,
-        'Perfil': obterTipoPerfil(u.perfil).nome,
-        'Forma de Acolhimento': u.acolhimento,
-        'Endereço': u.endereco,
-        'Telefone': u.telefone,
-        'Email': u.email,
-        'Profissional': u.profissional,
-        'CNES': u.cnes,
-        'Município': u.municipio,
-        'Estado': u.estado,
-        'Link CNES': `https://cnes.datasus.gov.br/Exibe_Ficha_Estabelecimento.asp?Vco_Unidade=${u.cnes}`
-      }));
-
-      const ws = XLSX.utils.json_to_sheet(dados);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Unidades_CNES');
-      XLSX.writeFile(wb, `Unidades_CNES_${new Date().toISOString().split('T')[0]}.xlsx`);
-      
-      showNotification('Excel exportado com sucesso!', 'success');
-    }
-
-    function visualizarPDF() {
-      if (!filteredUnits.length) {
-        showNotification('Nenhuma unidade para exportar.', 'error');
-        return;
-      }
-
-      gerarPDF(true);
-    }
-
-    function gerarPDF(preview = false) {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
-      
-      // Cabeçalho
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text('SAÚDEBR - LOCALIZADOR CNES', 10, 10);
-      
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text(`Relatório gerado em: ${new Date().toLocaleString('pt-BR')}`, 10, 16);
-      doc.text(`Total de unidades: ${filteredUnits.length}`, 10, 20);
-
-      // Preparar dados para a tabela
-      const dados = filteredUnits.map((u, index) => [
-        index + 1,
-        u.nome,
-        obterTipoPerfil(u.perfil).nome,
-        u.municipio,
-        u.endereco,
-        u.telefone,
-        u.cnes,
-        `https://cnes.datasus.gov.br/Exibe_Ficha_Estabelecimento.asp?Vco_Unidade=${u.cnes}`
-      ]);
-
-      // Criar tabela
-      doc.autoTable({
-        head: [['Nº', 'Nome da Unidade', 'Perfil', 'Município', 'Endereço', 'Telefone', 'CNES', 'Link CNES']],
-        body: dados,
-        startY: 25,
-        styles: { fontSize: 6, cellPadding: 2 },
-        headStyles: { fillColor: [11, 31, 58], textColor: 255, fontStyle: 'bold' },
-        columnStyles: {
-          0: { cellWidth: 8 },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 20 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 30 },
-          5: { cellWidth: 18 },
-          6: { cellWidth: 12 },
-          7: { cellWidth: 25 }
-        },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        margin: { top: 25 }
+// ═══════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════
+async function fetchWithCORS(url) {
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const proxyUrl = proxy(url);
+      const response = await fetch(proxyUrl, {
+        headers: {
+          'Accept': 'application/json'
+        }
       });
-
-      if (preview) {
-        // Para visualização, criar uma representação HTML
-        const htmlPreview = `
-          <div style="font-family: Arial, sans-serif; font-size: 12px;">
-            <h2 style="color: #0B1F3A; margin-bottom: 10px;">SAÚDEBR - LOCALIZADOR CNES</h2>
-            <p style="margin: 5px 0;"><strong>Relatório gerado em:</strong> ${new Date().toLocaleString('pt-BR')}</p>
-            <p style="margin: 5px 0;"><strong>Total de unidades:</strong> ${filteredUnits.length}</p>
-            
-            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px;">
-              <thead>
-                <tr style="background-color: #0B1F3A; color: white;">
-                  <th style="border: 1px solid #ddd; padding: 4px;">Nº</th>
-                  <th style="border: 1px solid #ddd; padding: 4px;">Nome da Unidade</th>
-                  <th style="border: 1px solid #ddd; padding: 4px;">Perfil</th>
-                  <th style="border: 1px solid #ddd; padding: 4px;">Município</th>
-                  <th style="border: 1px solid #ddd; padding: 4px;">Endereço</th>
-                  <th style="border: 1px solid #ddd; padding: 4px;">Telefone</th>
-                  <th style="border: 1px solid #ddd; padding: 4px;">CNES</th>
-                  <th style="border: 1px solid #ddd; padding: 4px;">Link CNES</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${filteredUnits.map((u, index) => `
-                  <tr style="background-color: ${index % 2 === 0 ? '#f9f9f9' : 'white'};">
-                    <td style="border: 1px solid #ddd; padding: 4px;">${index + 1}</td>
-                    <td style="border: 1px solid #ddd; padding: 4px;">${u.nome}</td>
-                    <td style="border: 1px solid #ddd; padding: 4px;">${obterTipoPerfil(u.perfil).nome}</td>
-                    <td style="border: 1px solid #ddd; padding: 4px;">${u.municipio}</td>
-                    <td style="border: 1px solid #ddd; padding: 4px;">${u.endereco}</td>
-                    <td style="border: 1px solid #ddd; padding: 4px;">${u.telefone}</td>
-                    <td style="border: 1px solid #ddd; padding: 4px;">${u.cnes}</td>
-                    <td style="border: 1px solid #ddd; padding: 4px;">
-                      <a href="https://cnes.datasus.gov.br/Exibe_Ficha_Estabelecimento.asp?Vco_Unidade=${u.cnes}" 
-                         target="_blank" style="color: #00A878;">Ver no CNES</a>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-        
-        document.getElementById('pdfPreview').innerHTML = htmlPreview;
-        document.getElementById('pdfModal').classList.add('open');
-        
-        // Armazenar o conteúdo do PDF para download
-        currentPdfContent = doc.output('blob');
-      }
       
-      showNotification('PDF gerado com sucesso!', 'success');
-    }
-
-    function fecharPDFModal() {
-      document.getElementById('pdfModal').classList.remove('open');
-    }
-
-    function baixarPDF() {
-      if (currentPdfContent) {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(currentPdfContent);
-        link.download = `Unidades_CNES_${new Date().toISOString().split('T')[0]}.pdf`;
-        link.click();
-        fecharPDFModal();
+      if (response.ok) {
+        return response;
       }
+    } catch (error) {
+      console.warn(`Falha com proxy, tentando próximo...`, error);
     }
+  }
+  
+  throw new Error('Não foi possível acessar a API após todas as tentativas');
+}
 
-    // FUNÇÕES AUXILIARES
-    function calcularDistancia(lat1, lng1, lat2, lng2) {
-      const R = 6371; // Raio da Terra em km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLng = (lng2 - lng1) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLng/2) * Math.sin(dLng/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c;
-    }
+function showSearchProgress(visible) {
+  const card = document.getElementById('searchProgressCard');
+  if (visible) {
+    card.classList.add('visible');
+  } else {
+    card.classList.remove('visible');
+  }
+}
 
-    function setGeoStatus(mensagem) {
-      document.getElementById('geoStatus').textContent = mensagem;
-    }
+function updateSearchProgress(percent, title, hint) {
+  document.getElementById('spBar').style.width = `${percent}%`;
+  document.getElementById('spTitle').textContent = title;
+  document.getElementById('spHint').textContent = hint;
+  document.getElementById('spCount').textContent = filteredUnits.length;
+}
 
-    function showNotification(mensagem, tipo = 'info') {
-      const notification = document.createElement('div');
-      notification.className = `notification ${tipo}`;
-      notification.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'error' ? 'exclamation-circle' : tipo === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
-          <span>${mensagem}</span>
-        </div>
-      `;
-      
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        notification.remove();
-      }, 5000);
-    }
+function showNotification(message, type = 'info') {
+  const notif = document.createElement('div');
+  notif.className = `notification ${type}`;
+  
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+  notif.innerHTML = `<span style="font-size: 1.2rem;">${icon}</span><span>${message}</span>`;
+  
+  document.body.appendChild(notif);
+  
+  setTimeout(() => {
+    notif.remove();
+  }, 5000);
+}
+</script>
 
-    // FECHAR MODAL AO CLICAR FORA
-    window.onclick = function(event) {
-      const modal = document.getElementById('pdfModal');
-      if (event.target === modal) {
-        fecharPDFModal();
-      }
-    }
-  </script>
 </body>
 </html>
