@@ -761,8 +761,8 @@
   <div class="geo-section">
     <div style="font-size: 1.8rem;">📍</div>
     <div class="geo-info">
-      <h3>Busca por Proximidade Geográfica</h3>
-      <p id="geoStatus">Clique em "Usar Minha Localização" para buscar unidades próximas a você.</p>
+      <h3>Busca por Proximidade Geográfica — Independente</h3>
+      <p id="geoStatus">Detecta automaticamente seu município via GPS + geocodificação reversa e busca unidades no raio configurado, sem precisar selecionar estado/município nos filtros.</p>
     </div>
     <div class="geo-radius-row">
       <span class="geo-radius-label">Raio (km):</span>
@@ -845,10 +845,22 @@
 // ═══════════════════════════════════════════════════
 //  CONFIGURAÇÃO & CONSTANTES
 // ═══════════════════════════════════════════════════
-const CNES_API = 'https://apidadosabertos.saude.gov.br/cnes';
-const IBGE_API = 'https://servicodados.ibge.gov.br/api/v1/localidades';
+const CNES_BASE      = 'https://apidadosabertos.saude.gov.br/cnes';
+const IBGE_API       = 'https://servicodados.ibge.gov.br/api/v1/localidades';
+const NOMINATIM_API  = 'https://nominatim.openstreetmap.org';
 const MAX_UNITS_PER_CALL = 50;
-const MAX_TOTAL_UNITS = 1000;
+const MAX_TOTAL_UNITS    = 1000;
+const FETCH_TIMEOUT_MS   = 18000;   // 18 s por chamada
+const MAX_RETRIES        = 3;       // tentativas por estratégia
+
+// Estratégias de acesso à API em cascata (direto → proxies CORS)
+const API_STRATEGIES = [
+  url => url,                                                        // 1. Direto
+  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,    // 2. corsproxy.io
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, // 3. allorigins
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // 4. codetabs
+];
+let activeStrategy = 0; // índice da estratégia bem-sucedida mais recente
 
 const ESTADOS = [
   {sg:'AC',nome:'Acre',co:'12'},{sg:'AL',nome:'Alagoas',co:'27'},{sg:'AP',nome:'Amapá',co:'16'},
@@ -1037,7 +1049,58 @@ function applyLocalFilters() {
 }
 
 // ═══════════════════════════════════════════════════
-//  BUSCA PRINCIPAL
+//  FETCH RESILIENTE — timeout + retry + cascade proxy
+// ═══════════════════════════════════════════════════
+async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    return resp;
+  } catch(e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
+async function fetchCNES(path) {
+  // Tenta cada estratégia; dentro de cada uma, até MAX_RETRIES vezes
+  for (let si = activeStrategy; si < API_STRATEGIES.length; si++) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const rawUrl  = `${CNES_BASE}${path}`;
+      const finalUrl = API_STRATEGIES[si](rawUrl);
+      const label    = si === 0 ? 'acesso direto' : `proxy ${si}`;
+
+      updateLoadingHint(`Tentativa ${attempt}/${MAX_RETRIES} via ${label}...`);
+
+      try {
+        const resp = await fetchWithTimeout(finalUrl, FETCH_TIMEOUT_MS);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        activeStrategy = si;  // fixa a estratégia vencedora
+        return data;
+      } catch(e) {
+        console.warn(`[CNES] ${label} — tentativa ${attempt} falhou:`, e.message);
+        if (attempt < MAX_RETRIES) {
+          await delay(800 * attempt); // backoff: 800ms, 1.6s
+        }
+      }
+    }
+    // Esgotou tentativas nesta estratégia — tenta a próxima
+    console.warn(`[CNES] Estratégia ${si} esgotada. Tentando próxima...`);
+  }
+  throw new Error('Todas as estratégias de conexão falharam. Verifique sua rede ou tente novamente em instantes.');
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function updateLoadingHint(txt) {
+  const el = document.getElementById('loadingHint');
+  if (el) el.textContent = txt;
+}
+
+// ═══════════════════════════════════════════════════
+//  BUSCA PRINCIPAL (por município)
 // ═══════════════════════════════════════════════════
 async function buscarUnidades() {
   const coMunicipio = document.getElementById('selectMunicipio').value;
@@ -1045,12 +1108,13 @@ async function buscarUnidades() {
     showNotification('Selecione um município antes de buscar.', 'error');
     return;
   }
-
   geoSearchMode = false;
-  await fetchUnidades(coMunicipio);
+  const munNome = document.getElementById('selectMunicipio').options[
+    document.getElementById('selectMunicipio').selectedIndex]?.text || '';
+  await fetchUnidades(coMunicipio, munNome);
 }
 
-async function fetchUnidades(coMunicipio) {
+async function fetchUnidades(coMunicipio, munNome = '') {
   if (isLoading) return;
   isLoading = true;
 
@@ -1058,42 +1122,37 @@ async function fetchUnidades(coMunicipio) {
   btnBuscar.disabled = true;
   btnBuscar.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2.5px;margin:0;"></div> Buscando...';
 
-  showLoading();
+  showLoading(munNome);
   allUnits = [];
+  activeStrategy = 0;  // reinicia estratégia a cada busca nova
 
   try {
     let offset = 0;
-    let total = null;
-    let progressEl = document.getElementById('progressBar');
+    let total  = null;
 
     while (true) {
-      const url = `${CNES_API}/estabelecimentos?co_municipio=${coMunicipio}&limit=${MAX_UNITS_PER_CALL}&offset=${offset}`;
-      const resp = await fetch(url);
+      const path = `/estabelecimentos?co_municipio=${coMunicipio}&limit=${MAX_UNITS_PER_CALL}&offset=${offset}`;
+      const data = await fetchCNES(path);
 
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-
-      const items = data.estabelecimentos || data.result || data.data || data || [];
+      const items = data.estabelecimentos || data.result || data.data || (Array.isArray(data) ? data : []);
       if (!Array.isArray(items) || items.length === 0) break;
 
       total = data.total || data.count || total;
-      items.forEach(u => {
-        const classified = classifyUnit(u);
-        allUnits.push(classified);
-      });
+      items.forEach(u => allUnits.push(classifyUnit(u)));
 
       offset += MAX_UNITS_PER_CALL;
 
-      if (progressEl && total) {
-        const pct = Math.min(100, Math.round((offset / total) * 100));
-        progressEl.style.width = pct + '%';
-        document.getElementById('loadingCount').textContent = `${allUnits.length} de ${total} unidades carregadas...`;
+      const progressBar = document.getElementById('progressBar');
+      if (progressBar && total) {
+        progressBar.style.width = Math.min(100, Math.round((offset / total) * 100)) + '%';
       }
+      const countEl = document.getElementById('loadingCount');
+      if (countEl) countEl.textContent = `${allUnits.length}${total ? ' de ' + total : ''} unidades carregadas...`;
 
       if (items.length < MAX_UNITS_PER_CALL || allUnits.length >= MAX_TOTAL_UNITS) break;
     }
 
-    if (allUnits.length === 0) {
+    if (!allUnits.length) {
       showEmpty();
     } else {
       filteredUnits = [...allUnits];
@@ -1101,9 +1160,9 @@ async function fetchUnidades(coMunicipio) {
       showNotification(`✅ ${allUnits.length} unidades carregadas com sucesso!`, 'success');
     }
   } catch(e) {
-    console.error('Erro na API CNES:', e);
+    console.error('[CNES] Erro final:', e);
     showError(e.message);
-    showNotification('Erro ao acessar a API CNES/DATASUS. Tente novamente.', 'error');
+    showNotification('❌ Não foi possível acessar o CNES/DATASUS. Verifique sua conexão.', 'error');
   } finally {
     isLoading = false;
     btnBuscar.disabled = false;
@@ -1112,32 +1171,148 @@ async function fetchUnidades(coMunicipio) {
 }
 
 // ═══════════════════════════════════════════════════
-//  GEOLOCALIZAÇÃO
+//  GEOLOCALIZAÇÃO — completamente independente
 // ═══════════════════════════════════════════════════
 function usarGeolocalizacao() {
   if (!navigator.geolocation) {
     showNotification('Geolocalização não suportada neste navegador.', 'error');
     return;
   }
-  document.getElementById('geoStatus').textContent = '📡 Obtendo sua localização...';
+  setGeoStatus('📡 Obtendo sua localização GPS...');
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      const raio = parseFloat(document.getElementById('geoRaio').value) || 3;
-      document.getElementById('geoStatus').textContent = `📍 Localização obtida: ${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)} — Filtrando em ${raio}km de raio...`;
-      if (allUnits.length > 0) {
-        applyGeoFilter();
-      } else {
-        showNotification('Busque por município primeiro para usar o filtro de proximidade.', 'error');
-        document.getElementById('geoStatus').textContent = `📍 Localização obtida. Busque unidades em um município próximo a você.`;
-      }
-    },
+    pos => geoPositionObtida(pos),
     err => {
-      document.getElementById('geoStatus').textContent = '❌ Não foi possível obter a localização.';
+      const msgs = { 1:'Permissão negada.', 2:'Posição indisponível.', 3:'Tempo esgotado.' };
+      setGeoStatus(`❌ ${msgs[err.code] || 'Erro desconhecido.'}`);
       showNotification('Não foi possível obter sua localização. Permita o acesso.', 'error');
     },
-    { enableHighAccuracy: true, timeout: 10000 }
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
   );
+}
+
+async function geoPositionObtida(pos) {
+  userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  const raio   = parseFloat(document.getElementById('geoRaio').value) || 3;
+  setGeoStatus(`📍 Coordenadas obtidas (${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}) — identificando município...`);
+
+  try {
+    // 1. Reverse geocoding via Nominatim
+    const nomUrl = `${NOMINATIM_API}/reverse?format=json&lat=${userLocation.lat}&lon=${userLocation.lng}&addressdetails=1&accept-language=pt-BR`;
+    const nomResp = await fetchWithTimeout(nomUrl, 10000);
+    if (!nomResp.ok) throw new Error('Nominatim indisponível');
+    const nomData = await nomResp.json();
+
+    const addr      = nomData.address || {};
+    const cityName  = addr.city || addr.town || addr.municipality || addr.county || addr.village || '';
+    const stateName = addr.state || '';
+    const stateCode = addr['ISO3166-2-lvl4']?.split('-')[1] || '';
+
+    if (!cityName) throw new Error('Município não identificado nas coordenadas');
+
+    setGeoStatus(`🏙️ Município detectado: ${cityName} — ${stateCode || stateName}. Buscando código IBGE...`);
+
+    // 2. Busca código IBGE do município
+    const ibgeCode = await buscarCodigoIBGE(cityName, stateCode || stateName);
+    if (!ibgeCode) throw new Error(`Município "${cityName}" não encontrado no IBGE`);
+
+    setGeoStatus(`📋 Código IBGE ${ibgeCode} encontrado. Carregando unidades de saúde em raio de ${raio}km...`);
+
+    // 3. Sincroniza seleções de Estado/Município na UI (melhor UX)
+    sincronizarSeletores(stateCode || stateName, cityName, ibgeCode);
+
+    // 4. Busca unidades do município (usa infra resiliente existente)
+    geoSearchMode = true;
+    await fetchUnidades(ibgeCode, cityName);
+
+    // 5. Aplica filtro de distância ao resultado carregado
+    if (allUnits.length > 0) {
+      applyGeoFilter();
+    }
+
+  } catch(e) {
+    console.error('[GEO]', e);
+    setGeoStatus(`⚠️ ${e.message}`);
+    showNotification(`Erro na busca por proximidade: ${e.message}`, 'error');
+    // Fallback: se já há dados carregados de busca anterior, filtra por distância
+    if (allUnits.length > 0) {
+      setGeoStatus('⚠️ Usando dados já carregados e filtrando por distância.');
+      applyGeoFilter();
+    }
+  }
+}
+
+async function buscarCodigoIBGE(cityName, stateHint) {
+  // 1. Tenta busca direta pelo nome exato no IBGE
+  const normalizado = cityName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  // Tenta via UF se tiver pista do estado
+  let estados = stateHint
+    ? [stateHint.toUpperCase()]
+    : ESTADOS.map(e => e.sg);
+
+  for (const uf of estados) {
+    try {
+      const r = await fetchWithTimeout(`${IBGE_API}/estados/${uf}/municipios`, 8000);
+      if (!r.ok) continue;
+      const lista = await r.json();
+      // Busca fuzzy por nome normalizado
+      const match = lista.find(m => {
+        const mn = m.nome.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+        return mn === normalizado || mn.includes(normalizado) || normalizado.includes(mn);
+      });
+      if (match) return String(match.id).substring(0, 6);
+    } catch(_) { /* continua */ }
+  }
+
+  // Fallback: tenta busca nacional (todos os municípios — pesado mas último recurso)
+  try {
+    const r = await fetchWithTimeout(`${IBGE_API}/municipios`, 15000);
+    if (r.ok) {
+      const lista = await r.json();
+      const match = lista.find(m => {
+        const mn = m.nome.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+        return mn === normalizado;
+      });
+      if (match) return String(match.id).substring(0, 6);
+    }
+  } catch(_) {}
+
+  return null;
+}
+
+async function sincronizarSeletores(uf, cityName, ibgeCode) {
+  try {
+    const selEstado = document.getElementById('selectEstado');
+    const selMun    = document.getElementById('selectMunicipio');
+    const ufUpper   = uf.toUpperCase();
+
+    // Seta UF
+    if ([...selEstado.options].some(o => o.value === ufUpper)) {
+      selEstado.value = ufUpper;
+    }
+
+    // Popula municípios se ainda não populados
+    if (selMun.options.length <= 1 || selMun.disabled) {
+      const r = await fetchWithTimeout(`${IBGE_API}/estados/${ufUpper}/municipios`, 8000);
+      if (r.ok) {
+        const lista = await r.json();
+        lista.sort((a,b) => a.nome.localeCompare(b.nome));
+        selMun.innerHTML = '<option value="">— Selecione o município —</option>';
+        lista.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = String(m.id).substring(0, 6);
+          opt.textContent = m.nome;
+          selMun.appendChild(opt);
+        });
+        selMun.disabled = false;
+      }
+    }
+
+    // Seta município
+    const opt = [...selMun.options].find(o => o.value === ibgeCode);
+    if (opt) selMun.value = ibgeCode;
+    currentMunicipioCode = ibgeCode;
+  } catch(_) { /* não critico — só UX */ }
 }
 
 function applyGeoFilter() {
@@ -1146,7 +1321,7 @@ function applyGeoFilter() {
 
   filteredUnits = allUnits
     .map(u => {
-      const lat = parseFloat(u.nu_latitude || u.latitude);
+      const lat = parseFloat(u.nu_latitude  || u.latitude);
       const lng = parseFloat(u.nu_longitude || u.longitude);
       if (!lat || !lng) return null;
       const dist = haversine(userLocation.lat, userLocation.lng, lat, lng);
@@ -1155,19 +1330,23 @@ function applyGeoFilter() {
     .filter(Boolean)
     .sort((a, b) => a._distance - b._distance);
 
-  document.getElementById('geoStatus').textContent =
-    `📍 ${filteredUnits.length} unidades encontradas em até ${raio}km da sua localização.`;
+  setGeoStatus(`📍 ${filteredUnits.length} unidades em até ${raio} km de você.`);
   geoSearchMode = true;
   updateDashboard(filteredUnits);
   renderResults(filteredUnits);
+}
+
+function setGeoStatus(txt) {
+  const el = document.getElementById('geoStatus');
+  if (el) el.textContent = txt;
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
 // ═══════════════════════════════════════════════════
@@ -1262,16 +1441,17 @@ function renderInitial() {
     <div class="status-box">
       <span class="status-icon">🔍</span>
       <h3>Pronto para buscar</h3>
-      <p>Selecione um estado e município nos filtros acima e clique em "Buscar Unidades", ou use a geolocalização para encontrar unidades próximas a você.</p>
+      <p>Selecione estado e município nos filtros e clique em <strong>Buscar Unidades</strong>, ou use o botão de <strong>Geolocalização</strong> para localização automática.</p>
     </div>`;
 }
 
-function showLoading() {
+function showLoading(munNome) {
   document.getElementById('resultsSection').innerHTML = `
     <div class="status-box">
       <div class="spinner"></div>
-      <h3>Consultando a API CNES/DATASUS...</h3>
+      <h3>Consultando CNES/DATASUS${munNome ? ' · ' + munNome : ''}...</h3>
       <p id="loadingCount">Aguarde enquanto os dados são carregados em tempo real.</p>
+      <p id="loadingHint" style="font-size:0.75rem;color:var(--text-light);margin-top:6px;min-height:18px;"></p>
       <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:5%"></div></div>
     </div>`;
 }
@@ -1281,7 +1461,7 @@ function showEmpty() {
     <div class="status-box">
       <span class="status-icon">📭</span>
       <h3>Nenhuma unidade encontrada</h3>
-      <p>Não encontramos unidades de saúde para os filtros selecionados. Tente outros critérios de busca.</p>
+      <p>Não encontramos unidades para os filtros selecionados. Tente outros critérios ou limpe os filtros.</p>
     </div>`;
   updateDashboard([]);
 }
@@ -1290,8 +1470,15 @@ function showError(msg) {
   document.getElementById('resultsSection').innerHTML = `
     <div class="status-box">
       <span class="status-icon">⚠️</span>
-      <h3>Erro ao conectar à API</h3>
-      <p>Não foi possível acessar a API CNES/DATASUS. Verifique sua conexão e tente novamente.<br><small style="color:var(--text-light)">${msg}</small></p>
+      <h3>Falha ao conectar ao CNES/DATASUS</h3>
+      <p>Todas as rotas de acesso foram tentadas sem sucesso. Isso pode ser causado por:<br>
+      <small style="color:var(--text-light);line-height:1.8">
+        • Conexão instável ou sem internet<br>
+        • API do Ministério da Saúde temporariamente indisponível<br>
+        • Restrição de rede no ambiente atual
+      </small></p>
+      <p style="margin-top:12px;"><button class="btn btn-primary btn-sm" onclick="buscarUnidades()">🔄 Tentar Novamente</button></p>
+      <p style="margin-top:8px;font-size:0.7rem;color:var(--text-light)">${msg}</p>
     </div>`;
 }
 
