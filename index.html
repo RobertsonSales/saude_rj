@@ -598,7 +598,69 @@
       height: 100%;
       background: linear-gradient(90deg, var(--teal), var(--teal-light));
       border-radius: 10px;
-      transition: width 0.3s;
+      transition: width 0.4s ease;
+    }
+
+    /* ─── SEARCH PROGRESS CARD (acima do dashboard) ─── */
+    .search-progress-card {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      border-radius: var(--radius);
+      padding: 20px 28px;
+      margin-bottom: 20px;
+      display: none;
+      align-items: center;
+      gap: 20px;
+      border: 1px solid rgba(0,168,120,0.25);
+      box-shadow: var(--shadow-md);
+      animation: slideDown 0.3s ease;
+    }
+    .search-progress-card.visible { display: flex; }
+    .search-progress-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(0,200,150,0.25);
+      border-top-color: var(--teal-light);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    .search-progress-info { flex: 1; min-width: 0; }
+    .search-progress-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: #fff;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .search-progress-hint {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+      min-height: 16px;
+    }
+    .search-progress-bar-wrap {
+      flex: 1;
+      max-width: 260px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 10px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .search-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--teal), var(--teal-light));
+      border-radius: 10px;
+      transition: width 0.4s ease;
+    }
+    .search-progress-count {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+      color: var(--teal-light);
+      min-width: 48px;
+      text-align: right;
+      flex-shrink: 0;
     }
 
     /* ─── NOTIFICATION ─── */
@@ -774,6 +836,19 @@
     </button>
   </div>
 
+  <!-- ─── SEARCH PROGRESS CARD (visível apenas durante busca) ─── -->
+  <div class="search-progress-card" id="searchProgressCard">
+    <div class="search-progress-spinner"></div>
+    <div class="search-progress-info">
+      <div class="search-progress-title" id="spTitle">Consultando CNES/DATASUS...</div>
+      <div class="search-progress-hint" id="spHint">Iniciando conexão...</div>
+    </div>
+    <div class="search-progress-bar-wrap">
+      <div class="search-progress-bar" id="spBar" style="width:5%"></div>
+    </div>
+    <div class="search-progress-count" id="spCount">0</div>
+  </div>
+
   <!-- ─── DASHBOARD ─── -->
   <div class="dashboard" id="dashboard">
     <div class="stat-card" style="--card-accent: var(--teal);">
@@ -831,7 +906,7 @@
     <div class="status-box">
       <span class="status-icon">🔍</span>
       <h3>Pronto para buscar</h3>
-      <p>Selecione um estado e município nos filtros acima e clique em "Buscar Unidades", ou use a geolocalização para encontrar unidades próximas a você.</p>
+      <p>Selecione estado e município nos filtros e clique em <strong>Buscar Unidades</strong>, ou use <strong>Usar Minha Localização</strong> para detecção automática.</p>
     </div>
   </div>
 
@@ -1049,6 +1124,29 @@ function applyLocalFilters() {
 }
 
 // ═══════════════════════════════════════════════════
+//  PROGRESS CARD (acima do dashboard)
+// ═══════════════════════════════════════════════════
+function showProgressCard(title) {
+  const card = document.getElementById('searchProgressCard');
+  document.getElementById('spTitle').textContent = title || 'Consultando CNES/DATASUS...';
+  document.getElementById('spHint').textContent  = 'Iniciando conexão...';
+  document.getElementById('spBar').style.width   = '5%';
+  document.getElementById('spCount').textContent = '0';
+  card.classList.add('visible');
+}
+function updateProgressCard(hint, pct, count) {
+  const hEl = document.getElementById('spHint');
+  const bEl = document.getElementById('spBar');
+  const cEl = document.getElementById('spCount');
+  if (hEl && hint  !== undefined) hEl.textContent = hint;
+  if (bEl && pct   !== undefined) bEl.style.width = Math.min(100, pct) + '%';
+  if (cEl && count !== undefined) cEl.textContent = count;
+}
+function hideProgressCard() {
+  document.getElementById('searchProgressCard').classList.remove('visible');
+}
+
+// ═══════════════════════════════════════════════════
 //  FETCH RESILIENTE — timeout + retry + cascade proxy
 // ═══════════════════════════════════════════════════
 async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
@@ -1065,38 +1163,97 @@ async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
 }
 
 async function fetchCNES(path) {
-  // Tenta cada estratégia; dentro de cada uma, até MAX_RETRIES vezes
   for (let si = activeStrategy; si < API_STRATEGIES.length; si++) {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      const rawUrl  = `${CNES_BASE}${path}`;
+      const rawUrl   = `${CNES_BASE}${path}`;
       const finalUrl = API_STRATEGIES[si](rawUrl);
       const label    = si === 0 ? 'acesso direto' : `proxy ${si}`;
 
-      updateLoadingHint(`Tentativa ${attempt}/${MAX_RETRIES} via ${label}...`);
+      updateProgressCard(`Tentativa ${attempt}/${MAX_RETRIES} via ${label}…`);
 
       try {
         const resp = await fetchWithTimeout(finalUrl, FETCH_TIMEOUT_MS);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
-        activeStrategy = si;  // fixa a estratégia vencedora
+
+        // Valida que a resposta tem estrutura real de dados CNES
+        const items = extractItems(data);
+        if (items === null) throw new Error('Resposta sem estrutura CNES reconhecida');
+
+        activeStrategy = si;
         return data;
       } catch(e) {
         console.warn(`[CNES] ${label} — tentativa ${attempt} falhou:`, e.message);
-        if (attempt < MAX_RETRIES) {
-          await delay(800 * attempt); // backoff: 800ms, 1.6s
-        }
+        if (attempt < MAX_RETRIES) await delay(900 * attempt);
       }
     }
-    // Esgotou tentativas nesta estratégia — tenta a próxima
-    console.warn(`[CNES] Estratégia ${si} esgotada. Tentando próxima...`);
+    console.warn(`[CNES] Estratégia ${si} esgotada. Próxima…`);
   }
-  throw new Error('Todas as estratégias de conexão falharam. Verifique sua rede ou tente novamente em instantes.');
+  throw new Error('Todas as rotas de acesso falharam. Verifique sua conexão e tente novamente.');
+}
+
+/** Extrai o array de estabelecimentos de qualquer envelope que a API retorne */
+function extractItems(data) {
+  if (!data) return null;
+  // Envelopes conhecidos da API CNES/DATASUS
+  for (const key of ['estabelecimentos','data','result','results','items']) {
+    if (Array.isArray(data[key])) return data[key];
+  }
+  if (Array.isArray(data)) return data;
+  return null;
 }
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
-function updateLoadingHint(txt) {
-  const el = document.getElementById('loadingHint');
-  if (el) el.textContent = txt;
+
+// ═══════════════════════════════════════════════════
+//  NORMALIZAÇÃO DE CAMPOS DA API CNES
+// ═══════════════════════════════════════════════════
+/**
+ * A API CNES/DATASUS usa diferentes schemas em versões distintas.
+ * Esta função unifica todos os campos possíveis em um objeto padronizado.
+ */
+function normalizeUnit(raw) {
+  // — identificação —
+  const co_cnes     = raw.co_cnes || raw.cnes || raw.CO_CNES || '';
+  const no_fantasia = (raw.no_fantasia || raw.nome_fantasia || raw.NO_FANTASIA || '').trim();
+  const no_razao    = (raw.no_razao_social || raw.razao_social || raw.NO_RAZAO_SOCIAL || raw.nome || '').trim();
+  const nome        = no_fantasia || no_razao || `CNES ${co_cnes}`;
+
+  // — tipo e classificação —
+  const tp_unidade      = String(raw.tp_unidade || raw.TP_UNIDADE || raw.co_tipo_unidade || '');
+  const ds_tipo_unidade = (raw.ds_tipo_unidade || raw.tipo_unidade || raw.DS_TIPO_UNIDADE || raw.descricao_tipo || '').trim();
+
+  // — endereço (múltiplas possibilidades de campo) —
+  const ds_tipo_log = (raw.ds_tipo_logradouro || raw.tipo_logradouro || '').trim();
+  const no_log      = (raw.no_logradouro  || raw.ds_logradouro || raw.logradouro || raw.NO_LOGRADOURO || '').trim();
+  const nu_endereco = (raw.nu_endereco    || raw.numero        || raw.NU_ENDERECO || '').toString().trim();
+  const ds_compl    = (raw.ds_complemento || raw.complemento   || '').trim();
+  const no_bairro   = (raw.no_bairro      || raw.bairro        || raw.NO_BAIRRO   || '').trim();
+  const no_municipio= (raw.no_municipio   || raw.municipio     || raw.NO_MUNICIPIO || raw.cidade || '').trim();
+  const sg_uf       = (raw.sg_uf          || raw.uf            || raw.SG_UF       || raw.estado || '').trim().toUpperCase();
+  const co_cep      = (raw.co_cep         || raw.cep           || raw.CO_CEP      || '').toString().replace(/\D/g,'');
+
+  // — contato —
+  const nu_telefone = (raw.nu_telefone || raw.telefone || raw.fone || raw.NU_TELEFONE || '').toString().replace(/\D/g,'');
+  const ds_email    = (raw.ds_email    || raw.email    || raw.DS_EMAIL || '').trim().toLowerCase();
+
+  // — coordenadas —
+  const nu_latitude  = parseFloat(raw.nu_latitude  || raw.latitude  || raw.lat || raw.NU_LATITUDE  || 0) || 0;
+  const nu_longitude = parseFloat(raw.nu_longitude || raw.longitude || raw.lng || raw.lon || raw.NU_LONGITUDE || 0) || 0;
+
+  // — gestão —
+  const tp_gestao = (raw.tp_gestao || raw.gestao || raw.TP_GESTAO || '').toString().toUpperCase().charAt(0) || '';
+
+  return {
+    co_cnes, no_fantasia, no_razao_social: no_razao, _nome: nome,
+    tp_unidade, ds_tipo_unidade,
+    ds_tipo_logradouro: ds_tipo_log, no_logradouro: no_log,
+    nu_endereco, ds_complemento: ds_compl, no_bairro, no_municipio, sg_uf, co_cep,
+    nu_telefone, ds_email,
+    nu_latitude, nu_longitude,
+    tp_gestao,
+    _raw: raw  // preserva original para debug
+  };
 }
 
 // ═══════════════════════════════════════════════════
@@ -1109,22 +1266,34 @@ async function buscarUnidades() {
     return;
   }
   geoSearchMode = false;
-  const munNome = document.getElementById('selectMunicipio').options[
-    document.getElementById('selectMunicipio').selectedIndex]?.text || '';
-  await fetchUnidades(coMunicipio, munNome);
+  const munNome = document.getElementById('selectMunicipio')
+    .options[document.getElementById('selectMunicipio').selectedIndex]?.text || '';
+  await fetchUnidades(coMunicipio, munNome, false);
 }
 
-async function fetchUnidades(coMunicipio, munNome = '') {
+/**
+ * @param {string}  coMunicipio  Código IBGE do município (6 dígitos)
+ * @param {string}  munNome      Nome para exibição
+ * @param {boolean} geoMode      Se true, NÃO renderiza — deixa applyGeoFilter() fazer isso
+ */
+async function fetchUnidades(coMunicipio, munNome = '', geoMode = false) {
   if (isLoading) return;
   isLoading = true;
 
   const btnBuscar = document.getElementById('btnBuscar');
   btnBuscar.disabled = true;
-  btnBuscar.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2.5px;margin:0;"></div> Buscando...';
+  btnBuscar.innerHTML = `<div class="spinner" style="width:16px;height:16px;border-width:2.5px;margin:0;"></div> Buscando...`;
 
-  showLoading(munNome);
-  allUnits = [];
-  activeStrategy = 0;  // reinicia estratégia a cada busca nova
+  showProgressCard(`Buscando unidades${munNome ? ' · ' + munNome : ''}…`);
+  if (!geoMode) {
+    document.getElementById('resultsSection').innerHTML = `
+      <div class="status-box" style="padding:32px 40px;">
+        <p style="color:var(--text-muted);font-size:0.88rem;">⏳ Aguarde — carregando dados do CNES/DATASUS...</p>
+      </div>`;
+  }
+
+  allUnits    = [];
+  activeStrategy = 0;
 
   try {
     let offset = 0;
@@ -1134,39 +1303,62 @@ async function fetchUnidades(coMunicipio, munNome = '') {
       const path = `/estabelecimentos?co_municipio=${coMunicipio}&limit=${MAX_UNITS_PER_CALL}&offset=${offset}`;
       const data = await fetchCNES(path);
 
-      const items = data.estabelecimentos || data.result || data.data || (Array.isArray(data) ? data : []);
-      if (!Array.isArray(items) || items.length === 0) break;
+      const items = extractItems(data);
+      if (!items || items.length === 0) break;
 
-      total = data.total || data.count || total;
-      items.forEach(u => allUnits.push(classifyUnit(u)));
-
-      offset += MAX_UNITS_PER_CALL;
-
-      const progressBar = document.getElementById('progressBar');
-      if (progressBar && total) {
-        progressBar.style.width = Math.min(100, Math.round((offset / total) * 100)) + '%';
+      // Atualiza total a partir do envelope
+      if (!total) {
+        total = parseInt(data.total ?? data.count ?? data.totalRecords ?? 0) || null;
       }
-      const countEl = document.getElementById('loadingCount');
-      if (countEl) countEl.textContent = `${allUnits.length}${total ? ' de ' + total : ''} unidades carregadas...`;
 
+      items.forEach(raw => {
+        const norm = normalizeUnit(raw);
+        const classified = classifyUnit(norm);
+        allUnits.push(classified);
+      });
+
+      const pct = total ? Math.min(95, Math.round((allUnits.length / total) * 100)) : Math.min(95, offset);
+      updateProgressCard(
+        `${allUnits.length}${total ? ' de ~' + total : ''} unidades carregadas…`,
+        pct,
+        allUnits.length
+      );
+
+      offset += items.length;
       if (items.length < MAX_UNITS_PER_CALL || allUnits.length >= MAX_TOTAL_UNITS) break;
+
+      await delay(120); // pausa leve entre páginas
     }
+
+    updateProgressCard('Concluído!', 100, allUnits.length);
 
     if (!allUnits.length) {
-      showEmpty();
+      if (!geoMode) showEmpty();
     } else {
-      filteredUnits = [...allUnits];
-      applyLocalFilters();
-      showNotification(`✅ ${allUnits.length} unidades carregadas com sucesso!`, 'success');
+      if (geoMode) {
+        // Não renderiza aqui — applyGeoFilter fará isso em seguida
+        console.log(`[GEO] ${allUnits.length} unidades carregadas; aguardando filtro de distância.`);
+      } else {
+        filteredUnits = [...allUnits];
+        applyLocalFilters(); // aplica filtros UI e renderiza
+        showNotification(`✅ ${allUnits.length} unidades carregadas!`, 'success');
+      }
     }
+
   } catch(e) {
     console.error('[CNES] Erro final:', e);
-    showError(e.message);
-    showNotification('❌ Não foi possível acessar o CNES/DATASUS. Verifique sua conexão.', 'error');
+    if (!geoMode) {
+      showError(e.message);
+    } else {
+      setGeoStatus(`❌ Falha ao carregar dados: ${e.message}`);
+    }
+    showNotification('❌ Falha ao conectar ao CNES/DATASUS.', 'error');
   } finally {
     isLoading = false;
     btnBuscar.disabled = false;
-    btnBuscar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Buscar Unidades';
+    btnBuscar.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Buscar Unidades`;
+    // Esconde progress card após breve delay para o usuário ver "Concluído"
+    setTimeout(hideProgressCard, 900);
   }
 }
 
@@ -1192,8 +1384,8 @@ function usarGeolocalizacao() {
 
 async function geoPositionObtida(pos) {
   userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-  const raio   = parseFloat(document.getElementById('geoRaio').value) || 3;
-  setGeoStatus(`📍 Coordenadas obtidas (${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}) — identificando município...`);
+  const raio = parseFloat(document.getElementById('geoRaio').value) || 3;
+  setGeoStatus(`📍 GPS: (${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}) — identificando município...`);
 
   try {
     // 1. Reverse geocoding via Nominatim
@@ -1204,38 +1396,45 @@ async function geoPositionObtida(pos) {
 
     const addr      = nomData.address || {};
     const cityName  = addr.city || addr.town || addr.municipality || addr.county || addr.village || '';
+    const stateCode = (addr['ISO3166-2-lvl4'] || '').split('-')[1] || '';
     const stateName = addr.state || '';
-    const stateCode = addr['ISO3166-2-lvl4']?.split('-')[1] || '';
+    const uf        = stateCode || stateName;
 
     if (!cityName) throw new Error('Município não identificado nas coordenadas');
 
-    setGeoStatus(`🏙️ Município detectado: ${cityName} — ${stateCode || stateName}. Buscando código IBGE...`);
+    setGeoStatus(`🏙️ Município detectado: ${cityName} — ${uf}. Buscando código IBGE...`);
 
-    // 2. Busca código IBGE do município
-    const ibgeCode = await buscarCodigoIBGE(cityName, stateCode || stateName);
-    if (!ibgeCode) throw new Error(`Município "${cityName}" não encontrado no IBGE`);
+    // 2. Código IBGE do município
+    const ibgeCode = await buscarCodigoIBGE(cityName, uf);
+    if (!ibgeCode) throw new Error(`Município "${cityName}" não localizado no IBGE`);
 
-    setGeoStatus(`📋 Código IBGE ${ibgeCode} encontrado. Carregando unidades de saúde em raio de ${raio}km...`);
+    setGeoStatus(`📋 Código IBGE ${ibgeCode} — carregando todas as unidades para filtrar em ${raio} km...`);
 
-    // 3. Sincroniza seleções de Estado/Município na UI (melhor UX)
-    sincronizarSeletores(stateCode || stateName, cityName, ibgeCode);
+    // 3. Sincroniza seletores de UI (bônus de UX — não bloqueia)
+    sincronizarSeletores(uf, cityName, ibgeCode).catch(() => {});
 
-    // 4. Busca unidades do município (usa infra resiliente existente)
+    // 4. Carrega unidades em geoMode=true (sem renderizar ainda)
     geoSearchMode = true;
-    await fetchUnidades(ibgeCode, cityName);
+    await fetchUnidades(ibgeCode, cityName, true);
 
-    // 5. Aplica filtro de distância ao resultado carregado
+    // 5. Agora aplica filtro de distância e renderiza
     if (allUnits.length > 0) {
       applyGeoFilter();
+    } else {
+      setGeoStatus('⚠️ Nenhuma unidade encontrada para este município.');
+      showEmpty();
+      updateDashboard([]);
     }
 
   } catch(e) {
     console.error('[GEO]', e);
     setGeoStatus(`⚠️ ${e.message}`);
     showNotification(`Erro na busca por proximidade: ${e.message}`, 'error');
-    // Fallback: se já há dados carregados de busca anterior, filtra por distância
+    hideProgressCard();
+    // Fallback: se já há dados de busca anterior, filtra por distância
     if (allUnits.length > 0) {
-      setGeoStatus('⚠️ Usando dados já carregados e filtrando por distância.');
+      setGeoStatus(`⚠️ Usando dados anteriores. Filtrando por distância...`);
+      geoSearchMode = true;
       applyGeoFilter();
     }
   }
@@ -1317,23 +1516,41 @@ async function sincronizarSeletores(uf, cityName, ibgeCode) {
 
 function applyGeoFilter() {
   const raio = parseFloat(document.getElementById('geoRaio').value) || 3;
-  if (!userLocation || !allUnits.length) return;
+  if (!userLocation) return;
 
-  filteredUnits = allUnits
-    .map(u => {
-      const lat = parseFloat(u.nu_latitude  || u.latitude);
-      const lng = parseFloat(u.nu_longitude || u.longitude);
-      if (!lat || !lng) return null;
+  const withCoords = [], noCoords = [];
+  allUnits.forEach(u => {
+    const lat = u.nu_latitude, lng = u.nu_longitude;
+    if (lat && lng && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001) {
       const dist = haversine(userLocation.lat, userLocation.lng, lat, lng);
-      return dist <= raio ? { ...u, _distance: dist } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => a._distance - b._distance);
+      if (dist <= raio) withCoords.push({ ...u, _distance: dist });
+    } else {
+      noCoords.push(u); // sem coordenadas — não podemos calcular distância
+    }
+  });
 
-  setGeoStatus(`📍 ${filteredUnits.length} unidades em até ${raio} km de você.`);
+  withCoords.sort((a, b) => a._distance - b._distance);
+  filteredUnits = withCoords;
+
+  const semCoordMsg = noCoords.length
+    ? ` (${noCoords.length} sem coordenadas GPS não exibidas)`
+    : '';
+  setGeoStatus(
+    `📍 ${filteredUnits.length} unidades em até ${raio} km de você${semCoordMsg}.`
+  );
+
+  if (filteredUnits.length === 0) {
+    setGeoStatus(`📍 Nenhuma unidade com coordenadas GPS no raio de ${raio} km. Tente aumentar o raio.${semCoordMsg}`);
+    showNotification(`Nenhuma unidade com GPS encontrada em ${raio}km. Tente ampliar o raio.`, 'error');
+    updateDashboard([]);
+    showEmpty();
+    return;
+  }
+
   geoSearchMode = true;
   updateDashboard(filteredUnits);
   renderResults(filteredUnits);
+  showNotification(`📍 ${filteredUnits.length} unidades encontradas em até ${raio} km!`, 'success');
 }
 
 function setGeoStatus(txt) {
@@ -1350,51 +1567,49 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 // ═══════════════════════════════════════════════════
-//  CLASSIFICAÇÃO DE UNIDADES
+//  CLASSIFICAÇÃO DE UNIDADES (recebe unidade já normalizada)
 // ═══════════════════════════════════════════════════
 function classifyUnit(u) {
-  const tpCode = String(u.tp_unidade || '').padStart(2, '0');
-  const dsDesc = (u.ds_tipo_unidade || '').toUpperCase();
+  const tpCode  = String(u.tp_unidade || '').replace(/\D/g,'').padStart(2,'0');
+  const dsDesc  = (u.ds_tipo_unidade || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
-  let nivel = 'primaria';
-  let tags = ['ambulatorial'];
+  let nivel   = 'primaria';
+  let tags    = ['ambulatorial'];
   let tipoNome = u.ds_tipo_unidade || 'Unidade de Saúde';
 
   if (TP_MAP[tpCode]) {
-    nivel = TP_MAP[tpCode].nivel;
-    tags = [...TP_MAP[tpCode].tags];
+    nivel    = TP_MAP[tpCode].nivel;
+    tags     = [...TP_MAP[tpCode].tags];
     tipoNome = TP_MAP[tpCode].nome;
   } else {
-    // Fallback por keywords
-    if (dsDesc.includes('HOSPITAL') || dsDesc.includes('UTI') || dsDesc.includes('TERAPIA INTENSIVA')) {
-      nivel = 'terciaria';
-      tags = ['ambulatorial', 'urgencia'];
-    } else if (dsDesc.includes('PRONTO SOCORRO') || dsDesc.includes('UPA') || dsDesc.includes('URGÊNCIA')) {
-      nivel = 'terciaria';
-      tags = ['urgencia'];
-    } else if (dsDesc.includes('POLICLÍNICA') || dsDesc.includes('ESPECIALIDADE') || dsDesc.includes('AMBULATÓRIO') || dsDesc.includes('CAPS')) {
-      nivel = 'secundaria';
-      tags = ['ambulatorial'];
-    }
-    if (dsDesc.includes('MATERNIDADE') || dsDesc.includes('MATERNO') || dsDesc.includes('PARTO')) {
-      tags = [...new Set([...tags, 'maternidade'])];
-    }
-    if (dsDesc.includes('TRAUMA') || dsDesc.includes('ORTOPEDIA') || dsDesc.includes('ORTOPÉDIC')) {
-      tags = [...new Set([...tags, 'traumatologia'])];
+    // fallback por keywords no nome do tipo
+    if (/HOSPITAL|UTI|TERAPIA INTENSIVA|ALTA COMPLEXIDADE/.test(dsDesc)) {
+      nivel = 'terciaria'; tags = ['ambulatorial','urgencia'];
+    } else if (/PRONTO SOCORRO|UPA|URGENCIA|EMERGENCIA/.test(dsDesc)) {
+      nivel = 'terciaria'; tags = ['urgencia'];
+    } else if (/POLICLINICA|ESPECIALIDADE|AMBULATORIO|CAPS|CLINICA/.test(dsDesc)) {
+      nivel = 'secundaria'; tags = ['ambulatorial'];
     }
   }
 
-  // Extra: força pela descrição
-  if (dsDesc.includes('MATERNIDADE') || dsDesc.includes('MATERNO') || dsDesc.includes('PARTO NORMAL')) {
+  // Sobrescritas por keywords de acolhimento específico
+  if (/MATERNIDADE|MATERNO|PARTO|NEONATAL|OBSTETRI/.test(dsDesc)) {
     tags = [...new Set([...tags, 'maternidade'])];
-    if (!tags.includes('urgencia')) nivel = nivel === 'primaria' ? 'terciaria' : nivel;
+    if (nivel === 'primaria') nivel = 'terciaria';
   }
-  if (dsDesc.includes('TRAUMA') || dsDesc.includes('ORTOPEDIA')) {
+  if (/TRAUMA|ORTOPEDIA|ORTOPEDIC|FRATURA|REABILITACAO/.test(dsDesc)) {
     tags = [...new Set([...tags, 'traumatologia'])];
   }
-  if (dsDesc.includes('URGÊNCIA') || dsDesc.includes('EMERGÊNCIA') || dsDesc.includes('PRONTO SOCORRO') || dsDesc.includes('UPA')) {
+  if (/URGENCIA|EMERGENCIA|PRONTO SOCORRO|UPA|SAMU/.test(dsDesc)) {
     tags = [...new Set([...tags, 'urgencia'])];
   }
+
+  // Também verifica o nome fantasia/razão social para classificação extra
+  const nomeDesc = ((u._nome || '') + ' ' + (u.no_razao_social || '')).toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if (/MATERNIDADE|MATERNO/.test(nomeDesc)) tags = [...new Set([...tags, 'maternidade'])];
+  if (/TRAUMA|ORTOPEDIA/.test(nomeDesc))     tags = [...new Set([...tags, 'traumatologia'])];
+  if (/UPA |PRONTO SOCORRO|SAMU/.test(nomeDesc)) tags = [...new Set([...tags, 'urgencia'])];
 
   return { ...u, _nivel: nivel, _tags: tags, _tipoNome: tipoNome };
 }
@@ -1441,18 +1656,16 @@ function renderInitial() {
     <div class="status-box">
       <span class="status-icon">🔍</span>
       <h3>Pronto para buscar</h3>
-      <p>Selecione estado e município nos filtros e clique em <strong>Buscar Unidades</strong>, ou use o botão de <strong>Geolocalização</strong> para localização automática.</p>
+      <p>Selecione estado e município nos filtros e clique em <strong>Buscar Unidades</strong>, ou use <strong>Usar Minha Localização</strong> para detecção automática.</p>
     </div>`;
 }
 
 function showLoading(munNome) {
+  // O progresso principal está no searchProgressCard acima do dashboard.
+  // Aqui apenas mostramos uma mensagem mínima no painel de resultados.
   document.getElementById('resultsSection').innerHTML = `
-    <div class="status-box">
-      <div class="spinner"></div>
-      <h3>Consultando CNES/DATASUS${munNome ? ' · ' + munNome : ''}...</h3>
-      <p id="loadingCount">Aguarde enquanto os dados são carregados em tempo real.</p>
-      <p id="loadingHint" style="font-size:0.75rem;color:var(--text-light);margin-top:6px;min-height:18px;"></p>
-      <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:5%"></div></div>
+    <div class="status-box" style="padding:32px 40px;">
+      <p style="color:var(--text-muted);font-size:0.88rem;">⏳ Carregando unidades de saúde${munNome ? ' de ' + munNome : ''}…</p>
     </div>`;
 }
 
@@ -1461,7 +1674,7 @@ function showEmpty() {
     <div class="status-box">
       <span class="status-icon">📭</span>
       <h3>Nenhuma unidade encontrada</h3>
-      <p>Não encontramos unidades para os filtros selecionados. Tente outros critérios ou limpe os filtros.</p>
+      <p>Não encontramos unidades para os critérios selecionados. Tente outros filtros ou limpe a busca.</p>
     </div>`;
   updateDashboard([]);
 }
@@ -1471,14 +1684,16 @@ function showError(msg) {
     <div class="status-box">
       <span class="status-icon">⚠️</span>
       <h3>Falha ao conectar ao CNES/DATASUS</h3>
-      <p>Todas as rotas de acesso foram tentadas sem sucesso. Isso pode ser causado por:<br>
-      <small style="color:var(--text-light);line-height:1.8">
+      <p>Todas as rotas de acesso foram tentadas sem sucesso.<br>
+      <small style="color:var(--text-light);line-height:1.9">
         • Conexão instável ou sem internet<br>
         • API do Ministério da Saúde temporariamente indisponível<br>
-        • Restrição de rede no ambiente atual
+        • Restrição de rede ou firewall no ambiente atual
       </small></p>
-      <p style="margin-top:12px;"><button class="btn btn-primary btn-sm" onclick="buscarUnidades()">🔄 Tentar Novamente</button></p>
-      <p style="margin-top:8px;font-size:0.7rem;color:var(--text-light)">${msg}</p>
+      <p style="margin-top:14px;">
+        <button class="btn btn-primary btn-sm" onclick="buscarUnidades()">🔄 Tentar Novamente</button>
+      </p>
+      <p style="margin-top:8px;font-size:0.68rem;color:var(--text-light)">${escHtml(msg)}</p>
     </div>`;
 }
 
@@ -1599,74 +1814,78 @@ function renderResults(units) {
 }
 
 function renderUnitCard(u, nConf, currentTag) {
-  const nome = u.no_fantasia || u.no_razao_social || 'Unidade sem nome';
-  const rua = [u.ds_tipo_logradouro, u.ds_logradouro || u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
-  const bairro = u.no_bairro || '';
-  const municipio = u.no_municipio || '';
-  const uf = u.sg_uf || '';
-  const cep = u.co_cep ? u.co_cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
-  const tel = u.nu_telefone ? formatPhone(u.nu_telefone) : '';
-  const email = u.ds_email || '';
-  const cnes = u.co_cnes || '';
-  const gestao = GESTAO_MAP[u.tp_gestao] || u.tp_gestao || '';
-  const enderecoCompleto = [rua, bairro, municipio, uf, cep].filter(Boolean).join(', ');
+  // Usa campos normalizados (_nome, no_logradouro, etc.)
+  const nome     = u._nome || u.no_fantasia || u.no_razao_social || 'Unidade sem nome';
+  const rua      = [u.ds_tipo_logradouro, u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
+  const bairro   = u.no_bairro   || '';
+  const municipio= u.no_municipio|| '';
+  const uf       = u.sg_uf       || '';
+  const cep      = u.co_cep ? String(u.co_cep).replace(/^(\d{5})(\d{3})$/, '$1-$2') : '';
+  const tel      = u.nu_telefone ? formatPhone(u.nu_telefone) : '';
+  const email    = u.ds_email    || '';
+  const cnes     = u.co_cnes     || '';
+  const gestao   = GESTAO_MAP[u.tp_gestao] || '';
 
-  const lat = parseFloat(u.nu_latitude || u.latitude || 0);
-  const lng = parseFloat(u.nu_longitude || u.longitude || 0);
-  const mapsQuery = encodeURIComponent(nome + ' ' + enderecoCompleto);
-  const mapsUrl = lat && lng
+  const enderecoCompleto = [rua, bairro, municipio, uf, cep ? 'CEP ' + cep : ''].filter(Boolean).join(', ');
+
+  // Links externos
+  const lat = u.nu_latitude, lng = u.nu_longitude;
+  const mapsQuery = encodeURIComponent(`${nome} ${enderecoCompleto}`);
+  const mapsUrl   = (lat && lng)
     ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
     : `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
   const googleSearch = `https://www.google.com/search?q=${encodeURIComponent(nome + ' ' + municipio + ' ' + uf + ' saúde')}`;
-  const cnesUrl = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
-  const waText = `🏥 *${nome}*\n📍 ${enderecoCompleto}${tel ? '\n📞 ' + tel : ''}${cnesUrl ? '\n🔗 ' + cnesUrl : ''}`;
-  const waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+  const cnesUrl   = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
+  const waText    = `🏥 *${nome}*\n📍 ${enderecoCompleto}${tel ? '\n📞 ' + tel : ''}${cnesUrl ? '\n🔗 ' + cnesUrl : ''}`;
+  const waUrl     = `https://wa.me/?text=${encodeURIComponent(waText)}`;
 
-  const distBadge = u._distance
-    ? `<span class="unit-tag unit-tag-ambulatorial unit-distance">📍 ${u._distance.toFixed(1)}km</span>`
+  const distBadge = u._distance != null
+    ? `<span class="unit-tag unit-tag-ambulatorial unit-distance">📍 ${u._distance.toFixed(1)} km</span>`
     : '';
+
+  const gestaoClass = u.tp_gestao === 'M' ? 'unit-tag-municipal'
+                    : u.tp_gestao === 'E' ? 'unit-tag-estadual'
+                    : u.tp_gestao === 'F' ? 'unit-tag-federal'
+                    : 'unit-tag-ambulatorial';
 
   return `
   <div class="unit-card">
-    <div class="unit-card-accent" style="background: ${nConf.color}"></div>
+    <div class="unit-card-accent" style="background:${nConf.color}"></div>
     <div class="unit-card-inner">
       <div class="unit-card-header">
-        <div class="unit-name">${escHtml(nome)}</div>
-        <span class="unit-type-badge" style="background:${nConf.bg};color:${nConf.color}">${escHtml(u._tipoNome || u.ds_tipo_unidade || '')}</span>
+        <div class="unit-name" title="${escHtml(nome)}">${escHtml(nome)}</div>
+        <span class="unit-type-badge" style="background:${nConf.bg};color:${nConf.color}">${escHtml(u._tipoNome || u.ds_tipo_unidade || '—')}</span>
       </div>
-      <div class="unit-cnes">CNES: ${cnes || '—'}</div>
-
+      ${cnes ? `<div class="unit-cnes">CNES: ${escHtml(cnes)}</div>` : ''}
       <div class="unit-tags">
-        ${u._tags.map(t => `<span class="unit-tag ${ACOLHIMENTO_CONFIG[t]?.tagClass || ''}">${ACOLHIMENTO_CONFIG[t]?.emoji || ''} ${ACOLHIMENTO_CONFIG[t]?.label || t}</span>`).join('')}
-        ${gestao ? `<span class="unit-tag unit-tag-${u.tp_gestao === 'M' ? 'municipal' : u.tp_gestao === 'E' ? 'estadual' : 'federal'}">${gestao}</span>` : ''}
+        ${u._tags.map(t => `<span class="unit-tag ${ACOLHIMENTO_CONFIG[t]?.tagClass||''}">${ACOLHIMENTO_CONFIG[t]?.emoji||''} ${ACOLHIMENTO_CONFIG[t]?.label||t}</span>`).join('')}
+        ${gestao ? `<span class="unit-tag ${gestaoClass}">${escHtml(gestao)}</span>` : ''}
         ${distBadge}
       </div>
-
-      ${rua ? `<div class="unit-info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg><span>${escHtml(rua)}${bairro ? ', ' + escHtml(bairro) : ''}</span></div>` : ''}
-      ${municipio ? `<div class="unit-info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>${escHtml(municipio)}${uf ? ' — ' + uf : ''}${cep ? ' · CEP ' + cep : ''}</span></div>` : ''}
-      ${tel ? `<div class="unit-info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.63a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.03a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg><span>${escHtml(tel)}</span></div>` : ''}
-      ${email ? `<div class="unit-info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>${escHtml(email)}</span></div>` : ''}
-
+      ${rua    ? `<div class="unit-info-row">${iconPin()}<span>${escHtml(rua)}${bairro ? ', '+escHtml(bairro) : ''}</span></div>` : ''}
+      ${municipio ? `<div class="unit-info-row">${iconHome()}<span>${escHtml(municipio)}${uf?' — '+uf:''}${cep?' · CEP '+cep:''}</span></div>` : ''}
+      ${tel   ? `<div class="unit-info-row">${iconPhone()}<span>${escHtml(tel)}</span></div>` : ''}
+      ${email ? `<div class="unit-info-row">${iconMail()}<span>${escHtml(email)}</span></div>` : ''}
       <div class="unit-actions">
-        ${cnesUrl ? `<button class="btn btn-icon" onclick="window.open('${cnesUrl}','_blank')" title="Ficha CNES/DATASUS">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </button>` : ''}
-        <button class="btn btn-icon search" onclick="window.open('${googleSearch}','_blank')" title="Google Search">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        </button>
-        <button class="btn btn-icon maps" onclick="window.open('${mapsUrl}','_blank')" title="Google Maps">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        </button>
-        <button class="btn btn-icon whatsapp" onclick="window.open('${waUrl}','_blank')" title="Compartilhar no WhatsApp">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
-        </button>
-        ${tel ? `<a class="btn btn-icon" href="tel:${tel.replace(/\D/g,'')}" title="Ligar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.63a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.03a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-        </a>` : ''}
+        ${cnesUrl ? `<button class="btn btn-icon" onclick="window.open('${cnesUrl}','_blank')" title="Ficha CNES/DATASUS">${iconLink()}</button>` : ''}
+        <button class="btn btn-icon search" onclick="window.open('${googleSearch}','_blank')" title="Google Search">${iconSearch()}</button>
+        <button class="btn btn-icon maps"   onclick="window.open('${mapsUrl}','_blank')"   title="Google Maps">${iconMapPin()}</button>
+        <button class="btn btn-icon whatsapp" onclick="window.open('${waUrl}','_blank')"   title="Compartilhar WhatsApp">${iconWa()}</button>
+        ${tel ? `<a class="btn btn-icon" href="tel:+55${u.nu_telefone}" title="Ligar">${iconPhone()}</a>` : ''}
       </div>
     </div>
   </div>`;
 }
+
+// ─ micro ícones inline ─
+const iconPin    = () => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+const iconHome   = () => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>`;
+const iconPhone  = () => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.63a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 8.03a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>`;
+const iconMail   = () => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
+const iconLink   = () => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+const iconSearch = () => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`;
+const iconMapPin = () => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+const iconWa     = () => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>`;
 
 function toggleGroup(key) {
   const body = document.getElementById('group-' + key);
@@ -1701,16 +1920,17 @@ function exportarExcel() {
         ];
 
         units.forEach(u => {
-          const cnes = u.co_cnes || '';
-          const rua = [u.ds_tipo_logradouro, u.ds_logradouro || u.no_logradouro].filter(Boolean).join(' ');
-          const lat = u.nu_latitude || u.latitude || '';
-          const lng = u.nu_longitude || u.longitude || '';
-          const cnesUrl = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
-          const mapsUrl = lat && lng ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : '';
+            const rua     = [u.ds_tipo_logradouro, u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
+            const cnes    = u.co_cnes || '';
+            const lat     = u.nu_latitude  || '';
+            const lng     = u.nu_longitude || '';
+            const cnesUrl = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
+            const mapsUrl = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : '';
+            const cep     = u.co_cep ? String(u.co_cep).replace(/^(\d{5})(\d{3})$/, '$1-$2') : '';
 
           rows.push([
             cnes,
-            u.no_fantasia || '',
+            u._nome || u.no_fantasia || '',
             u.no_razao_social || '',
             u.ds_tipo_unidade || '',
             NIVEL_CONFIG[u._nivel]?.label || '',
@@ -1722,8 +1942,8 @@ function exportarExcel() {
             u.no_bairro || '',
             u.no_municipio || '',
             u.sg_uf || '',
-            u.co_cep || '',
-            u.nu_telefone || '',
+            cep,
+            u.nu_telefone ? formatPhone(u.nu_telefone) : '',
             u.ds_email || '',
             lat,
             lng,
@@ -1857,25 +2077,23 @@ function exportarPDF() {
 
         // Tabela de unidades
         const tableBody = units.map((u, idx) => {
-          const rua = [u.ds_tipo_logradouro, u.ds_logradouro || u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
-          const bairro = u.no_bairro || '';
-          const municipio = [u.no_municipio, u.sg_uf].filter(Boolean).join(' — ');
-          const cep = u.co_cep ? u.co_cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
-          const tel = u.nu_telefone ? formatPhone(u.nu_telefone) : '';
-          const cnes = u.co_cnes || '';
-
-          const endereco = [rua, bairro, municipio, cep ? 'CEP ' + cep : ''].filter(Boolean).join('\n');
-          const contato = [tel, u.ds_email].filter(Boolean).join('\n');
-          const cnesUrl = cnes ? `cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
-
+          const rua      = [u.ds_tipo_logradouro, u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
+          const bairro   = u.no_bairro   || '';
+          const municipio= [u.no_municipio, u.sg_uf].filter(Boolean).join(' — ');
+          const cep      = u.co_cep ? String(u.co_cep).replace(/^(\d{5})(\d{3})$/, '$1-$2') : '';
+          const tel      = u.nu_telefone ? formatPhone(u.nu_telefone) : '';
+          const cnes     = u.co_cnes || '';
+          const endereco = [rua, bairro, municipio, cep ? 'CEP '+cep : ''].filter(Boolean).join('\n');
+          const contato  = [tel, u.ds_email].filter(Boolean).join('\n');
+          const cnesUrl  = cnes ? `cnes.datasus.gov.br/...?pk=${cnes}` : '';
           return [
-            `${idx + 1}`,
-            u.no_fantasia || u.no_razao_social || '—',
+            `${idx+1}`,
+            u._nome || u.no_fantasia || u.no_razao_social || '—',
             u.ds_tipo_unidade || '—',
             GESTAO_MAP[u.tp_gestao] || '—',
             endereco || '—',
-            contato || '—',
-            cnesUrl || '—',
+            contato  || '—',
+            cnesUrl  || '—',
           ];
         });
 
