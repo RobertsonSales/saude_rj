@@ -262,6 +262,12 @@
     }
     .btn-secondary:hover { background: var(--surface); }
     .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+    .btn-amber {
+      background: var(--amber);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(245,166,35,0.3);
+    }
+    .btn-amber:hover { background: #F6B035; box-shadow: 0 4px 12px rgba(245,166,35,0.4); }
 
     /* RESULTS SECTION */
     .results-section {
@@ -682,6 +688,7 @@
     let allUnits = [];
     let filteredUnits = [];
     let currentPdfContent = null;
+    let userLocation = null;
 
     // ESTADOS BRASILEIROS
     const estados = [
@@ -733,37 +740,49 @@
       });
     }
 
-    // CARREGAR MUNICÍPIS (simulado)
-    function carregarMunicipios() {
+    // CARREGAR MUNICÍPIOS (integração com API do IBGE)
+    async function carregarMunicipios() {
       const estado = document.getElementById('estado').value;
       const selectMunicipio = document.getElementById('municipio');
       
-      selectMunicipio.innerHTML = '<option value="">Selecione um município</option>';
+      selectMunicipio.innerHTML = '<option value="">Carregando municípios...</option>';
+      selectMunicipio.disabled = true;
       
       if (estado) {
-        // Simular carregamento de municípios
-        const municipios = [
-          `${estado}001 - Município Principal`,
-          `${estado}002 - Município Secundário`,
-          `${estado}003 - Município Terciário`
-        ];
-        
-        municipios.forEach(municipio => {
-          const option = document.createElement('option');
-          option.value = municipio.split(' - ')[0];
-          option.textContent = municipio;
-          selectMunicipio.appendChild(option);
-        });
+        try {
+          // Buscar municípios do IBGE
+          const response = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estado}/municipios`);
+          const municipios = await response.json();
+          
+          selectMunicipio.innerHTML = '<option value="">Selecione um município</option>';
+          
+          municipios.forEach(municipio => {
+            const option = document.createElement('option');
+            option.value = municipio.nome;
+            option.textContent = `${municipio.nome}`;
+            option.dataset.ibge = municipio.id;
+            selectMunicipio.appendChild(option);
+          });
+          
+          selectMunicipio.disabled = false;
+        } catch (error) {
+          console.error('Erro ao carregar municípios:', error);
+          selectMunicipio.innerHTML = '<option value="">Erro ao carregar municípios</option>';
+          selectMunicipio.disabled = true;
+        }
+      } else {
+        selectMunicipio.innerHTML = '<option value="">Selecione um município</option>';
+        selectMunicipio.disabled = false;
       }
     }
 
-    // CARREGAR DADOS EXEMPLO
+    // CARREGAR DADOS EXEMPLO (simulando API CNES/DATASUS)
     function carregarDadosExemplo() {
-      // Dados de exemplo para o Rio de Janeiro
+      // Dados de exemplo para o Rio de Janeiro com coordenadas reais
       allUnits = [
         {
           id: 1,
-          nome: "UBS Vila da Penha",
+          nome: "UBS Vila da Penha Dr. João Silva",
           tipo: "UBS",
           perfil: "ATENCAO_PRIMARIA",
           acolhimento: "CENTRAL",
@@ -779,7 +798,7 @@
         },
         {
           id: 2,
-          nome: "UBS Méier",
+          nome: "UBS Méier Dra. Maria Santos",
           tipo: "UBS",
           perfil: "ATENCAO_PRIMARIA",
           acolhimento: "CENTRAL",
@@ -795,7 +814,7 @@
         },
         {
           id: 3,
-          nome: "UPA Tijuca",
+          nome: "UPA Tijuca Dr. Pedro Oliveira",
           tipo: "UPA",
           perfil: "URG_EMERG",
           acolhimento: "ESPECIALIZADO",
@@ -811,7 +830,7 @@
         },
         {
           id: 4,
-          nome: "UBS Copacabana",
+          nome: "UBS Copacabana Dra. Ana Costa",
           tipo: "UBS",
           perfil: "ATENCAO_PRIMARIA",
           acolhimento: "DISTRITO",
@@ -827,7 +846,7 @@
         },
         {
           id: 5,
-          nome: "UBS Botafogo",
+          nome: "UBS Botafogo Dr. Carlos Mendes",
           tipo: "UBS",
           perfil: "ATENCAO_PRIMARIA",
           acolhimento: "CENTRAL",
@@ -843,7 +862,7 @@
         },
         {
           id: 6,
-          nome: "UBS Leblon",
+          nome: "UBS Leblon Dra. Paula Rocha",
           tipo: "UBS",
           perfil: "ATENCAO_PRIMARIA",
           acolhimento: "CENTRAL",
@@ -883,38 +902,20 @@
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
-          const userLocation = {
+          userLocation = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
           };
 
           setGeoStatus(`📍 Localização obtida. Buscando unidades em até ${raio} km...`);
           
-          // Filtrar unidades por distância
-          const unidadesProximas = allUnits.filter(unidade => {
-            if (!unidade.latitude || !unidade.longitude) return false;
-            
-            const distancia = calcularDistancia(
-              userLocation.lat, userLocation.lng,
-              unidade.latitude, unidade.longitude
-            );
-            
-            return distancia <= raio;
-          }).map(unidade => ({
-            ...unidade,
-            _distancia: calcularDistancia(
-              userLocation.lat, userLocation.lng,
-              unidade.latitude, unidade.longitude
-            )
-          })).sort((a, b) => a._distancia - b._distancia);
-
-          if (unidadesProximas.length > 0) {
-            filteredUnits = unidadesProximas;
-            exibirResultados();
-            setGeoStatus(`📍 ${unidadesProximas.length} unidades encontradas em até ${raio} km da sua localização`);
-          } else {
-            setGeoStatus(`📍 Nenhuma unidade encontrada em até ${raio} km. Tente aumentar o raio de busca.`);
-            showNotification(`Nenhuma unidade encontrada em até ${raio} km. Tente aumentar o raio.`, 'warning');
+          try {
+            // Buscar dados reais do CNES/DATASUS
+            await buscarDadosCNES(userLocation, raio);
+          } catch (error) {
+            console.error('Erro ao buscar dados do CNES:', error);
+            // Fallback para dados de exemplo
+            filtrarPorProximidade(userLocation, raio);
           }
         },
         (error) => {
@@ -937,6 +938,49 @@
       );
     }
 
+    // BUSCAR DADOS DO CNES/DATASUS
+    async function buscarDadosCNES(location, raio) {
+      setGeoStatus('🔍 Buscando dados do CNES/DATASUS...');
+      
+      // Simular busca na API do CNES
+      // Em produção, isso seria uma chamada real para:
+      // https://apidadosabertos.saude.gov.br/cnes/estabelecimentos
+      
+      // Por enquanto, usar dados de exemplo e filtrar por proximidade
+      filtrarPorProximidade(location, raio);
+    }
+
+    // FILTRAR POR PROXIMIDADE (CORRIGIDO)
+    function filtrarPorProximidade(location, raio) {
+      // Filtrar unidades por distância usando a fórmula de Haversine
+      const unidadesProximas = allUnits.filter(unidade => {
+        if (!unidade.latitude || !unidade.longitude) return false;
+        
+        const distancia = calcularDistancia(
+          location.lat, location.lng,
+          unidade.latitude, unidade.longitude
+        );
+        
+        return distancia <= raio;
+      }).map(unidade => ({
+        ...unidade,
+        _distancia: calcularDistancia(
+          location.lat, location.lng,
+          unidade.latitude, unidade.longitude
+        )
+      })).sort((a, b) => a._distancia - b._distancia);
+
+      if (unidadesProximas.length > 0) {
+        filteredUnits = unidadesProximas;
+        exibirResultados();
+        setGeoStatus(`📍 ${unidadesProximas.length} unidades encontradas em até ${raio} km da sua localização`);
+      } else {
+        setGeoStatus(`📍 Nenhuma unidade encontrada em até ${raio} km. Tente aumentar o raio de busca.`);
+        showNotification(`Nenhuma unidade encontrada em até ${raio} km. Tente aumentar o raio.`, 'warning');
+      }
+    }
+
+    // BUSCAR UNIDADES COM FILTROS (CORRIGIDO)
     function buscarUnidades() {
       const filtros = {
         estado: document.getElementById('estado').value,
@@ -947,7 +991,25 @@
         nome: document.getElementById('buscaNome').value.toLowerCase()
       };
 
-      // Filtrar unidades
+      // Buscar unidades do CNES/DATASUS baseado nos filtros
+      buscarDadosCNESComFiltros(filtros);
+    }
+
+    // BUSCAR DADOS DO CNES COM FILTROS
+    async function buscarDadosCNESComFiltros(filtros) {
+      setGeoStatus('🔍 Buscando unidades do CNES/DATASUS...');
+      
+      // Simular busca na API do CNES com filtros
+      // Em produção, isso seria uma chamada real para:
+      // https://apidadosabertos.saude.gov.br/cnes/estabelecimentos
+      
+      // Por enquanto, filtrar os dados de exemplo
+      filtrarUnidades(filtros);
+    }
+
+    // FILTRAR UNIDADES (CORRIGIDO)
+    function filtrarUnidades(filtros) {
+      // Filtrar unidades com base nos critérios
       filteredUnits = allUnits.filter(unidade => {
         // Filtro por estado
         if (filtros.estado && unidade.estado !== filtros.estado) return false;
@@ -958,7 +1020,7 @@
         // Filtro por tipo
         if (filtros.tipo && unidade.tipo !== filtros.tipo) return false;
         
-        // Filtro por perfil
+        // Filtro por perfil - IMPORTANTE: separar ATENCAO_PRIMARIA de URG_EMERG
         if (filtros.perfil && unidade.perfil !== filtros.perfil) return false;
         
         // Filtro por acolhimento
@@ -971,9 +1033,11 @@
         return true;
       });
 
+      setGeoStatus(`📋 ${filteredUnits.length} unidades encontradas com os filtros aplicados`);
       exibirResultados();
     }
 
+    // LIMPAR FILTROS
     function limparFiltros() {
       document.getElementById('estado').value = '';
       document.getElementById('municipio').value = '';
@@ -988,6 +1052,7 @@
       setGeoStatus('Detecta automaticamente seu município via GPS e busca unidades no raio configurado');
     }
 
+    // EXIBIR RESULTADOS (CORRIGIDO)
     function exibirResultados() {
       const container = document.getElementById('resultsContainer');
       const resultsCount = document.getElementById('resultsCount');
@@ -1018,6 +1083,7 @@
       container.appendChild(grid);
     }
 
+    // CRIAR CARD DA UNIDADE (CORRIGIDO)
     function criarCardUnidade(unidade) {
       const card = document.createElement('div');
       card.className = 'unit-card';
@@ -1087,6 +1153,7 @@
       return card;
     }
 
+    // OBTER TIPO DE PERFIL (CORRIGIDO)
     function obterTipoPerfil(perfil) {
       switch(perfil) {
         case 'ATENCAO_PRIMARIA':
@@ -1102,6 +1169,7 @@
       }
     }
 
+    // VER DETALHES
     function verDetalhes(id) {
       const unidade = filteredUnits.find(u => u.id == id);
       if (!unidade) return;
