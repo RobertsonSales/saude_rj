@@ -1,3033 +1,1781 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saúde Brasil - Unidades de Saúde do Brasil</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #059669;
-            --primary-dark: #047857;
-            --primary-light: #10b981;
-            --secondary: #3b82f6;
-            --accent: #8b5cf6;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --success: #10b981;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            --radius-sm: 0.375rem;
-            --radius: 0.5rem;
-            --radius-md: 0.625rem;
-            --radius-lg: 0.75rem;
-            --radius-xl: 1rem;
-            --radius-2xl: 1.5rem;
-            --radius-3xl: 2rem;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            min-height: 100vh;
-            color: var(--gray-800);
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 1.5rem;
-        }
-
-        /* Hero Header */
-        .hero {
-            position: relative;
-            overflow: hidden;
-            border-radius: var(--radius-3xl);
-            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-            padding: 2.5rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--shadow-xl);
-            color: white;
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -10%;
-            width: 500px;
-            height: 500px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 1;
-        }
-
-        .badge-sus {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(8px);
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .hero h1 {
-            font-size: clamp(1.75rem, 5vw, 3rem);
-            font-weight: 800;
-            margin-bottom: 0.75rem;
-            line-height: 1.2;
-        }
-
-        .hero p {
-            font-size: 1.125rem;
-            opacity: 0.95;
-            max-width: 600px;
-            margin-bottom: 1.5rem;
-        }
-
-        .btn-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            padding: 0.875rem 1.5rem;
-            border: none;
-            border-radius: var(--radius-lg);
-            font-size: 0.9375rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-decoration: none;
-            white-space: nowrap;
-        }
-
-        .btn-primary {
-            background: white;
-            color: var(--primary);
-            box-shadow: var(--shadow-md);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-            background: var(--gray-50);
-        }
-
-        .btn-location {
-            background: var(--warning);
-            color: white;
-            box-shadow: var(--shadow-md);
-        }
-
-        .btn-location:hover {
-            background: #d97706;
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .btn-export {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .btn-export:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .btn-pdf {
-            background: var(--accent);
-            color: white;
-            box-shadow: var(--shadow-md);
-        }
-
-        .btn-pdf:hover {
-            background: #7c3aed;
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .btn-whatsapp {
-            background: #25D366;
-            color: white;
-        }
-
-        .btn-whatsapp:hover {
-            background: #128C7E;
-        }
-
-        .btn-secondary {
-            background: var(--gray-100);
-            color: var(--gray-700);
-        }
-
-        .btn-secondary:hover {
-            background: var(--gray-200);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: var(--primary-dark);
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* Info Banner */
-        .info-banner {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: var(--radius-lg);
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.9375rem;
-        }
-
-        .info-banner a {
-            color: #bfdbfe;
-            text-decoration: underline;
-        }
-
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-md);
-            border-left: 4px solid;
-            transition: all 0.3s ease;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .stat-card.total { border-color: var(--secondary); }
-        .stat-card.primaria { border-color: var(--success); }
-        .stat-card.secundaria { border-color: var(--warning); }
-        .stat-card.terciaria { border-color: var(--danger); }
-
-        .stat-label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: var(--gray-500);
-            letter-spacing: 0.05em;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.375rem;
-        }
-
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--gray-800);
-            line-height: 1;
-        }
-
-        /* Loading */
-        .loading-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-md);
-            margin-bottom: 2rem;
-        }
-
-        .loading-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-        }
-
-        .loading-text {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-weight: 600;
-            color: var(--gray-700);
-        }
-
-        .spinner {
-            width: 1.5rem;
-            height: 1.5rem;
-            border: 3px solid var(--gray-200);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-percent {
-            font-weight: 800;
-            color: var(--primary);
-            font-size: 1.125rem;
-        }
-
-        .progress-bar {
-            height: 0.75rem;
-            background: var(--gray-200);
-            border-radius: 9999px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--success) 0%, var(--primary-light) 100%);
-            border-radius: 9999px;
-            transition: width 0.4s ease;
-        }
-
-        .loading-details {
-            margin-top: 0.75rem;
-            font-size: 0.875rem;
-            color: var(--gray-500);
-        }
-
-        .loading-counter {
-            margin-top: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .counter-badge {
-            background: rgba(5,150,105,0.1);
-            border: 1px solid rgba(5,150,105,0.3);
-            border-radius: 9999px;
-            padding: 0.35rem 1rem;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--primary);
-            transition: all 0.3s;
-        }
-
-        .counter-etapa {
-            font-size: 0.8rem;
-            color: var(--gray-500);
-            font-style: italic;
-        }
-
-        /* Filters */
-        .filter-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-md);
-            margin-bottom: 2rem;
-        }
-
-        .filter-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.25rem;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-        }
-
-        .filter-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--gray-800);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .filter-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.375rem;
-        }
-
-        .filter-label {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--gray-700);
-            display: flex;
-            align-items: center;
-            gap: 0.375rem;
-        }
-
-        .filter-input,
-        .filter-select {
-            padding: 0.75rem 1rem;
-            border: 2px solid var(--gray-200);
-            border-radius: var(--radius-lg);
-            font-size: 0.9375rem;
-            font-family: inherit;
-            background: white;
-            transition: all 0.2s ease;
-            width: 100%;
-        }
-
-        .filter-input:focus,
-        .filter-select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
-        }
-
-        .filter-select:disabled {
-            background: var(--gray-100);
-            cursor: not-allowed;
-        }
-
-        /* Export Buttons */
-        .export-buttons {
-            display: flex;
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-        }
-
-        .export-buttons .btn {
-            flex: 1;
-            min-width: 160px;
-        }
-
-        /* Results */
-        .results-section {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .category-card {
-            background: white;
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-md);
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .category-header {
-            width: 100%;
-            padding: 1rem 1.5rem;
-            border: none;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            font-family: inherit;
-            transition: all 0.2s ease;
-        }
-
-        .category-header.primaria {
-            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-        }
-
-        .category-header.secundaria {
-            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
-        }
-
-        .category-header.terciaria {
-            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-        }
-
-        .category-header:hover {
-            opacity: 0.95;
-        }
-
-        .category-title {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            color: white;
-            font-weight: 700;
-            font-size: 1.125rem;
-        }
-
-        .category-count {
-            background: rgba(255, 255, 255, 0.3);
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-        }
-
-        .category-icon {
-            transition: transform 0.3s ease;
-        }
-
-        .category-icon.collapsed {
-            transform: rotate(-90deg);
-        }
-
-        .category-content {
-            max-height: 600px;
-            overflow-y: auto;
-            overflow-x: hidden;
-            transition: max-height 0.4s ease;
-            scrollbar-width: thin;
-            scrollbar-color: var(--gray-300) transparent;
-        }
-
-        .category-content::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .category-content::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .category-content::-webkit-scrollbar-thumb {
-            background: var(--gray-300);
-            border-radius: 9999px;
-        }
-
-        .category-content::-webkit-scrollbar-thumb:hover {
-            background: var(--gray-400);
-        }
-
-        .category-content.collapsed {
-            max-height: 0;
-            overflow: hidden;
-        }
-
-        .units-grid {
-            padding: 1.25rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 1rem;
-        }
-
-        /* Unit Card */
-        .unit-card {
-            background: var(--gray-50);
-            padding: 1.25rem;
-            border-radius: var(--radius-lg);
-            border-left: 4px solid;
-            transition: all 0.3s ease;
-        }
-
-        .unit-card.primaria { border-color: var(--success); }
-        .unit-card.secundaria { border-color: var(--warning); }
-        .unit-card.terciaria { border-color: var(--danger); }
-
-        .unit-card:hover {
-            transform: translateX(4px);
-            box-shadow: var(--shadow-md);
-            background: white;
-        }
-
-        .unit-name {
-            font-weight: 700;
-            font-size: 1.0625rem;
-            color: var(--gray-800);
-            margin-bottom: 0.75rem;
-            line-height: 1.3;
-        }
-
-        .unit-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .info-row {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-            color: var(--gray-600);
-        }
-
-        .info-row.distance {
-            color: var(--accent);
-            font-weight: 600;
-            background: rgba(139, 92, 246, 0.1);
-            padding: 0.5rem 0.75rem;
-            border-radius: var(--radius);
-            margin-top: 0.25rem;
-        }
-
-        .info-acolhimento {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.375rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-top: 0.5rem;
-        }
-
-        .info-acolhimento.urgente {
-            background: rgba(239, 68, 68, 0.15);
-            color: #dc2626;
-        }
-
-        .info-acolhimento.ambulatorial {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--primary-dark);
-        }
-
-        .info-acolhimento.transferencia {
-            background: rgba(139, 92, 246, 0.15);
-            color: var(--accent);
-        }
-
-        .info-acolhimento.especializado {
-            background: rgba(245, 158, 11, 0.15);
-            color: #b45309;
-        }
-
-        .info-acolhimento.samu {
-            background: rgba(59, 130, 246, 0.15);
-            color: #2563eb;
-        }
-
-        .info-acolhimento.hemoterapia {
-            background: rgba(220, 38, 38, 0.15);
-            color: #b91c1c;
-        }
-
-        .info-acolhimento.psiquiatria {
-            background: rgba(147, 51, 234, 0.15);
-            color: #7e22ce;
-        }
-
-        .info-acolhimento.urgencia_especializada {
-            background: rgba(245, 158, 11, 0.15);
-            color: #b45309;
-            border: 1px dashed #f59e0b;
-        }
-
-        .info-icon {
-            width: 1.25rem;
-            text-align: center;
-            flex-shrink: 0;
-        }
-
-        .badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .badge.primaria {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--primary-dark);
-        }
-
-        .badge.secundaria {
-            background: rgba(245, 158, 11, 0.15);
-            color: #b45309;
-        }
-
-        .badge.terciaria {
-            background: rgba(239, 68, 68, 0.15);
-            color: #dc2626;
-        }
-
-        .badge.sus {
-            background: var(--primary);
-            color: white;
-        }
-
-        .badge.cnes {
-            background: var(--secondary);
-            color: white;
-        }
-
-        .badge.gestao {
-            background: var(--gray-600);
-            color: white;
-        }
-
-        .unit-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .unit-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.5rem 0.875rem;
-            border-radius: var(--radius);
-            font-size: 0.875rem;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.2s ease;
-        }
-
-        .unit-link.maps {
-            background: rgba(139, 92, 246, 0.1);
-            color: var(--accent);
-        }
-
-        .unit-link.maps:hover {
-            background: rgba(139, 92, 246, 0.2);
-        }
-
-        .unit-link.details {
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--secondary);
-        }
-
-        .unit-link.details:hover {
-            background: rgba(59, 130, 246, 0.2);
-        }
-
-        .unit-link.cnes-link {
-            background: rgba(5, 150, 105, 0.1);
-            color: var(--primary);
-        }
-
-        .unit-link.cnes-link:hover {
-            background: rgba(5, 150, 105, 0.2);
-        }
-
-        .unit-link.google-search {
-            background: rgba(234, 67, 53, 0.08);
-            color: #c0392b;
-        }
-
-        .unit-link.google-search:hover {
-            background: rgba(234, 67, 53, 0.18);
-        }
-
-        .unit-link.whatsapp {
-            background: rgba(37, 211, 102, 0.15);
-            color: #075e54;
-        }
-
-        .unit-link.whatsapp:hover {
-            background: rgba(37, 211, 102, 0.25);
-        }
-
-        /* Empty State */
-        .empty-state {
-            background: white;
-            padding: 4rem 2rem;
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-md);
-            text-align: center;
-        }
-
-        .empty-state-icon {
-            width: 80px;
-            height: 80px;
-            background: var(--gray-100);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-            font-size: 2.5rem;
-        }
-
-        .empty-state h3 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--gray-800);
-            margin-bottom: 0.5rem;
-        }
-
-        .empty-state p {
-            color: var(--gray-500);
-            max-width: 400px;
-            margin: 0 auto 1.5rem;
-        }
-
-        /* Modal */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-        }
-
-        .modal {
-            background: white;
-            border-radius: var(--radius-xl);
-            width: 100%;
-            max-width: 500px;
-            max-height: 90vh;
-            overflow: hidden;
-            box-shadow: var(--shadow-xl);
-            animation: modalIn 0.3s ease;
-        }
-
-        @keyframes modalIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        .modal-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--gray-200);
-        }
-
-        .modal-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--gray-800);
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .modal-description {
-            color: var(--gray-500);
-            font-size: 0.9375rem;
-        }
-
-        .modal-body {
-            padding: 1.5rem;
-        }
-
-        .modal-footer {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid var(--gray-200);
-            display: flex;
-            gap: 0.75rem;
-            justify-content: flex-end;
-        }
-
-        .api-status {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem;
-            border-radius: var(--radius);
-            font-size: 0.875rem;
-            margin-top: 1rem;
-        }
-
-        .api-status.success {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--primary-dark);
-        }
-
-        .api-status.warning {
-            background: rgba(245, 158, 11, 0.1);
-            color: #b45309;
-        }
-
-        /* Alert */
-        .alert {
-            padding: 1rem 1.25rem;
-            border-radius: var(--radius-lg);
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-        }
-
-        .alert-error {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            color: #dc2626;
-        }
-
-        .alert-warning {
-            background: rgba(245, 158, 11, 0.1);
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            color: #b45309;
-        }
-
-        .alert-icon {
-            flex-shrink: 0;
-            font-size: 1.25rem;
-        }
-
-        .alert-content {
-            flex: 1;
-        }
-
-        .alert-title {
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }
-
-        /* PDF Preview */
-        .pdf-preview-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(4px);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-
-        .pdf-preview-overlay.active {
-            display: flex;
-        }
-
-        .pdf-preview {
-            background: white;
-            border-radius: var(--radius-xl);
-            width: 100%;
-            max-width: 1200px;
-            max-height: 90vh;
-            overflow: hidden;
-            box-shadow: var(--shadow-xl);
-            animation: modalIn 0.3s ease;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .pdf-preview-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--gray-200);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: white;
-        }
-
-        .pdf-preview-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-
-        .pdf-preview-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--gray-500);
-            transition: color 0.2s ease;
-        }
-
-        .pdf-preview-close:hover {
-            color: var(--gray-800);
-        }
-
-        .pdf-preview-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 2rem;
-            background: var(--gray-50);
-        }
-
-        .pdf-preview-footer {
-            padding: 1.5rem;
-            border-top: 1px solid var(--gray-200);
-            display: flex;
-            gap: 1rem;
-            justify-content: flex-end;
-            background: white;
-        }
-
-        /* PDF Content - Formato A5 Horizontal com informações completas */
-        .pdf-content-a5 {
-            background: white;
-            padding: 1rem;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-md);
-            font-family: 'Inter', sans-serif;
-            width: 1100px;
-            margin: 0 auto;
-            font-size: 0.8rem;
-        }
-
-        .pdf-header-a5 {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--primary);
-        }
-
-        .pdf-header-a5 h1 {
-            color: var(--primary);
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        .pdf-header-a5 p {
-            color: var(--gray-600);
-            font-size: 0.7rem;
-        }
-
-        /* Estatísticas em linha */
-        .pdf-stats-row-a5 {
-            display: flex;
-            gap: 0.4rem;
-            margin-bottom: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .pdf-stat-card-a5 {
-            flex: 1;
-            min-width: 70px;
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            border-radius: var(--radius);
-            padding: 0.4rem 0.2rem;
-            text-align: center;
-            border-left: 3px solid var(--primary);
-        }
-
-        .pdf-stat-value-a5 {
-            font-size: 1rem;
-            font-weight: 800;
-            color: var(--primary);
-            line-height: 1.2;
-        }
-
-        .pdf-stat-label-a5 {
-            font-size: 0.55rem;
-            color: var(--gray-600);
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-
-        /* Grid de acolhimento */
-        .pdf-acolhimento-grid-a5 {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0.4rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .pdf-acolhimento-item-a5 {
-            background: var(--gray-50);
-            border-radius: var(--radius);
-            padding: 0.3rem;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-            border: 1px solid var(--gray-200);
-        }
-
-        .pdf-acolhimento-icon-a5 {
-            font-size: 0.9rem;
-        }
-
-        .pdf-acolhimento-info-a5 {
-            flex: 1;
-        }
-
-        .pdf-acolhimento-nome-a5 {
-            font-size: 0.55rem;
-            color: var(--gray-600);
-            white-space: nowrap;
-        }
-
-        .pdf-acolhimento-numero-a5 {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-
-        /* Seções */
-        .pdf-section-a5 {
-            margin-bottom: 0.75rem;
-        }
-
-        .pdf-section-title-a5 {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--gray-800);
-            margin-bottom: 0.4rem;
-            padding-bottom: 0.2rem;
-            border-bottom: 2px solid var(--gray-200);
-        }
-
-        .pdf-section-title-a5 span {
-            color: var(--primary);
-            margin-right: 0.3rem;
-        }
-
-        /* Cabeçalhos de categoria */
-        .pdf-category-header-a5 {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.25rem 0.6rem;
-            border-radius: var(--radius);
-            color: white;
-            font-weight: 600;
-            font-size: 0.8rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .pdf-category-header-a5.primaria {
-            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-        }
-
-        .pdf-category-header-a5.secundaria {
-            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
-        }
-
-        .pdf-category-header-a5.terciaria {
-            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-        }
-
-        /* Grid de unidades - 2 colunas para informações completas */
-        .pdf-units-grid-a5 {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .pdf-unit-card-a5 {
-            border: 1px solid var(--gray-200);
-            border-radius: var(--radius);
-            padding: 0.5rem;
-            background: var(--gray-50);
-            transition: all 0.2s ease;
-        }
-
-        .pdf-unit-card-a5:hover {
-            background: white;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .pdf-unit-name-a5 {
-            font-weight: 700;
-            color: var(--gray-800);
-            font-size: 0.8rem;
-            margin-bottom: 0.3rem;
-        }
-
-        .pdf-unit-address-a5 {
-            font-size: 0.65rem;
-            color: var(--gray-600);
-            margin-bottom: 0.2rem;
-            display: flex;
-            align-items: center;
-            gap: 0.2rem;
-        }
-
-        .pdf-unit-phone-a5 {
-            font-size: 0.65rem;
-            color: var(--gray-600);
-            margin-bottom: 0.2rem;
-            display: flex;
-            align-items: center;
-            gap: 0.2rem;
-        }
-
-        .pdf-unit-profile-a5 {
-            font-size: 0.65rem;
-            color: var(--gray-700);
-            margin-bottom: 0.2rem;
-            display: flex;
-            align-items: center;
-            gap: 0.2rem;
-            font-weight: 500;
-        }
-
-        .pdf-unit-row-a5 {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 0.2rem;
-        }
-
-        .pdf-acolhimento-badge-a5 {
-            display: inline-block;
-            padding: 0.15rem 0.4rem;
-            border-radius: 9999px;
-            font-size: 0.6rem;
-            font-weight: 600;
-        }
-
-        .pdf-acolhimento-badge-a5.urgente {
-            background: rgba(239, 68, 68, 0.15);
-            color: #dc2626;
-        }
-
-        .pdf-acolhimento-badge-a5.ambulatorial {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--primary-dark);
-        }
-
-        .pdf-acolhimento-badge-a5.transferencia {
-            background: rgba(139, 92, 246, 0.15);
-            color: var(--accent);
-        }
-
-        .pdf-acolhimento-badge-a5.especializado {
-            background: rgba(245, 158, 11, 0.15);
-            color: #b45309;
-        }
-
-        .pdf-acolhimento-badge-a5.samu {
-            background: rgba(59, 130, 246, 0.15);
-            color: #2563eb;
-        }
-
-        .pdf-acolhimento-badge-a5.hemoterapia {
-            background: rgba(220, 38, 38, 0.15);
-            color: #b91c1c;
-        }
-
-        .pdf-acolhimento-badge-a5.psiquiatria {
-            background: rgba(147, 51, 234, 0.15);
-            color: #7e22ce;
-        }
-
-        .pdf-distance-a5 {
-            font-size: 0.6rem;
-            color: var(--accent);
-            font-weight: 600;
-        }
-
-        .pdf-footer-a5 {
-            margin-top: 0.75rem;
-            padding-top: 0.4rem;
-            border-top: 1px solid var(--gray-200);
-            text-align: center;
-            color: var(--gray-500);
-            font-size: 0.55rem;
-        }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 2rem 0;
-            color: var(--gray-500);
-            font-size: 0.875rem;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .container { padding: 1rem; }
-            .hero { padding: 1.5rem; }
-            .hero h1 { font-size: 1.5rem; }
-            .btn-group { flex-direction: column; }
-            .btn { width: 100%; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .stat-value { font-size: 2rem; }
-            .filter-grid { grid-template-columns: 1fr; }
-            .units-grid { grid-template-columns: 1fr; padding: 1rem; }
-            .modal-footer { flex-direction: column; }
-            .modal-footer .btn { width: 100%; }
-            .export-buttons { flex-direction: column; }
-        }
-
-        @media (max-width: 480px) {
-            .stats-grid { grid-template-columns: 1fr; }
-        }
-
-        .hidden { display: none !important; }
-
-        .fade-in {
-            animation: fadeIn 0.4s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SaúdeBR — Localizador CNES de Unidades de Saúde Pública</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root {
+      --navy: #0B1F3A;
+      --navy-mid: #132D50;
+      --teal: #00A878;
+      --teal-light: #00C896;
+      --teal-pale: #E8F8F3;
+      --amber: #F5A623;
+      --amber-pale: #FFF8EC;
+      --red: #E53935;
+      --red-pale: #FDECEA;
+      --blue: #1565C0;
+      --blue-pale: #E8F0FE;
+      --purple: #6A1B9A;
+      --purple-pale: #F3E5F5;
+      --bg: #EDF1F7;
+      --surface: #FFFFFF;
+      --border: #D8E2EE;
+      --text: #0B1F3A;
+      --text-muted: #5A6E85;
+      --text-light: #8EA2B8;
+      --shadow-sm: 0 2px 8px rgba(11,31,58,0.08);
+      --shadow-md: 0 6px 20px rgba(11,31,58,0.12);
+      --shadow-lg: 0 16px 48px rgba(11,31,58,0.16);
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Fira Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── HEADER ─── */
+    header {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, #1a4a7a 100%);
+      padding: 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-lg);
+    }
+    .header-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .logo-mark {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--teal), var(--teal-light));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(0,168,120,0.4);
+    }
+    .logo-mark svg { width: 28px; height: 28px; }
+    .header-titles { flex: 1; }
+    .header-titles h1 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.6rem;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    .header-titles h1 span { color: var(--teal-light); }
+    .header-titles p {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.55);
+      font-weight: 300;
+      margin-top: 3px;
+      letter-spacing: 0.5px;
+    }
+    .header-badge {
+      background: rgba(0,168,120,0.2);
+      border: 1px solid rgba(0,168,120,0.4);
+      color: var(--teal-light);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    /* ─── MAIN LAYOUT ─── */
+    .main-wrapper {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 28px 60px;
+    }
+
+    /* ─── FILTER PANEL ─── */
+    .filter-section {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .filter-header {
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    .filter-header:hover { background: var(--bg); }
+    .filter-header-left {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .filter-header-icon {
+      width: 36px; height: 36px;
+      background: var(--teal-pale);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--teal);
+    }
+    .filter-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--navy);
+    }
+    .filter-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
+    .filter-toggle-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: all 0.2s;
+    }
+    .filter-toggle-btn:hover { background: var(--teal-pale); color: var(--teal); border-color: var(--teal); }
+    .filter-toggle-arrow { transition: transform 0.3s; }
+    .filter-toggle-arrow.open { transform: rotate(180deg); }
+
+    .filter-body {
+      border-top: 1px solid var(--border);
+      padding: 24px;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+    .filter-body.open { display: block; }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-control {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-family: 'Fira Sans', sans-serif;
+      font-size: 0.88rem;
+      color: var(--text);
+      transition: all 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--teal);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(0,168,120,0.1);
+    }
+    select.form-control {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235A6E85' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* ─── BUTTONS ─── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      border-radius: var(--radius-sm);
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-light) 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0,168,120,0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(0,168,120,0.4);
+    }
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1.5px solid var(--border);
+    }
+    .btn-secondary:hover { background: #fff; border-color: var(--teal); color: var(--teal); }
+    .btn-navy {
+      background: var(--navy);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(11,31,58,0.25);
+    }
+    .btn-navy:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(11,31,58,0.35); }
+    .btn-amber {
+      background: linear-gradient(135deg, var(--amber) 0%, #F7BE50 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(245,166,35,0.35);
+    }
+    .btn-amber:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(245,166,35,0.45); }
+    .btn-geo {
+      background: linear-gradient(135deg, var(--blue) 0%, #1976D2 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(21,101,192,0.3);
+    }
+    .btn-geo:hover { transform: translateY(-1px); }
+    .btn-danger { background: var(--red-pale); color: var(--red); border: 1.5px solid rgba(229,57,53,0.2); }
+    .btn-danger:hover { background: var(--red); color: #fff; }
+    .btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+    .btn-icon { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 8px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    /* ─── GEO SECTION ─── */
+    .geo-section {
+      background: linear-gradient(135deg, var(--blue-pale), #d8e8ff);
+      border: 1px solid rgba(21,101,192,0.2);
+      border-radius: var(--radius);
+      padding: 18px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .geo-info { flex: 1; }
+    .geo-info h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--blue);
+    }
+    .geo-info p { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+    .geo-radius-row { display: flex; align-items: center; gap: 10px; }
+    .geo-radius-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+    .geo-radius-input {
+      width: 80px;
+      background: #fff;
+      border: 1.5px solid rgba(21,101,192,0.3);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-family: 'Fira Sans', sans-serif;
+      font-size: 0.88rem;
+      text-align: center;
+    }
+
+    /* ─── DASHBOARD CARDS ─── */
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--card-accent, var(--teal));
+    }
+    .stat-card-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 12px;
+      font-size: 1.2rem;
+    }
+    .stat-card-value {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 2rem;
+      line-height: 1;
+      color: var(--navy);
+      transition: all 0.5s;
+    }
+    .stat-card-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+    .stat-card-sublabel { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+
+    /* ─── RESULTS SECTION ─── */
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .results-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--navy);
+    }
+    .results-count {
+      background: var(--teal-pale);
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-left: 8px;
+    }
+    .export-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── GROUP SECTIONS ─── */
+    .group-section {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .group-header {
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    .group-header:hover { background: var(--bg); }
+    .group-header-left {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .group-pill {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.78rem;
+      padding: 4px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .group-name {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--navy);
+    }
+    .group-meta { font-size: 0.78rem; color: var(--text-muted); }
+    .group-count {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      color: var(--navy);
+      min-width: 60px;
+      text-align: right;
+    }
+    .group-arrow { color: var(--text-muted); transition: transform 0.3s; }
+    .group-arrow.open { transform: rotate(90deg); }
+
+    .group-body {
+      border-top: 1px solid var(--border);
+      padding: 20px;
+      display: none;
+    }
+    .group-body.open { display: block; }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    /* ─── UNIT CARDS ─── */
+    .unit-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .unit-card:hover {
+      border-color: var(--teal);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+    .unit-card-accent {
+      position: absolute;
+      top: 0; left: 0;
+      width: 4px;
+      height: 100%;
+    }
+    .unit-card-inner { padding-left: 8px; }
+    .unit-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .unit-name {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--navy);
+      line-height: 1.3;
+    }
+    .unit-type-badge {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .unit-info-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .unit-info-row svg { flex-shrink: 0; margin-top: 1px; color: var(--text-light); }
+    .unit-cnes {
+      font-size: 0.7rem;
+      color: var(--text-light);
+      font-weight: 500;
+      margin-bottom: 10px;
+      font-family: 'Outfit', sans-serif;
+    }
+    .unit-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 12px;
+    }
+    .unit-tag {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .unit-tag-urgencia { background: var(--red-pale); color: var(--red); }
+    .unit-tag-ambulatorial { background: var(--teal-pale); color: var(--teal); }
+    .unit-tag-maternidade { background: var(--purple-pale); color: var(--purple); }
+    .unit-tag-traumatologia { background: var(--amber-pale); color: #C07A00; }
+    .unit-tag-federal { background: #E8F0FE; color: var(--blue); }
+    .unit-tag-estadual { background: #FFF8EC; color: #9C6E00; }
+    .unit-tag-municipal { background: var(--teal-pale); color: #006B4F; }
+    .unit-distance { background: var(--blue-pale); color: var(--blue); }
+    .unit-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+    .unit-actions .btn-icon {
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1.5px solid var(--border);
+      transition: all 0.2s;
+    }
+    .unit-actions .btn-icon:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-pale); }
+    .unit-actions .btn-icon.whatsapp:hover { border-color: #25D366; color: #25D366; background: #E8FBF0; }
+    .unit-actions .btn-icon.maps:hover { border-color: #EA4335; color: #EA4335; background: #FDECEA; }
+    .unit-actions .btn-icon.search:hover { border-color: #4285F4; color: #4285F4; background: #E8F0FE; }
+
+    /* ─── LOADING / EMPTY / ERROR ─── */
+    .status-box {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 60px 40px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .status-box .status-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .status-box h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+    .status-box p { font-size: 0.88rem; color: var(--text-muted); max-width: 400px; margin: 0 auto; }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--teal-pale);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-bar-wrap {
+      max-width: 360px;
+      margin: 16px auto 0;
+      background: var(--border);
+      border-radius: 10px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--teal), var(--teal-light));
+      border-radius: 10px;
+      transition: width 0.3s;
+    }
+
+    /* ─── NOTIFICATION ─── */
+    .notification {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--navy);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: var(--radius);
+      font-size: 0.85rem;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 1000;
+      animation: slideInRight 0.3s ease;
+      max-width: 340px;
+    }
+    .notification.success { background: var(--teal); }
+    .notification.error { background: var(--red); }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ─── FOOTER ─── */
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 0.75rem;
+      color: var(--text-light);
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .footer a { color: var(--teal); text-decoration: none; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 640px) {
+      .main-wrapper { padding: 16px 14px 40px; }
+      .header-inner { padding: 14px 16px; }
+      .header-titles h1 { font-size: 1.2rem; }
+      .dashboard { grid-template-columns: repeat(2, 1fr); }
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── NIVEL COLORS ─── */
+    .nivel-primaria { --nivel-color: #00A878; }
+    .nivel-secundaria { --nivel-color: #1565C0; }
+    .nivel-terciaria { --nivel-color: #E53935; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Hero Header -->
-        <header class="hero">
-            <div class="hero-content">
-                <div class="badge-sus">
-                    <span>🏥</span>
-                    <span>Unidades Hospitalares Públicas</span>
-                </div>
-                <h1>Unidades de Saúde no Brasil</h1>
-                <p>Ao clicar em "Buscar Perto de Mim", encontre unidades com canais de contato e localização na WEB, num raio de até 6km. Ou então, escolha um estado e município.</p>
-                <div class="btn-group">
-                    <button class="btn btn-primary" onclick="abrirModalMunicipio()">
-                        <span>🔍</span>
-                        Buscar por Município
-                    </button>
-                    <button class="btn btn-location" onclick="abrirModalLocalizacao()">
-                        <span>📍</span>
-                        Buscar Perto de Mim
-                    </button>
-                    <button class="btn btn-pdf hidden" id="btnVisualizarPDF" onclick="visualizarPDF()">
-                        <span>📄</span>
-                        Visualizar PDF
-                    </button>
-                    <button class="btn btn-export hidden" id="btnExportar" onclick="exportarExcel()">
-                        <span>📊</span>
-                        Gerar Excel
-                    </button>
-                </div>
-            </div>
-        </header>
 
-        <!-- Loading -->
-        <div id="loadingSection" class="hidden">
-            <div class="loading-card">
-                <div class="loading-header">
-                    <div class="loading-text">
-                        <div class="spinner"></div>
-                        <span id="loadingText">Carregando...</span>
-                    </div>
-                    <span class="loading-percent" id="loadingPercent">0%</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                </div>
-                <div class="loading-details" id="loadingDetails">Aguarde...</div>
-                <div id="loadingCounter" class="loading-counter hidden">
-                    <div class="counter-badge">
-                        🏥 <span id="counterTotal">0</span> unidades encontradas
-                    </div>
-                    <div class="counter-etapa" id="counterEtapa"></div>
-                </div>
-            </div>
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="header-inner">
+    <div class="logo-mark">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 4v20M4 14h20" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="12" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="header-titles">
+      <h1>Saúde<span>BR</span> — Localizador CNES</h1>
+      <p>Dados em tempo real • Ministério da Saúde / DATASUS • Todas as esferas de gestão</p>
+    </div>
+    <span class="header-badge">🟢 Online</span>
+  </div>
+</header>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main-wrapper">
+
+  <!-- ─── FILTROS ─── -->
+  <div class="filter-section">
+    <div class="filter-header" onclick="toggleFilter()">
+      <div class="filter-header-left">
+        <div class="filter-header-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
         </div>
-
-        <!-- Alert Section -->
-        <div id="alertSection" class="hidden"></div>
-
-        <!-- Stats Grid -->
-        <div id="statsSection" class="stats-grid hidden">
-            <div class="stat-card total">
-                <div class="stat-label">📋 Total de Unidades</div>
-                <div class="stat-value" id="statTotal">0</div>
-            </div>
-            <div class="stat-card primaria">
-                <div class="stat-label">🏥 Atenção Primária</div>
-                <div class="stat-value" id="statPrimaria">0</div>
-            </div>
-            <div class="stat-card secundaria">
-                <div class="stat-label">🚑 Atenção Secundária</div>
-                <div class="stat-value" id="statSecundaria">0</div>
-            </div>
-            <div class="stat-card terciaria">
-                <div class="stat-label">🏨 Atenção Terciária</div>
-                <div class="stat-value" id="statTerciaria">0</div>
-            </div>
+        <div>
+          <div class="filter-title">Filtros de Busca</div>
+          <div class="filter-subtitle">Estado, município, perfil de atenção e formas de acolhimento</div>
         </div>
-
-        <!-- Filters -->
-        <div id="filtersSection" class="filter-card hidden">
-            <div class="filter-header">
-                <h2 class="filter-title">
-                    <span>🔍</span>
-                    Filtros de Pesquisa
-                </h2>
-                <button class="btn btn-secondary" onclick="limparFiltros()">
-                    <span>🗑️</span>
-                    Limpar Filtros
-                </button>
-            </div>
-            <div class="filter-grid">
-                <div class="filter-group">
-                    <label class="filter-label">
-                        <span>🇧🇷</span>
-                        Estado
-                    </label>
-                    <select id="filtroEstado" class="filter-select" onchange="atualizarCidadesFiltros()">
-                        <option value="">Todos os estados</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label class="filter-label">
-                        <span>🏥</span>
-                        Nome da Unidade
-                    </label>
-                    <input type="text" id="filtroNome" class="filter-input" placeholder="Digite o nome..." oninput="aplicarFiltros()">
-                </div>
-                <div class="filter-group">
-                    <label class="filter-label">
-                        <span>📍</span>
-                        Cidade
-                    </label>
-                    <select id="filtroCidade" class="filter-select" onchange="aplicarFiltros()">
-                        <option value="">Todas as cidades</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label class="filter-label">
-                        <span>🏘️</span>
-                        Bairro
-                    </label>
-                    <select id="filtroBairro" class="filter-select" onchange="aplicarFiltros()" disabled>
-                        <option value="">Selecione uma cidade</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label class="filter-label">
-                        <span>📊</span>
-                        Nível de Atenção
-                    </label>
-                    <select id="filtroNivel" class="filter-select" onchange="aplicarFiltros()">
-                        <option value="">Todos os níveis</option>
-                        <option value="Primária">Atenção Primária</option>
-                        <option value="Secundária">Atenção Secundária</option>
-                        <option value="Terciária">Atenção Terciária</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label class="filter-label">
-                        <span>🏥</span>
-                        Tipo de Acolhimento
-                    </label>
-                    <select id="filtroAcolhimento" class="filter-select" onchange="aplicarFiltros()">
-                        <option value="">Todos os tipos</option>
-                        <option value="urgente">🚨 Urgência/Emergência Geral</option>
-                        <option value="urgencia_especializada">🏥⚡ Urgência Especializada</option>
-                        <option value="ambulatorial">🩺 Atendimento Ambulatorial</option>
-                        <option value="transferencia">🚑 Admissão por Transferência</option>
-                        <option value="especializado">🔬 Atendimento Especializado</option>
-                        <option value="samu">🚑📞 SAMU</option>
-                        <option value="hemoterapia">🩸 Hemoterapia</option>
-                        <option value="psiquiatria">🧠 Psiquiatria</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <!-- Results -->
-        <div id="resultsSection">
-            <div class="empty-state">
-                <div class="empty-state-icon">🏥</div>
-                <h3>Dados em Tempo Real do CNES</h3>
-                <p>Clique em "Buscar por Município" para consultar as unidades de saúde reais do Brasil diretamente do DATASUS.</p>
-            </div>
-           <!-- Info Banner -->
-           <div class="info-banner">
-               <span>ℹ️</span>
-               <span>Este App busca dados em <strong>tempo real</strong> da API CNES (DATASUS) e OpenStreetMap. 
-               <a href="https://cnes.datasus.gov.br" target="_blank">Acesse o CNES oficial →</a></span>
-           </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <p>Dados fornecidos pelo CNES/DATASUS - Ministério da Saúde</p>
-            <p>© 2026 Saúde Brasil - Todos os direitos reservados</p>
-        </footer>
+      </div>
+      <button class="filter-toggle-btn" id="filterToggleBtn">
+        <span>Expandir</span>
+        <span class="filter-toggle-arrow" id="filterArrow">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+      </button>
     </div>
 
-    <!-- Modal Município -->
-    <div id="modalMunicipio" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">
-                    <span>🏙️</span>
-                    Selecione o Município
-                </div>
-                <div class="modal-description">
-                    Escolha o estado e município para buscar as unidades de saúde no CNES.
-                </div>
-            </div>
-            <div class="modal-body">
-                <div class="filter-group">
-                    <label class="filter-label">Estado</label>
-                    <select id="selectEstado" class="filter-select" onchange="carregarMunicipios()">
-                        <option value="">Selecione um estado</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label class="filter-label">Município</label>
-                    <select id="selectMunicipio" class="filter-select" disabled>
-                        <option value="">Selecione um estado primeiro</option>
-                    </select>
-                </div>
-                <div class="api-status success">
-                    <span>✅</span>
-                    <span>API CNES conectada e pronta para consulta</span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="fecharModalMunicipio()">Cancelar</button>
-                <button class="btn btn-success" onclick="buscarPorMunicipio()">
-                    <span>🔍</span>
-                    Buscar no CNES
-                </button>
-            </div>
+    <div class="filter-body" id="filterBody">
+      <div class="filter-grid">
+        <div class="form-group">
+          <label class="form-label">Estado (UF)</label>
+          <select class="form-control" id="selectEstado" onchange="onEstadoChange()">
+            <option value="">— Selecione —</option>
+          </select>
         </div>
-    </div>
-
-    <!-- Modal Localização -->
-    <div id="modalLocalizacao" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">
-                    <span>📍</span>
-                    Acesso à Localização
-                </div>
-                <div class="modal-description">
-                    Para encontrar unidades próximas, precisamos acessar sua localização.
-                </div>
-            </div>
-            <div class="modal-body">
-                <div class="api-status warning">
-                    <span>⚠️</span>
-                    <span>Sua localização será usada apenas para calcular distâncias. Não armazenamos seus dados.</span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="fecharModalLocalizacao()">Cancelar</button>
-                <button class="btn btn-success" onclick="permitirLocalizacao()">
-                    <span>📍</span>
-                    Permitir
-                </button>
-            </div>
+        <div class="form-group">
+          <label class="form-label">Município</label>
+          <select class="form-control" id="selectMunicipio" onchange="onMunicipioChange()" disabled>
+            <option value="">— Selecione o estado primeiro —</option>
+          </select>
         </div>
-    </div>
-
-    <!-- PDF Preview Modal -->
-    <div id="pdfPreviewOverlay" class="pdf-preview-overlay">
-        <div class="pdf-preview">
-            <div class="pdf-preview-header">
-                <h3 class="pdf-preview-title">📄 Visualização do PDF - Formato A5 Horizontal</h3>
-                <button class="pdf-preview-close" onclick="fecharPDFPreview()">×</button>
-            </div>
-            <div class="pdf-preview-body" id="pdfPreviewBody">
-                <!-- PDF content will be injected here -->
-            </div>
-            <div class="pdf-preview-footer">
-                <button class="btn btn-secondary" onclick="fecharPDFPreview()">
-                    <span>✕</span>
-                    Fechar
-                </button>
-                <button class="btn btn-whatsapp" onclick="compartilharPDFCompletoWhatsApp()">
-                    <span>📱</span>
-                    Compartilhar PDF no WhatsApp
-                </button>
-                <button class="btn btn-primary" onclick="baixarPDF()">
-                    <span>📥</span>
-                    Baixar PDF (A5 Horizontal)
-                </button>
-            </div>
+        <div class="form-group">
+          <label class="form-label">Bairro</label>
+          <input type="text" class="form-control" id="inputBairro" placeholder="Ex: Centro, Jardim..." oninput="applyLocalFilters()">
         </div>
+        <div class="form-group">
+          <label class="form-label">Perfil / Nível de Atenção</label>
+          <select class="form-control" id="selectNivel" onchange="applyLocalFilters()">
+            <option value="">Todos os Níveis</option>
+            <option value="primaria">Atenção Primária</option>
+            <option value="secundaria">Atenção Secundária</option>
+            <option value="terciaria">Atenção Terciária</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Forma de Acolhimento</label>
+          <select class="form-control" id="selectAcolhimento" onchange="applyLocalFilters()">
+            <option value="">Todas as Formas</option>
+            <option value="ambulatorial">Atendimento Ambulatorial</option>
+            <option value="urgencia">Urgência / Emergência</option>
+            <option value="maternidade">Maternidade</option>
+            <option value="traumatologia">Traumatologia</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Esfera de Gestão</label>
+          <select class="form-control" id="selectGestao" onchange="applyLocalFilters()">
+            <option value="">Todas</option>
+            <option value="M">Municipal</option>
+            <option value="E">Estadual</option>
+            <option value="F">Federal</option>
+            <option value="D">Dupla</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button class="btn btn-primary" onclick="buscarUnidades()" id="btnBuscar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          Buscar Unidades
+        </button>
+        <button class="btn btn-secondary" onclick="limparFiltros()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.57"/></svg>
+          Limpar Filtros
+        </button>
+      </div>
     </div>
-
-    <script>
-        // ============================================
-        // CONFIGURAÇÃO DAS APIs
-        // ============================================
-        const CONFIG = {
-            CNES: {
-                ENDPOINT: 'https://servicos.saude.gov.br/cnes/EstabelecimentoSaudeService/v1r0',
-                USERNAME: 'CNES.PUBLICO',
-                PASSWORD: 'cnes#2015public'
-            },
-            NOMINATIM: {
-                ENDPOINT: 'https://nominatim.openstreetmap.org',
-                EMAIL: 'contato@susrio.gov.br'
-            },
-            VIACEP: 'https://viacep.com.br/ws',
-            IBGE: 'https://servicodados.ibge.gov.br/api/v1/localidades'
-        };
-
-        // ============================================
-        // VARIÁVEIS GLOBAIS
-        // ============================================
-        let estados = [];
-        let municipiosPorEstado = {};
-        let todasUnidades = [];
-        let unidadesFiltradas = [];
-        let localizacaoUsuario = null;
-        let categoriasAbertas = {
-            'Primária': true,
-            'Secundária': true,
-            'Terciária': true
-        };
-        let _buscaAtiva = false;
-
-        const OVERPASS_EXCLUIR = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
-            'sample_collection|physiotherapist|psychotherapist|audiologist|' +
-            'alternative|medical_imaging|blood_donation|veterinary';
-
-        // ============================================
-        // FUNÇÕES AUXILIARES
-        // ============================================
-        function norm(str) {
-            return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        }
-
-        function calcularDistancia(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        function deduplicar(unidades) {
-            const unicos = new Map();
-            unidades.forEach(u => {
-                const chave = norm(u.nome) + u.lat.toFixed(4) + u.lon.toFixed(4);
-                if (!unicos.has(chave)) unicos.set(chave, u);
-            });
-            return Array.from(unicos.values());
-        }
-
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
-        async function consultarOverpass(query) {
-            const url = 'https://overpass-api.de/api/interpreter';
-            const resp = await fetch(url, {
-                method: 'POST',
-                body: query
-            });
-            if (!resp.ok) throw new Error('Overpass falhou');
-            return await resp.json();
-        }
-
-        function mostrarLoading(texto) {
-            document.getElementById('loadingText').textContent = texto;
-            document.getElementById('loadingDetails').textContent = 'Aguarde...';
-            document.getElementById('loadingPercent').textContent = '0%';
-            document.getElementById('progressFill').style.width = '0%';
-            document.getElementById('loadingSection').classList.remove('hidden');
-        }
-
-        function ocultarLoading() {
-            document.getElementById('loadingSection').classList.add('hidden');
-        }
-
-        function atualizarProgresso(percent, detalhes, etapa = '') {
-            document.getElementById('loadingPercent').textContent = `${percent}%`;
-            document.getElementById('progressFill').style.width = `${percent}%`;
-            document.getElementById('loadingDetails').textContent = detalhes;
-            if (etapa) {
-                document.getElementById('counterEtapa').textContent = etapa;
-                document.getElementById('loadingCounter').classList.remove('hidden');
-            }
-        }
-
-        function mostrarAlerta(tipo, titulo, mensagem) {
-            const alertSection = document.getElementById('alertSection');
-            alertSection.innerHTML = `
-                <div class="alert alert-${tipo}">
-                    <span class="alert-icon">⚠️</span>
-                    <div class="alert-content">
-                        <div class="alert-title">${titulo}</div>
-                        <p>${mensagem}</p>
-                    </div>
-                </div>
-            `;
-            alertSection.classList.remove('hidden');
-            setTimeout(() => alertSection.classList.add('hidden'), 5000);
-        }
-
-        // ============================================
-        // CLASSIFICAÇÃO
-        // ============================================
-        function classificar(tags, nome) {
-            const healthcare = tags.healthcare || tags.amenity;
-            const n = norm(nome + (tags.description || ''));
-            if (!healthcare && !n.includes('hospital') && !n.includes('clinica') && !n.includes('upa') && !n.includes('posto') && !n.includes('ubs') && !n.includes('caps') && !n.includes('cri') && !n.includes('policlinica')) return null;
-
-            // Verificar se é estabelecimento SUS — excluir privados sem vínculo aparente
-            const operador = (tags.operator || tags['operator:type'] || tags.ownership || '').toLowerCase();
-            const acessoTag = (tags.access || '').toLowerCase();
-            if (acessoTag === 'private') return null;
-            if (operador && (operador.includes('privad') || operador.includes('particular')) && !operador.includes('sus') && !operador.includes('federal') && !operador.includes('estadual') && !operador.includes('municipal')) return null;
-
-            let perfil = 'Hospital Geral';
-            let nivel = 'Secundária';
-
-            // UPA/Urgência tem prioridade antes de hospital genérico
-            if (n.includes('upa') || (n.includes('urgencia') && !n.includes('hospital')) || n.includes('pronto atendimento') || n.includes('pronto socorro')) {
-                perfil = n.includes('upa') ? 'UPA' : 'Pronto-Socorro';
-                nivel = 'Secundária';
-            } else if (healthcare === 'hospital' || n.includes('hospital')) {
-                if (n.includes('maternidad') || n.includes('mulher') || n.includes(' mae') || n.includes('da mae') || n.includes('matern') || n.includes('obstetri') || n.includes('perinatal')) perfil = 'Hospital Maternidade';
-                else if (n.includes('infantil') || n.includes('crianca') || n.includes('pediatri')) perfil = 'Hospital Infantil';
-                else if (n.includes('oncologi') || n.includes('cancer') || n.includes('inca')) perfil = 'Hospital Oncológico';
-                else if (n.includes('psiquiatri') || n.includes('mental') || n.includes('naps') || n.includes('caps')) perfil = 'Hospital Psiquiátrico';
-                else if (n.includes('especializad') || n.includes('ortopedi') || n.includes('cardiolog') || n.includes('neurologica')) perfil = 'Hospital Especializado';
-                // Critérios de Atenção Terciária expandidos
-                if (n.includes('universitari') || n.includes('referencia') || n.includes('federal') || n.includes('estadual') || n.includes('complexo') || n.includes('inca') || n.includes('nacional') || n.includes('regional') || n.includes('instituto') || operador.includes('federal') || operador.includes('estadual') || (tags['healthcare:speciality'] && tags['healthcare:speciality'].split(';').length >= 3)) {
-                    nivel = 'Terciária';
-                } else {
-                    nivel = 'Secundária';
-                }
-            } else if (healthcare === 'clinic' || n.includes('clinica')) {
-                perfil = 'Clínica Médica';
-                nivel = 'Primária';
-            } else if (healthcare === 'health_post' || n.includes('posto') || n.includes('ubs') || n.includes('psf')) {
-                perfil = 'Posto de Saúde';
-                nivel = 'Primária';
-            } else if (healthcare === 'health_centre' || n.includes('centro de saude') || n.includes('policlinica') || n.includes('cms')) {
-                perfil = 'Centro de Saúde';
-                nivel = 'Primária';
-            } else if (n.includes('caps') || n.includes('cri') || n.includes('caps ad') || n.includes('saude mental')) {
-                perfil = 'CAPS';
-                nivel = 'Secundária';
-            } else if (n.includes('ambulatorio')) {
-                perfil = 'Ambulatório';
-                nivel = 'Primária';
-            } else if (n.includes('laboratorio')) {
-                return null; // Excluir
-            } else {
-                perfil = 'Unidade de Saúde';
-                nivel = 'Primária';
-            }
-
-            return { perfil, nivel };
-        }
-
-        function determinarAcolhimento(u) {
-            const n = norm(u.nome + u.perfil);
-            if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia')) return 'urgente';
-            if (n.includes('especializad')) return 'especializado';
-            if (n.includes('samu')) return 'samu';
-            if (n.includes('hemoterapia') || n.includes('sangue')) return 'hemoterapia';
-            if (n.includes('psiquiatri') || n.includes('mental')) return 'psiquiatria';
-            if (n.includes('transferencia')) return 'transferencia';
-            if (n.includes('urgencia especializad')) return 'urgencia_especializada';
-            return 'ambulatorial';
-        }
-
-        function getIconeAcolhimento(acolhimento) {
-            const icones = {
-                urgente: '🚨',
-                urgencia_especializada: '🏥⚡',
-                ambulatorial: '🩺',
-                transferencia: '🚑',
-                especializado: '🔬',
-                samu: '🚑📞',
-                hemoterapia: '🩸',
-                psiquiatria: '🧠'
-            };
-            return icones[acolhimento] || '🩺';
-        }
-
-        function getTextoAcolhimento(acolhimento) {
-            const textos = {
-                urgente: 'Urgência/Emergência Geral',
-                urgencia_especializada: 'Urgência Especializada',
-                ambulatorial: 'Atendimento Ambulatorial',
-                transferencia: 'Admissão por Transferência',
-                especializado: 'Atendimento Especializado',
-                samu: 'SAMU',
-                hemoterapia: 'Hemoterapia',
-                psiquiatria: 'Psiquiatria'
-            };
-            return textos[acolhimento] || 'Atendimento Geral';
-        }
-
-        // ============================================
-        // MONTAGEM DO OBJETO UNIDADE
-        // ============================================
-        function montarUnidade(tags, lat, lon, osmId, osmType, distancia) {
-            const nome = (tags.name || tags['name:pt'] || '').trim();
-            if (!nome) return null; // Ignorar unidades sem nome identificável
-            const classif = classificar(tags, nome);
-            if (!classif) return null;
-
-            return {
-                nome,
-                cidade: '',
-                bairro: '',
-                perfil: classif.perfil,
-                nivel: classif.nivel,
-                lat, lon,
-                telefone: tags.phone || tags['contact:phone'] || '',
-                endereco: [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(', '),
-                osmId,
-                osmType,
-                website: tags.website || tags['contact:website'] || tags['contact:url'] || '',
-                distancia,
-                acolhimento: 'ambulatorial', // Será atualizado depois
-                gestao: tags.operator ? (norm(tags.operator).includes('federal') ? 'Federal' : norm(tags.operator).includes('estadual') ? 'Estadual' : 'Municipal') : 'Municipal',
-                cnes: tags['ref:CNES'] || tags['ref:cnes'] || '' // Apenas CNES real informado no OSM
-            };
-        }
-
-        // ============================================
-        // BUSCA POR MUNICÍPIO
-        // ============================================
-        function abrirModalMunicipio() {
-            const select = document.getElementById('selectMunicipio');
-            select.innerHTML = '<option value="">Selecione um município</option>';
-            
-            // municipiosRJ removido, carregado dinamicamente
-            document.getElementById('modalMunicipio').classList.add('active');
-        }
-
-        function fecharModalMunicipio() {
-            document.getElementById('modalMunicipio').classList.remove('active');
-        }
-
-        async function buscarPorMunicipio() {
-            const uf = document.getElementById('selectEstado').value;
-            const codigoMunicipio = document.getElementById('selectMunicipio').value;
-            if (!uf || !codigoMunicipio) {
-                mostrarAlerta('warning', 'Atenção', 'Selecione um estado e município para continuar.');
-                return;
-            }
-
-            fecharModalMunicipio();
-            _buscaAtiva = false;
-            await sleep(50);
-            mostrarLoading('Iniciando busca de unidades de saúde...');
-
-            try {
-                const uf = document.getElementById('selectEstado').value;
-                const municipio = municipiosPorEstado[uf]?.find(m => m.id === codigoMunicipio);
-                if (!municipio) throw new Error('Município não encontrado');
-
-                // Priorizar CNES
-                let unidades = await buscarUnidadesCNES(codigoMunicipio);
-
-                if (unidades.length === 0) {
-                    atualizarProgresso(20, 'Buscando complemento no OpenStreetMap...');
-                    unidades = await buscarUnidadesOpenStreetMap(municipio);
-                }
-
-                atualizarProgresso(92, 'Finalizando resultados...');
-
-                if (unidades.length === 0) {
-                    mostrarAlerta('warning', 'Nenhuma unidade encontrada',
-                        'Não foram encontradas unidades de saúde para este município no OpenStreetMap.');
-                    ocultarLoading();
-                    return;
-                }
-
-                todasUnidades = unidades.map(u => ({
-                    ...u,
-                    acolhimento: determinarAcolhimento(u),
-                    link: u.osmId ? `https://www.openstreetmap.org/${u.osmType}/${u.osmId}` : '',
-                    mapsLink: u.lat && u.lon ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : ''
-                }));
-
-                unidadesFiltradas = [...todasUnidades];
-
-                const tot = unidades.length;
-                atualizarProgresso(100, `✅ ${tot} unidade${tot !== 1 ? 's' : ''} encontrada${tot !== 1 ? 's' : ''}!`);
-
-                setTimeout(() => {
-                    exibirResultados();
-                    ocultarLoading();
-                    iniciarGeoReverso();
-                }, 600);
-
-            } catch (error) {
-                console.error('Erro na busca:', error);
-                mostrarAlerta('error', 'Erro na busca',
-                    'Não foi possível consultar os dados. Tente novamente mais tarde.');
-                ocultarLoading();
-            }
-        }
-
-        async function buscarUnidadesOpenStreetMap(municipio) {
-            _buscaAtiva = true;
-            const nomeMun = municipio.nome;
-
-            atualizarProgresso(15, `Localizando área de ${nomeMun} no OpenStreetMap...`);
-            let elementos = await _buscarPorArea(municipio);
-
-            if (elementos.length === 0) {
-                atualizarProgresso(20, 'Expandindo busca por coordenadas...');
-                elementos = await _buscarPorBbox(municipio);
-            }
-
-            if (!_buscaAtiva) return [];
-
-            if (elementos.length === 0) {
-                return [];
-            }
-
-            atualizarProgresso(35, 'Classificando unidades...');
-            const candidatos = [];
-            for (const el of elementos) {
-                if (!_buscaAtiva) return [];
-                const tags = el.tags || {};
-                const lat = el.lat ?? el.center?.lat;
-                const lon = el.lon ?? el.center?.lon;
-                if (!lat || !lon) continue;
-                const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
-                if (u) candidatos.push(u);
-            }
-
-            if (candidatos.length === 0) return [];
-
-            atualizarProgresso(50, `Validando ${candidatos.length} candidatos...`);
-
-            const raioKm = Math.max(15, municipio.area_km2 ? Math.sqrt(municipio.area_km2 / Math.PI) * 1.3 : 15);
-            const resultado = [];
-
-            for (let i = 0; i < candidatos.length; i++) {
-                if (!_buscaAtiva) return resultado;
-                const u = candidatos[i];
-                const dist = calcularDistancia(municipio.latitude, municipio.longitude, u.lat, u.lon);
-
-                if (dist <= raioKm + 5) {
-                    u.cidade = nomeMun;
-                    u.bairro = '';
-                    resultado.push(u);
-                }
-
-                const pct = 50 + Math.round((i + 1) / candidatos.length * 40);
-                atualizarProgresso(pct,
-                    `${resultado.length} unidade${resultado.length !== 1 ? 's' : ''} localizada${resultado.length !== 1 ? 's' : ''}... (${i + 1}/${candidatos.length})`
-                );
-            }
-
-            return deduplicar(resultado);
-        }
-
-        async function _buscarPorArea(municipio) {
-            const excl = OVERPASS_EXCLUIR;
-            const nomes = [municipio.nome, municipio.nome.replace(/^(São|Santo|Santa) /, 'S. ')];
-            
-            for (const nome of nomes) {
-                const query = `[out:json][timeout:60];
-area["name"="${nome}"]["admin_level"~"^(7|8|9)$"]["boundary"="administrative"]->.mun;
-(
-  node["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
-  way["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
-  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
-  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
-);
-out center tags;`;
-                try {
-                    const dados = await consultarOverpass(query);
-                    const els = dados.elements || [];
-                    if (els.length > 0) return els;
-                } catch (e) {
-                    console.warn('Overpass área falhou:', e);
-                }
-            }
-            return [];
-        }
-
-        async function _buscarPorBbox(municipio) {
-            const excl = OVERPASS_EXCLUIR;
-            const raio = 0.25;
-            const sul = (municipio.latitude - raio).toFixed(6);
-            const norte = (municipio.latitude + raio).toFixed(6);
-            const oeste = (municipio.longitude - raio).toFixed(6);
-            const leste = (municipio.longitude + raio).toFixed(6);
-
-            const query = `[out:json][timeout:60];
-(
-  node["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
-  way["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
-  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
-  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
-);
-out center tags;`;
-            try {
-                const dados = await consultarOverpass(query);
-                return dados.elements || [];
-            } catch (e) {
-                console.warn('Overpass bbox falhou:', e);
-                return [];
-            }
-        }
-
-        // ============================================
-        // BUSCA POR LOCALIZAÇÃO
-        // ============================================
-        function abrirModalLocalizacao() {
-            document.getElementById('modalLocalizacao').classList.add('active');
-        }
-
-        function fecharModalLocalizacao() {
-            document.getElementById('modalLocalizacao').classList.remove('active');
-        }
-
-        async function permitirLocalizacao() {
-            fecharModalLocalizacao();
-            mostrarLoading('Obtendo sua localização...');
-
-            if (!navigator.geolocation) {
-                mostrarAlerta('error', 'Erro', 'Seu navegador não suporta geolocalização.');
-                ocultarLoading();
-                return;
-            }
-
-            try {
-                const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
-                    });
-                });
-
-                const { latitude, longitude } = position.coords;
-                localizacaoUsuario = { lat: latitude, lon: longitude };
-
-                atualizarProgresso(40, 'Buscando unidades próximas...');
-
-                const unidades = await buscarUnidadesProximas(latitude, longitude);
-                
-                atualizarProgresso(80, 'Processando resultados...');
-
-                if (unidades.length === 0) {
-                    mostrarAlerta('warning', 'Nenhuma unidade encontrada', 
-                        'Não foram encontradas unidades de saúde próximas à sua localização.');
-                    ocultarLoading();
-                    return;
-                }
-
-                todasUnidades = unidades.map(u => ({
-                    ...u,
-                    acolhimento: determinarAcolhimento(u),
-                    link: u.osmId ? `https://www.openstreetmap.org/${u.osmType}/${u.osmId}` : '',
-                    mapsLink: u.lat && u.lon ? `https://www.google.com/maps?q=${u.lat},${u.lon}` : '',
-                    website: u.website || ''
-                }));
-
-                unidadesFiltradas = [...todasUnidades];
-                
-                atualizarProgresso(100, `${unidades.length} unidades encontradas!`);
-                
-                setTimeout(() => {
-                    exibirResultados();
-                    ocultarLoading();
-                    iniciarGeoReverso();
-                }, 500);
-
-            } catch (error) {
-                let mensagem = 'Erro ao obter localização.';
-                if (error.code === 1) mensagem = 'Permissão de localização negada.';
-                else if (error.code === 2) mensagem = 'Localização indisponível.';
-                else if (error.code === 3) mensagem = 'Tempo de busca esgotado.';
-                
-                mostrarAlerta('error', 'Erro', mensagem);
-                ocultarLoading();
-            }
-        }
-
-        async function buscarUnidadesProximas(lat, lon) {
-            const raio = 6000;
-
-            const excl = OVERPASS_EXCLUIR;
-            const query = `
-[out:json][timeout:45];
-(
-  node["healthcare"]["healthcare"!~"^(${excl})$"](around:${raio},${lat},${lon});
-  way["healthcare"]["healthcare"!~"^(${excl})$"](around:${raio},${lat},${lon});
-  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raio},${lat},${lon});
-  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raio},${lat},${lon});
-);
-out center tags;
-            `.trim();
-
-            let elementos = [];
-            try {
-                const dados = await consultarOverpass(query);
-                elementos = dados.elements || [];
-            } catch (err) {
-                console.warn('Overpass (proximidade) falhou:', err);
-                return [];
-            }
-
-            const candidatos = [];
-            for (const el of elementos) {
-                const tags = el.tags || {};
-                const elLat = el.lat ?? el.center?.lat;
-                const elLon = el.lon ?? el.center?.lon;
-                if (!elLat || !elLon) continue;
-
-                const distancia = calcularDistancia(lat, lon, elLat, elLon);
-                if (distancia > 10) continue;
-
-                const u = montarUnidade(
-                    tags, elLat, elLon,
-                    el.id,
-                    el.type === 'node' ? 'node' : 'way',
-                    distancia
-                );
-                if (!u) continue;
-                candidatos.push(u);
-            }
-
-            atualizarProgresso(60, 'Identificando município de referência...');
-            let cidadeRef = 'Rio de Janeiro';
-            try {
-                const urlRef = `https://nominatim.openstreetmap.org/reverse` +
-                    `?lat=${lat}&lon=${lon}&format=json&zoom=10` +
-                    `&addressdetails=1&accept-language=pt-BR`;
-                const resp = await fetch(urlRef, {
-                    headers: { 'User-Agent': 'SUSRio/2.0 (contato@susrio.gov.br)' }
-                });
-                if (resp.ok) {
-                    const data = await resp.json();
-                    const addr = data.address || {};
-                    cidadeRef = addr.city || addr.town || addr.municipality || addr.county || cidadeRef;
-                }
-            } catch(e) { console.warn('Nominatim ref falhou:', e); }
-
-            const resultado = [];
-            for (let i = 0; i < candidatos.length; i++) {
-                const u = candidatos[i];
-                u.cidade = cidadeRef;
-                u.bairro = '';
-                resultado.push(u);
-
-                const pct = 60 + Math.round((i + 1) / candidatos.length * 30);
-                atualizarProgresso(pct,
-                    `${resultado.length} unidade${resultado.length !== 1 ? 's' : ''} localizada${resultado.length !== 1 ? 's' : ''}... (${i + 1}/${candidatos.length})`
-                );
-            }
-
-            return deduplicar(resultado).sort((a, b) => a.distancia - b.distancia);
-        }
-
-        // ============================================
-        // NOMINATIM REVERSE GEOCODING
-        // ============================================
-        const _geoQueue = [];
-        let _geoRunning = false;
-
-        function agendarGeoReverso(idx) {
-            _geoQueue.push(idx);
-            _processarGeoQueue();
-        }
-
-        async function _processarGeoQueue() {
-            if (_geoRunning) return;
-            _geoRunning = true;
-
-            while (_geoQueue.length > 0) {
-                const idx = _geoQueue.shift();
-                const u = todasUnidades[idx];
-                if (!u || !u.lat || !u.lon || u.bairro) continue;
-
-                try {
-                    const url = `https://nominatim.openstreetmap.org/reverse` +
-                        `?lat=${u.lat}&lon=${u.lon}&format=json&zoom=14` +
-                        `&addressdetails=1&accept-language=pt-BR`;
-                    const resp = await fetch(url, {
-                        headers: { 'User-Agent': 'SUSRio/2.0 (contato@susrio.gov.br)' }
-                    });
-
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        const addr = data.address || {};
-
-                        const bairro = addr.neighbourhood || addr.suburb || addr.quarter || '';
-                        u.bairro = bairro;
-
-                        _atualizarCardLocalizacao(idx, u.cidade, bairro);
-                    }
-                } catch (e) {
-                    console.warn(`Nominatim rev. error (idx=${idx}):`, e);
-                }
-
-                if (_geoQueue.length > 0) {
-                    await sleep(1100);
-                }
-            }
-
-            _geoRunning = false;
-        }
-
-        function _atualizarCardLocalizacao(idx, cidade, bairro) {
-            const card = document.querySelector(`[data-unit-idx="${idx}"]`);
-            if (!card) return;
-            const locEl = card.querySelector('.info-row .info-loc-text');
-            if (locEl) {
-                const texto = cidade + (bairro ? ' – ' + bairro : '');
-                locEl.textContent = texto;
-            }
-            _agendarAtualizacaoFiltros();
-        }
-
-        function iniciarGeoReverso() {
-            _geoQueue.length = 0;
-            todasUnidades.forEach((u, idx) => {
-                if (u.lat && u.lon && !u.bairro) agendarGeoReverso(idx);
-            });
-        }
-
-        let _filtroDebounce = null;
-        function _agendarAtualizacaoFiltros() {
-            clearTimeout(_filtroDebounce);
-            _filtroDebounce = setTimeout(() => {
-                if (document.getElementById('filtersSection') &&
-                    !document.getElementById('filtersSection').classList.contains('hidden')) {
-                    popularFiltros();
-                }
-            }, 800);
-        }
-
-        // ============================================
-        // EXIBIÇÃO DE RESULTADOS
-        // ============================================
-        function exibirResultados() {
-            document.getElementById('statsSection').classList.remove('hidden');
-            document.getElementById('filtersSection').classList.remove('hidden');
-            document.getElementById('btnVisualizarPDF').classList.remove('hidden');
-            document.getElementById('btnExportar').classList.remove('hidden');
-
-            atualizarEstatisticas();
-            popularFiltros();
-            renderizarUnidades();
-        }
-
-        function atualizarEstatisticas() {
-            document.getElementById('statTotal').textContent = unidadesFiltradas.length;
-            document.getElementById('statPrimaria').textContent = unidadesFiltradas.filter(u => u.nivel === 'Primária').length;
-            document.getElementById('statSecundaria').textContent = unidadesFiltradas.filter(u => u.nivel === 'Secundária').length;
-            document.getElementById('statTerciaria').textContent = unidadesFiltradas.filter(u => u.nivel === 'Terciária').length;
-        }
-
-        function popularFiltros() {
-            const cidades = [...new Set(todasUnidades.map(u => u.cidade))].sort();
-            const selectCidade = document.getElementById('filtroCidade');
-            const valorAtual = selectCidade.value;
-            
-            selectCidade.innerHTML = '<option value="">Todas as cidades</option>';
-            cidades.forEach(cidade => {
-                const option = document.createElement('option');
-                option.value = cidade;
-                option.textContent = cidade;
-                selectCidade.appendChild(option);
-            });
-            selectCidade.value = valorAtual;
-
-            atualizarBairros();
-        }
-
-        function atualizarBairros() {
-            const cidadeSelecionada = document.getElementById('filtroCidade').value;
-            const selectBairro = document.getElementById('filtroBairro');
-            
-            const bairros = [...new Set(todasUnidades
-                .filter(u => !cidadeSelecionada || u.cidade === cidadeSelecionada)
-                .map(u => u.bairro)
-                .filter(b => b && b !== '')
-            )].sort();
-
-            selectBairro.innerHTML = '<option value="">Todos os bairros</option>';
-            bairros.forEach(bairro => {
-                const option = document.createElement('option');
-                option.value = bairro;
-                option.textContent = bairro;
-                selectBairro.appendChild(option);
-            });
-
-            selectBairro.disabled = !cidadeSelecionada;
-        }
-
-        // ============================================
-        // FILTROS
-        // ============================================
-        function aplicarFiltros() {
-            const nome = document.getElementById('filtroNome').value.toLowerCase();
-            const cidade = document.getElementById('filtroCidade').value;
-            const bairro = document.getElementById('filtroBairro').value;
-            const nivel = document.getElementById('filtroNivel').value;
-            const acolhimento = document.getElementById('filtroAcolhimento').value;
-
-            if (cidade !== document.getElementById('filtroCidade').dataset.ultimaCidade) {
-                atualizarBairros();
-                document.getElementById('filtroCidade').dataset.ultimaCidade = cidade;
-            }
-
-            unidadesFiltradas = todasUnidades.filter(u => {
-                const matchNome = !nome || u.nome.toLowerCase().includes(nome);
-                const matchCidade = !cidade || u.cidade === cidade;
-                const matchBairro = !bairro || u.bairro === bairro;
-                const matchNivel = !nivel || u.nivel === nivel;
-                const matchAcolhimento = !acolhimento || u.acolhimento === acolhimento;
-                return matchNome && matchCidade && matchBairro && matchNivel && matchAcolhimento;
-            });
-
-            atualizarEstatisticas();
-            renderizarUnidades();
-            
-            todasUnidades.forEach((u, idx) => {
-                if (u.cidade || u.bairro) _atualizarCardLocalizacao(idx, u.cidade, u.bairro);
-            });
-        }
-
-        function limparFiltros() {
-            document.getElementById('filtroNome').value = '';
-            document.getElementById('filtroCidade').value = '';
-            document.getElementById('filtroBairro').value = '';
-            document.getElementById('filtroNivel').value = '';
-            document.getElementById('filtroAcolhimento').value = '';
-            document.getElementById('filtroBairro').disabled = true;
-            
-            unidadesFiltradas = [...todasUnidades];
-            atualizarEstatisticas();
-            renderizarUnidades();
-            
-            todasUnidades.forEach((u, idx) => {
-                if (u.cidade || u.bairro) _atualizarCardLocalizacao(idx, u.cidade, u.bairro);
-            });
-        }
-
-        // ============================================
-        // RENDERIZAÇÃO
-        // ============================================
-        function renderizarUnidades() {
-            const container = document.getElementById('resultsSection');
-
-            if (unidadesFiltradas.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">🔍</div>
-                        <h3>Nenhuma unidade encontrada</h3>
-                        <p>Tente ajustar os filtros de pesquisa</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const porNivel = {
-                'Primária': unidadesFiltradas.filter(u => u.nivel === 'Primária'),
-                'Secundária': unidadesFiltradas.filter(u => u.nivel === 'Secundária'),
-                'Terciária': unidadesFiltradas.filter(u => u.nivel === 'Terciária')
-            };
-
-            let html = '';
-            
-            Object.entries(porNivel).forEach(([nivel, unidades]) => {
-                if (unidades.length === 0) return;
-
-                const classe = nivel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                const isAberta = categoriasAbertas[nivel];
-
-                html += `
-                    <div class="category-card fade-in">
-                        <button class="category-header ${classe}" onclick="toggleCategoria('${nivel}')">
-                            <div class="category-title">
-                                <span>🏥</span>
-                                <span>Atenção ${nivel}</span>
-                                <span class="category-count">${unidades.length}</span>
-                            </div>
-                            <span class="category-icon ${isAberta ? '' : 'collapsed'}">▼</span>
-                        </button>
-                        <div class="category-content ${isAberta ? '' : 'collapsed'}" id="content-${nivel}">
-                            <div class="units-grid">
-                                ${unidades.map(u => renderizarUnitCard(u, classe, todasUnidades.indexOf(u))).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-        }
-
-        function renderizarUnitCard(u, classe, idx) {
-            const termoBusca = encodeURIComponent(`${u.nome} ${u.cidade} SUS`);
-            const googleSearchLink = `https://www.google.com/search?q=${termoBusca}`;
-            const acolhimentoIcone = getIconeAcolhimento(u.acolhimento);
-            const acolhimentoTexto = getTextoAcolhimento(u.acolhimento);
-            const acolhimentoClass = u.acolhimento || 'ambulatorial';
-            
-            const textoWhatsApp = encodeURIComponent(
-                `*${u.nome}*\n` +
-                `📍 ${u.endereco}\n` +
-                `📞 ${u.telefone}\n` +
-                `🏥 ${u.perfil}\n` +
-                `🚨 ${acolhimentoTexto}\n` +
-                `🗺️ https://www.google.com/maps?q=${u.lat},${u.lon}`
-            );
-            const whatsappLink = `https://wa.me/?text=${textoWhatsApp}`;
-
-            return `
-                <div class="unit-card ${classe}" data-unit-idx="${idx}">
-                    <div class="unit-name">${u.nome}</div>
-                    <div class="badges">
-                        <span class="badge ${classe}">${u.perfil}</span>
-                        <span class="badge sus">SUS</span>
-                        ${u.cnes ? `<span class="badge cnes" title="Consultar no CNES">CNES: ${u.cnes}</span>` : ''}
-                        ${u.gestao ? '<span class="badge gestao">' + u.gestao + '</span>' : ''}
-                    </div>
-                    <div class="unit-info">
-                        <div class="info-row">
-                            <span class="info-icon">📍</span>
-                            <span class="info-loc-text">${u.cidade ? u.cidade + (u.bairro ? " – " + u.bairro : "") : "Carregando localização…"}</span>
-                        </div>
-                        ${u.endereco ? `
-                            <div class="info-row">
-                                <span class="info-icon">🏠</span>
-                                <span>${u.endereco}</span>
-                            </div>
-                        ` : ''}
-                        ${u.telefone ? `
-                            <div class="info-row">
-                                <span class="info-icon">📞</span>
-                                <span>${u.telefone}</span>
-                            </div>
-                        ` : ''}
-                        ${u.distancia !== undefined ? `
-                            <div class="info-row distance">
-                                <span class="info-icon">🧭</span>
-                                <span>${u.distancia.toFixed(1)} km de distância</span>
-                            </div>
-                        ` : ''}
-                        <div class="info-acolhimento ${acolhimentoClass}">
-                            <span>${acolhimentoIcone}</span>
-                            <span>${acolhimentoTexto}</span>
-                        </div>
-                    </div>
-                    <div class="unit-actions">
-                        ${u.mapsLink ? `
-                            <a href="${u.mapsLink}" target="_blank" rel="noopener noreferrer" class="unit-link maps">
-                                <span>🗺️</span>
-                                Maps
-                            </a>
-                        ` : ''}
-                        ${u.cnes ? `
-                            <a href="https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.jsp?pk=${u.cnes}" target="_blank" rel="noopener noreferrer" class="unit-link cnes-link">
-                                <span>🔢</span>
-                                CNES
-                            </a>
-                        ` : ''}
-                        ${u.website ? `
-                            <a href="${u.website}" target="_blank" rel="noopener noreferrer" class="unit-link details">
-                                <span>🌐</span>
-                                Site
-                            </a>
-                        ` : ''}
-                        <a href="${googleSearchLink}" target="_blank" rel="noopener noreferrer" class="unit-link google-search">
-                            <span>🔍</span>
-                            Google
-                        </a>
-                        <a href="${whatsappLink}" target="_blank" rel="noopener noreferrer" class="unit-link whatsapp">
-                            <span>📱</span>
-                            WhatsApp
-                        </a>
-                    </div>
-                </div>
-            `;
-        }
-
-        function toggleCategoria(nivel) {
-            categoriasAbertas[nivel] = !categoriasAbertas[nivel];
-            const content = document.getElementById(`content-${nivel}`);
-            const icon = content.previousElementSibling.querySelector('.category-icon');
-
-            if (categoriasAbertas[nivel]) {
-                content.classList.remove('collapsed');
-                icon.classList.remove('collapsed');
-            } else {
-                content.classList.add('collapsed');
-                icon.classList.add('collapsed');
-            }
-        }
-
-        // ============================================
-        // FUNÇÕES DE PDF - FORMATO A5 HORIZONTAL com informações completas
-        // ============================================
-        function gerarConteudoPDF_A5() {
-            const dataAtual = new Date().toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-
-            const porNivel = {
-                'Primária': unidadesFiltradas.filter(u => u.nivel === 'Primária'),
-                'Secundária': unidadesFiltradas.filter(u => u.nivel === 'Secundária'),
-                'Terciária': unidadesFiltradas.filter(u => u.nivel === 'Terciária')
-            };
-
-            const acolhimentos = {
-                urgente: unidadesFiltradas.filter(u => u.acolhimento === 'urgente').length,
-                urgencia_especializada: unidadesFiltradas.filter(u => u.acolhimento === 'urgencia_especializada').length,
-                ambulatorial: unidadesFiltradas.filter(u => u.acolhimento === 'ambulatorial').length,
-                transferencia: unidadesFiltradas.filter(u => u.acolhimento === 'transferencia').length,
-                especializado: unidadesFiltradas.filter(u => u.acolhimento === 'especializado').length,
-                samu: unidadesFiltradas.filter(u => u.acolhimento === 'samu').length,
-                hemoterapia: unidadesFiltradas.filter(u => u.acolhimento === 'hemoterapia').length,
-                psiquiatria: unidadesFiltradas.filter(u => u.acolhimento === 'psiquiatria').length
-            };
-
-            let html = `
-                <div class="pdf-content-a5">
-                    <div class="pdf-header-a5">
-                        <h1>🏥 Relatório de Unidades de Saúde - RJ</h1>
-                        <p>Gerado em: ${dataAtual} | Total: ${unidadesFiltradas.length} unidades</p>
-                    </div>
-                    
-                    <!-- Estatísticas em linha -->
-                    <div class="pdf-stats-row-a5">
-                        <div class="pdf-stat-card-a5">
-                            <div class="pdf-stat-value-a5">${unidadesFiltradas.length}</div>
-                            <div class="pdf-stat-label-a5">Total</div>
-                        </div>
-                        <div class="pdf-stat-card-a5">
-                            <div class="pdf-stat-value-a5">${porNivel['Primária'].length}</div>
-                            <div class="pdf-stat-label-a5">Primária</div>
-                        </div>
-                        <div class="pdf-stat-card-a5">
-                            <div class="pdf-stat-value-a5">${porNivel['Secundária'].length}</div>
-                            <div class="pdf-stat-label-a5">Secundária</div>
-                        </div>
-                        <div class="pdf-stat-card-a5">
-                            <div class="pdf-stat-value-a5">${porNivel['Terciária'].length}</div>
-                            <div class="pdf-stat-label-a5">Terciária</div>
-                        </div>
-                        <div class="pdf-stat-card-a5">
-                            <div class="pdf-stat-value-a5">${acolhimentos.urgente + acolhimentos.urgencia_especializada}</div>
-                            <div class="pdf-stat-label-a5">Urgência</div>
-                        </div>
-                        <div class="pdf-stat-card-a5">
-                            <div class="pdf-stat-value-a5">${acolhimentos.transferencia}</div>
-                            <div class="pdf-stat-label-a5">Transferência</div>
-                        </div>
-                    </div>
-
-                    <!-- Resumo de Acolhimento em Grid -->
-                    <div class="pdf-acolhimento-grid-a5">
-                        <div class="pdf-acolhimento-item-a5">
-                            <span class="pdf-acolhimento-icon-a5">🚨</span>
-                            <div class="pdf-acolhimento-info-a5">
-                                <div class="pdf-acolhimento-nome-a5">Urgência Geral</div>
-                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.urgente}</div>
-                            </div>
-                        </div>
-                        <div class="pdf-acolhimento-item-a5">
-                            <span class="pdf-acolhimento-icon-a5">🏥⚡</span>
-                            <div class="pdf-acolhimento-info-a5">
-                                <div class="pdf-acolhimento-nome-a5">Urgência Esp.</div>
-                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.urgencia_especializada}</div>
-                            </div>
-                        </div>
-                        <div class="pdf-acolhimento-item-a5">
-                            <span class="pdf-acolhimento-icon-a5">🩺</span>
-                            <div class="pdf-acolhimento-info-a5">
-                                <div class="pdf-acolhimento-nome-a5">Ambulatorial</div>
-                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.ambulatorial}</div>
-                            </div>
-                        </div>
-                        <div class="pdf-acolhimento-item-a5">
-                            <span class="pdf-acolhimento-icon-a5">🚑</span>
-                            <div class="pdf-acolhimento-info-a5">
-                                <div class="pdf-acolhimento-nome-a5">Transferência</div>
-                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.transferencia}</div>
-                            </div>
-                        </div>
-                        <div class="pdf-acolhimento-item-a5">
-                            <span class="pdf-acolhimento-icon-a5">🔬</span>
-                            <div class="pdf-acolhimento-info-a5">
-                                <div class="pdf-acolhimento-nome-a5">Especializado</div>
-                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.especializado}</div>
-                            </div>
-                        </div>
-                        <div class="pdf-acolhimento-item-a5">
-                            <span class="pdf-acolhimento-icon-a5">🚑📞</span>
-                            <div class="pdf-acolhimento-info-a5">
-                                <div class="pdf-acolhimento-nome-a5">SAMU</div>
-                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.samu}</div>
-                            </div>
-                        </div>
-                        <div class="pdf-acolhimento-item-a5">
-                            <span class="pdf-acolhimento-icon-a5">🩸</span>
-                            <div class="pdf-acolhimento-info-a5">
-                                <div class="pdf-acolhimento-nome-a5">Hemoterapia</div>
-                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.hemoterapia}</div>
-                            </div>
-                        </div>
-                        <div class="pdf-acolhimento-item-a5">
-                            <span class="pdf-acolhimento-icon-a5">🧠</span>
-                            <div class="pdf-acolhimento-info-a5">
-                                <div class="pdf-acolhimento-nome-a5">Psiquiatria</div>
-                                <div class="pdf-acolhimento-numero-a5">${acolhimentos.psiquiatria}</div>
-                            </div>
-                        </div>
-                    </div>
-            `;
-
-            // Listagem por nível em grid de 2 colunas com informações completas
-            Object.entries(porNivel).forEach(([nivel, unidades]) => {
-                if (unidades.length === 0) return;
-                
-                const classe = nivel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                
-                html += `
-                    <div class="pdf-section-a5">
-                        <div class="pdf-category-header-a5 ${classe}">
-                            <span>${nivel === 'Primária' ? '🏥' : nivel === 'Secundária' ? '🚑' : '🏨'}</span>
-                            Atenção ${nivel} (${unidades.length} unidades)
-                        </div>
-                        <div class="pdf-units-grid-a5">
-                `;
-
-                unidades.forEach(u => {
-                    const acolhimentoClass = u.acolhimento || 'ambulatorial';
-                    const enderecoCompleto = u.endereco ? u.endereco : 'Endereço não informado';
-                    const telefone = u.telefone ? u.telefone : 'Telefone não informado';
-                    
-                    html += `
-                        <div class="pdf-unit-card-a5">
-                            <div class="pdf-unit-name-a5" title="${u.nome}">${u.nome}</div>
-                            <div class="pdf-unit-profile-a5">
-                                <span>🏥 ${u.perfil}</span>
-                            </div>
-                            <div class="pdf-unit-address-a5" title="${enderecoCompleto}">
-                                <span>📍 ${enderecoCompleto.substring(0, 35)}${enderecoCompleto.length > 35 ? '...' : ''}</span>
-                            </div>
-                            <div class="pdf-unit-address-a5">
-                                <span>🏘️ ${u.cidade}${u.bairro ? ' – ' + u.bairro.substring(0, 20) : ''}</span>
-                            </div>
-                            <div class="pdf-unit-phone-a5">
-                                <span>📞 ${telefone}</span>
-                            </div>
-                            <div class="pdf-unit-row-a5">
-                                <span class="pdf-acolhimento-badge-a5 ${acolhimentoClass}">${getTextoAcolhimento(u.acolhimento).substring(0, 18)}</span>
-                                ${u.distancia ? `<span class="pdf-distance-a5">🧭 ${u.distancia.toFixed(1)} km</span>` : ''}
-                            </div>
-                            ${u.cnes ? `<div style="font-size:0.55rem; color:var(--gray-500); margin-top:0.2rem;">🔢 CNES: ${u.cnes}</div>` : ''}
-                        </div>
-                    `;
-                });
-
-                html += `</div></div>`;
-            });
-
-            html += `
-                    <div class="pdf-footer-a5">
-                        <p>Relatório gerado pelo Sistema Saúde Rio - Dados do CNES/DATASUS</p>
-                        <p>© 2026 - Todos os direitos reservados</p>
-                    </div>
-                </div>
-            `;
-
-            return html;
-        }
-
-        async function visualizarPDF() {
-            if (unidadesFiltradas.length === 0) {
-                alert('Nenhuma unidade para gerar PDF.');
-                return;
-            }
-
-            mostrarLoading('Gerando visualização do PDF...');
-
-            try {
-                const html = gerarConteudoPDF_A5();
-                document.getElementById('pdfPreviewBody').innerHTML = html;
-                document.getElementById('pdfPreviewOverlay').classList.add('active');
-                ocultarLoading();
-            } catch (error) {
-                console.error('Erro ao gerar PDF:', error);
-                mostrarAlerta('error', 'Erro', 'Não foi possível gerar o PDF.');
-                ocultarLoading();
-            }
-        }
-
-        function fecharPDFPreview() {
-            document.getElementById('pdfPreviewOverlay').classList.remove('active');
-        }
-
-        async function baixarPDF() {
-            if (unidadesFiltradas.length === 0) {
-                alert('Nenhuma unidade para gerar PDF.');
-                return;
-            }
-
-            mostrarLoading('Gerando PDF em formato A5 horizontal...');
-
-            try {
-                const { jsPDF } = window.jspdf;
-                
-                const element = document.createElement('div');
-                element.innerHTML = gerarConteudoPDF_A5();
-                element.style.width = '1100px';
-                element.style.padding = '15px';
-                element.style.background = 'white';
-                element.style.position = 'absolute';
-                element.style.left = '-9999px';
-                document.body.appendChild(element);
-
-                const canvas = await html2canvas(element, {
-                    scale: 2,
-                    backgroundColor: '#ffffff',
-                    logging: false,
-                    allowTaint: true,
-                    useCORS: true
-                });
-
-                document.body.removeChild(element);
-
-                const imgData = canvas.toDataURL('image/png');
-                
-                // Configurar PDF em A5 horizontal (148mm x 210mm)
-                const pdf = new jsPDF({
-                    orientation: 'landscape',
-                    unit: 'mm',
-                    format: 'a5'
-                });
-
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                const imgWidth = canvas.width;
-                const imgHeight = canvas.height;
-                const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-                const width = imgWidth * ratio;
-                const height = imgHeight * ratio;
-
-                // Centralizar no PDF
-                const x = (pdfWidth - width) / 2;
-                const y = (pdfHeight - height) / 2;
-
-                pdf.addImage(imgData, 'PNG', x, y, width, height);
-                
-                const dataAtual = new Date().toISOString().split('T')[0];
-                pdf.save(`Unidades_SUS_BR_${dataAtual}_A5.pdf`);
-
-                ocultarLoading();
-            } catch (error) {
-                console.error('Erro ao gerar PDF:', error);
-                mostrarAlerta('error', 'Erro', 'Não foi possível gerar o PDF.');
-                ocultarLoading();
-            }
-        }
-
-        async function compartilharPDFCompletoWhatsApp() {
-            if (unidadesFiltradas.length === 0) {
-                alert('Nenhuma unidade para compartilhar.');
-                return;
-            }
-
-            mostrarLoading('Preparando PDF para compartilhamento...');
-
-            try {
-                const { jsPDF } = window.jspdf;
-                
-                const element = document.createElement('div');
-                element.innerHTML = gerarConteudoPDF_A5();
-                element.style.width = '1100px';
-                element.style.padding = '15px';
-                element.style.background = 'white';
-                element.style.position = 'absolute';
-                element.style.left = '-9999px';
-                document.body.appendChild(element);
-
-                const canvas = await html2canvas(element, {
-                    scale: 2,
-                    backgroundColor: '#ffffff',
-                    logging: false,
-                    allowTaint: true,
-                    useCORS: true
-                });
-
-                document.body.removeChild(element);
-
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF({
-                    orientation: 'landscape',
-                    unit: 'mm',
-                    format: 'a5'
-                });
-
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                const imgWidth = canvas.width;
-                const imgHeight = canvas.height;
-                const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-                const width = imgWidth * ratio;
-                const height = imgHeight * ratio;
-
-                const x = (pdfWidth - width) / 2;
-                const y = (pdfHeight - height) / 2;
-
-                pdf.addImage(imgData, 'PNG', x, y, width, height);
-                
-                const pdfBlob = pdf.output('blob');
-                const pdfUrl = URL.createObjectURL(pdfBlob);
-                
-                const link = document.createElement('a');
-                link.href = pdfUrl;
-                link.download = 'Unidades_SUS_BR_A5.pdf';
-                document.body.appendChild(link);
-                
-                alert('✅ PDF gerado com sucesso!\n\n' +
-                      'Para compartilhar no WhatsApp:\n\n' +
-                      '1️⃣ Clique em OK e aguarde o download\n' +
-                      '2️⃣ Abra o WhatsApp\n' +
-                      '3️⃣ Selecione a conversa desejada\n' +
-                      '4️⃣ Clique no ícone 📎 (anexar)\n' +
-                      '5️⃣ Escolha "Documento"\n' +
-                      '6️⃣ Selecione o arquivo baixado');
-                
-                link.click();
-                
-                document.body.removeChild(link);
-                URL.revokeObjectURL(pdfUrl);
-
-                ocultarLoading();
-                fecharPDFPreview();
-                
-            } catch (error) {
-                console.error('Erro ao gerar PDF para WhatsApp:', error);
-                mostrarAlerta('error', 'Erro', 'Não foi possível gerar o PDF para compartilhamento.');
-                ocultarLoading();
-            }
-        }
-
-        // ============================================
-        // EXPORTAR EXCEL
-        // ============================================
-        function exportarExcel() {
-            if (unidadesFiltradas.length === 0) {
-                alert('Nenhuma unidade para exportar.');
-                return;
-            }
-
-            const dados = unidadesFiltradas.map(u => {
-                return {
-                    'Nome': u.nome,
-                    'Cidade': u.cidade,
-                    'Bairro': u.bairro,
-                    'Perfil': u.perfil,
-                    'Nível de Atenção': u.nivel,
-                    'Tipo de Acolhimento': getTextoAcolhimento(u.acolhimento),
-                    'Endereço': u.endereco || 'Não informado',
-                    'Telefone': u.telefone || 'Não informado',
-                    'Gestão': u.gestao || 'Não informado',
-                    'CNES': u.cnes || 'Não informado',
-                    'Distância (km)': u.distancia !== undefined ? u.distancia.toFixed(2) : '',
-                    'Latitude': u.lat || '',
-                    'Longitude': u.lon || '',
-                    'Google Maps': u.mapsLink || '',
-                    'Site Oficial': u.website || ''
-                };
-            });
-
-            const ws = XLSX.utils.json_to_sheet(dados);
-            
-            const colWidths = [
-                { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 25 },
-                { wch: 18 }, { wch: 25 }, { wch: 50 }, { wch: 15 },
-                { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 },
-                { wch: 12 }, { wch: 50 }, { wch: 50 }
-            ];
-            ws['!cols'] = colWidths;
-
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Unidades SUS BR');
-
-            const dataAtual = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `Unidades_SUS_BR_${dataAtual}.xlsx`);
-        }
-
-        // ============================================
-        // ESTADOS E MUNICÍPIOS — IBGE API
-        // ============================================
-        async function carregarEstados() {
-            try {
-                const resp = await fetch(`${CONFIG.IBGE}/estados?orderBy=nome`);
-                if (!resp.ok) throw new Error('Falha ao carregar estados');
-                estados = await resp.json();
-
-                const selectModal = document.getElementById('selectEstado');
-                const selectFiltro = document.getElementById('filtroEstado');
-
-                estados.forEach(e => {
-                    const opt1 = new Option(`${e.sigla} — ${e.nome}`, e.sigla);
-                    const opt2 = new Option(`${e.sigla} — ${e.nome}`, e.sigla);
-                    selectModal.appendChild(opt1);
-                    selectFiltro.appendChild(opt2);
-                });
-            } catch (err) {
-                console.error('Erro ao carregar estados:', err);
-            }
-        }
-
-        async function carregarMunicipios(uf) {
-            if (!uf) uf = document.getElementById('selectEstado').value;
-            if (!uf) return;
-
-            const selectMun = document.getElementById('selectMunicipio');
-            selectMun.innerHTML = '<option value="">Carregando...</option>';
-            selectMun.disabled = true;
-
-            try {
-                if (!municipiosPorEstado[uf]) {
-                    const siglaObj = estados.find(e => e.sigla === uf);
-                    const idEstado = siglaObj ? siglaObj.id : uf;
-                    const resp = await fetch(`${CONFIG.IBGE}/estados/${idEstado}/municipios?orderBy=nome`);
-                    if (!resp.ok) throw new Error('Falha ao carregar municípios');
-                    const lista = await resp.json();
-                    municipiosPorEstado[uf] = lista.map(m => ({
-                        id: String(m.id),
-                        nome: m.nome,
-                        latitude: null,
-                        longitude: null,
-                        area_km2: null
-                    }));
-                }
-
-                selectMun.innerHTML = '<option value="">Selecione um município</option>';
-                municipiosPorEstado[uf].forEach(m => {
-                    selectMun.appendChild(new Option(m.nome, m.id));
-                });
-                selectMun.disabled = false;
-            } catch (err) {
-                console.error('Erro ao carregar municípios:', err);
-                selectMun.innerHTML = '<option value="">Erro ao carregar — tente novamente</option>';
-                selectMun.disabled = false;
-            }
-        }
-
-        async function buscarUnidadesCNES(codigoMunicipio) {
-            // Tenta buscar no OSM usando o código IBGE para localizar o município
-            try {
-                atualizarProgresso(5, 'Buscando coordenadas do município no IBGE...');
-                const uf = document.getElementById('selectEstado').value;
-                const municipio = municipiosPorEstado[uf]?.find(m => m.id === codigoMunicipio);
-                if (!municipio) return [];
-
-                // Obtém coordenadas via Nominatim se não tiver
-                if (!municipio.latitude || !municipio.longitude) {
-                    const nomeBusca = encodeURIComponent(`${municipio.nome}, ${uf}, Brasil`);
-                    const resp = await fetch(
-                        `https://nominatim.openstreetmap.org/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br`,
-                        { headers: { 'User-Agent': 'SaudeBrasil/2.0 (contato@sus.gov.br)' } }
-                    );
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        if (data.length > 0) {
-                            municipio.latitude = parseFloat(data[0].lat);
-                            municipio.longitude = parseFloat(data[0].lon);
-                            // Estimar área pelo bounding box
-                            if (data[0].boundingbox) {
-                                const bb = data[0].boundingbox.map(Number);
-                                const dLat = Math.abs(bb[1] - bb[0]);
-                                const dLon = Math.abs(bb[3] - bb[2]);
-                                municipio.area_km2 = dLat * 111 * dLon * 111 * Math.cos(municipio.latitude * Math.PI / 180);
-                            }
-                        }
-                    }
-                }
-
-                if (!municipio.latitude) return [];
-
-                atualizarProgresso(10, `Buscando unidades de saúde em ${municipio.nome}...`);
-                return await buscarUnidadesOpenStreetMap(municipio);
-            } catch (err) {
-                console.warn('buscarUnidadesCNES falhou:', err);
-                return [];
-            }
-        }
-
-        function atualizarCidadesFiltros() {
-            const estado = document.getElementById('filtroEstado').value;
-            // No modo filtro pós-busca, apenas re-aplica os filtros
-            aplicarFiltros();
-        }
-
-        // ============================================
-        // ============================================
-        document.querySelectorAll('.modal-overlay, .pdf-preview-overlay').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
+  </div>
+
+  <!-- ─── GEOLOCALIZAÇÃO ─── -->
+  <div class="geo-section">
+    <div style="font-size: 1.8rem;">📍</div>
+    <div class="geo-info">
+      <h3>Busca por Proximidade Geográfica</h3>
+      <p id="geoStatus">Clique em "Usar Minha Localização" para buscar unidades próximas a você.</p>
+    </div>
+    <div class="geo-radius-row">
+      <span class="geo-radius-label">Raio (km):</span>
+      <input type="number" class="geo-radius-input form-control" id="geoRaio" value="3" min="0.5" max="6" step="0.5">
+    </div>
+    <button class="btn btn-geo" onclick="usarGeolocalizacao()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>
+      Usar Minha Localização
+    </button>
+  </div>
+
+  <!-- ─── DASHBOARD ─── -->
+  <div class="dashboard" id="dashboard">
+    <div class="stat-card" style="--card-accent: var(--teal);">
+      <div class="stat-card-icon" style="background: var(--teal-pale); color: var(--teal);">🏥</div>
+      <div class="stat-card-value" id="statTotal">—</div>
+      <div class="stat-card-label">Total de Unidades</div>
+      <div class="stat-card-sublabel">encontradas</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #00A878;">
+      <div class="stat-card-icon" style="background: #E8F8F3; color: #00A878;">🏠</div>
+      <div class="stat-card-value" id="statPrimaria">—</div>
+      <div class="stat-card-label">Atenção Primária</div>
+      <div class="stat-card-sublabel">UBS, ESF, CAPS...</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--blue);">
+      <div class="stat-card-icon" style="background: var(--blue-pale); color: var(--blue);">🔬</div>
+      <div class="stat-card-value" id="statSecundaria">—</div>
+      <div class="stat-card-label">Atenção Secundária</div>
+      <div class="stat-card-sublabel">Policlínicas, esp...</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--red);">
+      <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🏨</div>
+      <div class="stat-card-value" id="statTerciaria">—</div>
+      <div class="stat-card-label">Atenção Terciária</div>
+      <div class="stat-card-sublabel">Hospitais, UTI...</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--red);">
+      <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🚨</div>
+      <div class="stat-card-value" id="statUrgencia">—</div>
+      <div class="stat-card-label">Urgência/Emergência</div>
+      <div class="stat-card-sublabel">UPAs, PS, SAMU</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--purple);">
+      <div class="stat-card-icon" style="background: var(--purple-pale); color: var(--purple);">🤱</div>
+      <div class="stat-card-value" id="statMaternidade">—</div>
+      <div class="stat-card-label">Maternidades</div>
+      <div class="stat-card-sublabel">Parto e neonatal</div>
+    </div>
+    <div class="stat-card" style="--card-accent: var(--amber);">
+      <div class="stat-card-icon" style="background: var(--amber-pale); color: var(--amber);">🦴</div>
+      <div class="stat-card-value" id="statTraumatologia">—</div>
+      <div class="stat-card-label">Traumatologia</div>
+      <div class="stat-card-sublabel">Ortopedia, trauma</div>
+    </div>
+    <div class="stat-card" style="--card-accent: #9C27B0;">
+      <div class="stat-card-icon" style="background: #F3E5F5; color: #9C27B0;">🏛️</div>
+      <div class="stat-card-value" id="statAmbulatorial">—</div>
+      <div class="stat-card-label">Ambulatorial</div>
+      <div class="stat-card-sublabel">Consultas/exames</div>
+    </div>
+  </div>
+
+  <!-- ─── RESULTADOS ─── -->
+  <div id="resultsSection">
+    <div class="status-box">
+      <span class="status-icon">🔍</span>
+      <h3>Pronto para buscar</h3>
+      <p>Selecione um estado e município nos filtros acima e clique em "Buscar Unidades", ou use a geolocalização para encontrar unidades próximas a você.</p>
+    </div>
+  </div>
+
+</div><!-- /main-wrapper -->
+
+<footer class="footer">
+  Dados obtidos em tempo real via <a href="https://apidadosabertos.saude.gov.br/cnes" target="_blank">API CNES/DATASUS</a> — Ministério da Saúde do Brasil &nbsp;|&nbsp; SaúdeBR Localizador v1.0
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIGURAÇÃO & CONSTANTES
+// ═══════════════════════════════════════════════════
+const CNES_API = 'https://apidadosabertos.saude.gov.br/cnes';
+const IBGE_API = 'https://servicodados.ibge.gov.br/api/v1/localidades';
+const MAX_UNITS_PER_CALL = 50;
+const MAX_TOTAL_UNITS = 1000;
+
+const ESTADOS = [
+  {sg:'AC',nome:'Acre',co:'12'},{sg:'AL',nome:'Alagoas',co:'27'},{sg:'AP',nome:'Amapá',co:'16'},
+  {sg:'AM',nome:'Amazonas',co:'13'},{sg:'BA',nome:'Bahia',co:'29'},{sg:'CE',nome:'Ceará',co:'23'},
+  {sg:'DF',nome:'Distrito Federal',co:'53'},{sg:'ES',nome:'Espírito Santo',co:'32'},{sg:'GO',nome:'Goiás',co:'52'},
+  {sg:'MA',nome:'Maranhão',co:'21'},{sg:'MT',nome:'Mato Grosso',co:'51'},{sg:'MS',nome:'Mato Grosso do Sul',co:'50'},
+  {sg:'MG',nome:'Minas Gerais',co:'31'},{sg:'PA',nome:'Pará',co:'15'},{sg:'PB',nome:'Paraíba',co:'25'},
+  {sg:'PR',nome:'Paraná',co:'41'},{sg:'PE',nome:'Pernambuco',co:'26'},{sg:'PI',nome:'Piauí',co:'22'},
+  {sg:'RJ',nome:'Rio de Janeiro',co:'33'},{sg:'RN',nome:'Rio Grande do Norte',co:'24'},{sg:'RS',nome:'Rio Grande do Sul',co:'43'},
+  {sg:'RO',nome:'Rondônia',co:'11'},{sg:'RR',nome:'Roraima',co:'14'},{sg:'SC',nome:'Santa Catarina',co:'42'},
+  {sg:'SP',nome:'São Paulo',co:'35'},{sg:'SE',nome:'Sergipe',co:'28'},{sg:'TO',nome:'Tocantins',co:'17'}
+];
+
+// Mapeamento tp_unidade → nível + acolhimento
+const TP_MAP = {
+  '01':{ nivel:'primaria', tags:['ambulatorial'], nome:'Posto de Saúde' },
+  '02':{ nivel:'primaria', tags:['ambulatorial'], nome:'Centro de Saúde/UBS' },
+  '04':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Policlínica' },
+  '05':{ nivel:'terciaria', tags:['ambulatorial','urgencia'], nome:'Hospital Geral' },
+  '07':{ nivel:'terciaria', tags:['ambulatorial'], nome:'Hospital Especializado' },
+  '15':{ nivel:'terciaria', tags:['ambulatorial','urgencia'], nome:'Unidade Mista' },
+  '20':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Pronto Atendimento' },
+  '21':{ nivel:'terciaria', tags:['urgencia'], nome:'Pronto Socorro Geral' },
+  '22':{ nivel:'terciaria', tags:['urgencia'], nome:'Pronto Socorro Especializado' },
+  '32':{ nivel:'primaria', tags:['ambulatorial'], nome:'Saúde Indígena' },
+  '36':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Clínica/Centro de Especialidade' },
+  '39':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Apoio Diagnose/Terapia' },
+  '40':{ nivel:'primaria', tags:['urgencia'], nome:'Unidade Móvel Terrestre' },
+  '42':{ nivel:'primaria', tags:['urgencia'], nome:'Unidade Móvel Fluvial' },
+  '43':{ nivel:'primaria', tags:['ambulatorial'], nome:'Farmácia' },
+  '50':{ nivel:'primaria', tags:['ambulatorial'], nome:'Vigilância em Saúde' },
+  '60':{ nivel:'primaria', tags:['ambulatorial'], nome:'Cooperativa/Empresa' },
+  '61':{ nivel:'secundaria', tags:['ambulatorial'], nome:'CAPS' },
+  '62':{ nivel:'terciaria', tags:['ambulatorial'], nome:'Hospital/Dia Isolado' },
+  '67':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Laboratório Saúde Pública' },
+  '68':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Central de Regulação' },
+  '69':{ nivel:'primaria', tags:['ambulatorial'], nome:'Centro de Apoio à Saúde da Família' },
+  '70':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Centro Hemoterapia/Hematologia' },
+  '71':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Banco de Leite Humano' },
+  '72':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Unidade Regime Residencial' },
+  '73':{ nivel:'primaria', tags:['ambulatorial'], nome:'Posto de Saúde Rural' },
+  '74':{ nivel:'terciaria', tags:['maternidade'], nome:'Centro de Parto Normal' },
+  '75':{ nivel:'terciaria', tags:['maternidade'], nome:'Hospital Maternidade' },
+  '76':{ nivel:'terciaria', tags:['urgencia'], nome:'Central de Regulação de Urgências' },
+  '79':{ nivel:'secundaria', tags:['traumatologia'], nome:'Oficina Ortopédica' },
+  '80':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Laboratório Próteses Dentárias' },
+  '81':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Laboratório Central Saúde Pública' },
+  '82':{ nivel:'primaria', tags:['ambulatorial'], nome:'Atenção Domiciliar' },
+  '83':{ nivel:'primaria', tags:['ambulatorial'], nome:'Polo Academia da Saúde' },
+  '84':{ nivel:'primaria', tags:['ambulatorial'], nome:'Central de Abastecimento Farmacêutico' },
+  '85':{ nivel:'primaria', tags:['ambulatorial'], nome:'Centro de Imunização' },
+  '86':{ nivel:'secundaria', tags:['ambulatorial'], nome:'Serviço de Atenção Especializada' },
+};
+
+const NIVEL_CONFIG = {
+  primaria:    { label:'Atenção Primária',   color:'#00A878', bg:'#E8F8F3', pill:'#00A878', emoji:'🏠' },
+  secundaria:  { label:'Atenção Secundária',  color:'#1565C0', bg:'#E8F0FE', pill:'#1565C0', emoji:'🔬' },
+  terciaria:   { label:'Atenção Terciária',   color:'#E53935', bg:'#FDECEA', pill:'#E53935', emoji:'🏨' },
+};
+
+const ACOLHIMENTO_CONFIG = {
+  ambulatorial: { label:'Ambulatorial',        tagClass:'unit-tag-ambulatorial', emoji:'💊' },
+  urgencia:     { label:'Urgência/Emergência', tagClass:'unit-tag-urgencia',     emoji:'🚨' },
+  maternidade:  { label:'Maternidade',          tagClass:'unit-tag-maternidade',  emoji:'🤱' },
+  traumatologia:{ label:'Traumatologia',        tagClass:'unit-tag-traumatologia',emoji:'🦴' },
+};
+
+const GESTAO_MAP = { M:'Municipal', E:'Estadual', F:'Federal', D:'Dupla Gestão' };
+
+// ═══════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ═══════════════════════════════════════════════════
+let allUnits = [];
+let filteredUnits = [];
+let userLocation = null;
+let geoSearchMode = false;
+let currentMunicipioCode = null;
+let isLoading = false;
+
+// ═══════════════════════════════════════════════════
+//  INICIALIZAÇÃO
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  populateEstados();
+});
+
+function populateEstados() {
+  const sel = document.getElementById('selectEstado');
+  ESTADOS.sort((a,b) => a.nome.localeCompare(b.nome));
+  ESTADOS.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.sg;
+    opt.textContent = `${e.sg} — ${e.nome}`;
+    sel.appendChild(opt);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  EVENTOS DE FILTRO
+// ═══════════════════════════════════════════════════
+function toggleFilter() {
+  const body = document.getElementById('filterBody');
+  const arrow = document.getElementById('filterArrow');
+  const btn = document.getElementById('filterToggleBtn');
+  const isOpen = body.classList.toggle('open');
+  arrow.classList.toggle('open', isOpen);
+  btn.querySelector('span').textContent = isOpen ? 'Recolher' : 'Expandir';
+}
+
+async function onEstadoChange() {
+  const uf = document.getElementById('selectEstado').value;
+  const sel = document.getElementById('selectMunicipio');
+  sel.disabled = true;
+  sel.innerHTML = '<option>Carregando municípios...</option>';
+  allUnits = [];
+  filteredUnits = [];
+  currentMunicipioCode = null;
+  geoSearchMode = false;
+
+  if (!uf) { sel.innerHTML = '<option>— Selecione o estado primeiro —</option>'; return; }
+
+  try {
+    const resp = await fetch(`${IBGE_API}/estados/${uf}/municipios`);
+    const data = await resp.json();
+    data.sort((a,b) => a.nome.localeCompare(b.nome));
+    sel.innerHTML = '<option value="">— Selecione o município —</option>';
+    data.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = String(m.id).substring(0, 6); // 6-digit CNES code
+      opt.textContent = m.nome;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+  } catch(e) {
+    sel.innerHTML = '<option>Erro ao carregar municípios</option>';
+    showNotification('Erro ao carregar municípios. Verifique sua conexão.', 'error');
+  }
+}
+
+function onMunicipioChange() {
+  const code = document.getElementById('selectMunicipio').value;
+  currentMunicipioCode = code;
+  allUnits = [];
+  filteredUnits = [];
+  geoSearchMode = false;
+  if (code) {
+    // Auto-open filter and suggest search
+  }
+}
+
+function limparFiltros() {
+  document.getElementById('selectEstado').value = '';
+  document.getElementById('selectMunicipio').innerHTML = '<option value="">— Selecione o estado primeiro —</option>';
+  document.getElementById('selectMunicipio').disabled = true;
+  document.getElementById('inputBairro').value = '';
+  document.getElementById('selectNivel').value = '';
+  document.getElementById('selectAcolhimento').value = '';
+  document.getElementById('selectGestao').value = '';
+  allUnits = [];
+  filteredUnits = [];
+  currentMunicipioCode = null;
+  geoSearchMode = false;
+  userLocation = null;
+  document.getElementById('geoStatus').textContent = 'Clique em "Usar Minha Localização" para buscar unidades próximas a você.';
+  renderInitial();
+  updateDashboard([]);
+}
+
+function applyLocalFilters() {
+  if (!allUnits.length) return;
+  const bairro = document.getElementById('inputBairro').value.toLowerCase().trim();
+  const nivel = document.getElementById('selectNivel').value;
+  const acolhimento = document.getElementById('selectAcolhimento').value;
+  const gestao = document.getElementById('selectGestao').value;
+
+  filteredUnits = allUnits.filter(u => {
+    if (bairro && !(u.no_bairro || '').toLowerCase().includes(bairro)) return false;
+    if (nivel && u._nivel !== nivel) return false;
+    if (acolhimento && !u._tags.includes(acolhimento)) return false;
+    if (gestao && u.tp_gestao !== gestao) return false;
+    return true;
+  });
+
+  updateDashboard(filteredUnits);
+  renderResults(filteredUnits);
+}
+
+// ═══════════════════════════════════════════════════
+//  BUSCA PRINCIPAL
+// ═══════════════════════════════════════════════════
+async function buscarUnidades() {
+  const coMunicipio = document.getElementById('selectMunicipio').value;
+  if (!coMunicipio) {
+    showNotification('Selecione um município antes de buscar.', 'error');
+    return;
+  }
+
+  geoSearchMode = false;
+  await fetchUnidades(coMunicipio);
+}
+
+async function fetchUnidades(coMunicipio) {
+  if (isLoading) return;
+  isLoading = true;
+
+  const btnBuscar = document.getElementById('btnBuscar');
+  btnBuscar.disabled = true;
+  btnBuscar.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2.5px;margin:0;"></div> Buscando...';
+
+  showLoading();
+  allUnits = [];
+
+  try {
+    let offset = 0;
+    let total = null;
+    let progressEl = document.getElementById('progressBar');
+
+    while (true) {
+      const url = `${CNES_API}/estabelecimentos?co_municipio=${coMunicipio}&limit=${MAX_UNITS_PER_CALL}&offset=${offset}`;
+      const resp = await fetch(url);
+
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+
+      const items = data.estabelecimentos || data.result || data.data || data || [];
+      if (!Array.isArray(items) || items.length === 0) break;
+
+      total = data.total || data.count || total;
+      items.forEach(u => {
+        const classified = classifyUnit(u);
+        allUnits.push(classified);
+      });
+
+      offset += MAX_UNITS_PER_CALL;
+
+      if (progressEl && total) {
+        const pct = Math.min(100, Math.round((offset / total) * 100));
+        progressEl.style.width = pct + '%';
+        document.getElementById('loadingCount').textContent = `${allUnits.length} de ${total} unidades carregadas...`;
+      }
+
+      if (items.length < MAX_UNITS_PER_CALL || allUnits.length >= MAX_TOTAL_UNITS) break;
+    }
+
+    if (allUnits.length === 0) {
+      showEmpty();
+    } else {
+      filteredUnits = [...allUnits];
+      applyLocalFilters();
+      showNotification(`✅ ${allUnits.length} unidades carregadas com sucesso!`, 'success');
+    }
+  } catch(e) {
+    console.error('Erro na API CNES:', e);
+    showError(e.message);
+    showNotification('Erro ao acessar a API CNES/DATASUS. Tente novamente.', 'error');
+  } finally {
+    isLoading = false;
+    btnBuscar.disabled = false;
+    btnBuscar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Buscar Unidades';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  GEOLOCALIZAÇÃO
+// ═══════════════════════════════════════════════════
+function usarGeolocalizacao() {
+  if (!navigator.geolocation) {
+    showNotification('Geolocalização não suportada neste navegador.', 'error');
+    return;
+  }
+  document.getElementById('geoStatus').textContent = '📡 Obtendo sua localização...';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const raio = parseFloat(document.getElementById('geoRaio').value) || 3;
+      document.getElementById('geoStatus').textContent = `📍 Localização obtida: ${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)} — Filtrando em ${raio}km de raio...`;
+      if (allUnits.length > 0) {
+        applyGeoFilter();
+      } else {
+        showNotification('Busque por município primeiro para usar o filtro de proximidade.', 'error');
+        document.getElementById('geoStatus').textContent = `📍 Localização obtida. Busque unidades em um município próximo a você.`;
+      }
+    },
+    err => {
+      document.getElementById('geoStatus').textContent = '❌ Não foi possível obter a localização.';
+      showNotification('Não foi possível obter sua localização. Permita o acesso.', 'error');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function applyGeoFilter() {
+  const raio = parseFloat(document.getElementById('geoRaio').value) || 3;
+  if (!userLocation || !allUnits.length) return;
+
+  filteredUnits = allUnits
+    .map(u => {
+      const lat = parseFloat(u.nu_latitude || u.latitude);
+      const lng = parseFloat(u.nu_longitude || u.longitude);
+      if (!lat || !lng) return null;
+      const dist = haversine(userLocation.lat, userLocation.lng, lat, lng);
+      return dist <= raio ? { ...u, _distance: dist } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a._distance - b._distance);
+
+  document.getElementById('geoStatus').textContent =
+    `📍 ${filteredUnits.length} unidades encontradas em até ${raio}km da sua localização.`;
+  geoSearchMode = true;
+  updateDashboard(filteredUnits);
+  renderResults(filteredUnits);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ═══════════════════════════════════════════════════
+//  CLASSIFICAÇÃO DE UNIDADES
+// ═══════════════════════════════════════════════════
+function classifyUnit(u) {
+  const tpCode = String(u.tp_unidade || '').padStart(2, '0');
+  const dsDesc = (u.ds_tipo_unidade || '').toUpperCase();
+
+  let nivel = 'primaria';
+  let tags = ['ambulatorial'];
+  let tipoNome = u.ds_tipo_unidade || 'Unidade de Saúde';
+
+  if (TP_MAP[tpCode]) {
+    nivel = TP_MAP[tpCode].nivel;
+    tags = [...TP_MAP[tpCode].tags];
+    tipoNome = TP_MAP[tpCode].nome;
+  } else {
+    // Fallback por keywords
+    if (dsDesc.includes('HOSPITAL') || dsDesc.includes('UTI') || dsDesc.includes('TERAPIA INTENSIVA')) {
+      nivel = 'terciaria';
+      tags = ['ambulatorial', 'urgencia'];
+    } else if (dsDesc.includes('PRONTO SOCORRO') || dsDesc.includes('UPA') || dsDesc.includes('URGÊNCIA')) {
+      nivel = 'terciaria';
+      tags = ['urgencia'];
+    } else if (dsDesc.includes('POLICLÍNICA') || dsDesc.includes('ESPECIALIDADE') || dsDesc.includes('AMBULATÓRIO') || dsDesc.includes('CAPS')) {
+      nivel = 'secundaria';
+      tags = ['ambulatorial'];
+    }
+    if (dsDesc.includes('MATERNIDADE') || dsDesc.includes('MATERNO') || dsDesc.includes('PARTO')) {
+      tags = [...new Set([...tags, 'maternidade'])];
+    }
+    if (dsDesc.includes('TRAUMA') || dsDesc.includes('ORTOPEDIA') || dsDesc.includes('ORTOPÉDIC')) {
+      tags = [...new Set([...tags, 'traumatologia'])];
+    }
+  }
+
+  // Extra: força pela descrição
+  if (dsDesc.includes('MATERNIDADE') || dsDesc.includes('MATERNO') || dsDesc.includes('PARTO NORMAL')) {
+    tags = [...new Set([...tags, 'maternidade'])];
+    if (!tags.includes('urgencia')) nivel = nivel === 'primaria' ? 'terciaria' : nivel;
+  }
+  if (dsDesc.includes('TRAUMA') || dsDesc.includes('ORTOPEDIA')) {
+    tags = [...new Set([...tags, 'traumatologia'])];
+  }
+  if (dsDesc.includes('URGÊNCIA') || dsDesc.includes('EMERGÊNCIA') || dsDesc.includes('PRONTO SOCORRO') || dsDesc.includes('UPA')) {
+    tags = [...new Set([...tags, 'urgencia'])];
+  }
+
+  return { ...u, _nivel: nivel, _tags: tags, _tipoNome: tipoNome };
+}
+
+// ═══════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════
+function updateDashboard(units) {
+  const counts = {
+    total: units.length,
+    primaria: 0, secundaria: 0, terciaria: 0,
+    urgencia: 0, maternidade: 0, traumatologia: 0, ambulatorial: 0
+  };
+  units.forEach(u => {
+    counts[u._nivel]++;
+    u._tags.forEach(t => { if (counts[t] !== undefined) counts[t]++; });
+  });
+
+  Object.keys(counts).forEach(k => {
+    const el = document.getElementById('stat' + k.charAt(0).toUpperCase() + k.slice(1));
+    if (el) animateCount(el, counts[k]);
+  });
+}
+
+function animateCount(el, target) {
+  const start = parseInt(el.textContent) || 0;
+  const duration = 600;
+  const startTime = Date.now();
+  const tick = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(start + (target - start) * eased);
+    if (progress < 1) requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER RESULTADOS
+// ═══════════════════════════════════════════════════
+function renderInitial() {
+  document.getElementById('resultsSection').innerHTML = `
+    <div class="status-box">
+      <span class="status-icon">🔍</span>
+      <h3>Pronto para buscar</h3>
+      <p>Selecione um estado e município nos filtros acima e clique em "Buscar Unidades", ou use a geolocalização para encontrar unidades próximas a você.</p>
+    </div>`;
+}
+
+function showLoading() {
+  document.getElementById('resultsSection').innerHTML = `
+    <div class="status-box">
+      <div class="spinner"></div>
+      <h3>Consultando a API CNES/DATASUS...</h3>
+      <p id="loadingCount">Aguarde enquanto os dados são carregados em tempo real.</p>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:5%"></div></div>
+    </div>`;
+}
+
+function showEmpty() {
+  document.getElementById('resultsSection').innerHTML = `
+    <div class="status-box">
+      <span class="status-icon">📭</span>
+      <h3>Nenhuma unidade encontrada</h3>
+      <p>Não encontramos unidades de saúde para os filtros selecionados. Tente outros critérios de busca.</p>
+    </div>`;
+  updateDashboard([]);
+}
+
+function showError(msg) {
+  document.getElementById('resultsSection').innerHTML = `
+    <div class="status-box">
+      <span class="status-icon">⚠️</span>
+      <h3>Erro ao conectar à API</h3>
+      <p>Não foi possível acessar a API CNES/DATASUS. Verifique sua conexão e tente novamente.<br><small style="color:var(--text-light)">${msg}</small></p>
+    </div>`;
+}
+
+function renderResults(units) {
+  if (!units.length) { showEmpty(); return; }
+
+  // Group by nivel + tag
+  const groups = {};
+  const groupOrder = [
+    { nivel:'terciaria', tag:'urgencia' },
+    { nivel:'terciaria', tag:'maternidade' },
+    { nivel:'terciaria', tag:'traumatologia' },
+    { nivel:'terciaria', tag:'ambulatorial' },
+    { nivel:'secundaria', tag:'ambulatorial' },
+    { nivel:'secundaria', tag:'traumatologia' },
+    { nivel:'primaria', tag:'ambulatorial' },
+    { nivel:'primaria', tag:'urgencia' },
+  ];
+
+  units.forEach(u => {
+    u._tags.forEach(tag => {
+      const key = `${u._nivel}|${tag}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(u);
+    });
+  });
+
+  const container = document.getElementById('resultsSection');
+
+  let html = `
+  <div class="results-header">
+    <div>
+      <span class="results-title">Unidades de Saúde Encontradas</span>
+      <span class="results-count">${units.length} unidades</span>
+    </div>
+    <div class="export-row">
+      <button class="btn btn-primary btn-sm" onclick="exportarExcel()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Exportar Excel
+      </button>
+      <button class="btn btn-amber btn-sm" onclick="exportarPDF()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Exportar PDF A5
+      </button>
+    </div>
+  </div>`;
+
+  const renderedKeys = new Set();
+
+  groupOrder.forEach(({ nivel, tag }) => {
+    const key = `${nivel}|${tag}`;
+    if (!groups[key] || renderedKeys.has(key)) return;
+    renderedKeys.add(key);
+
+    const groupUnits = groups[key];
+    const nConf = NIVEL_CONFIG[nivel];
+    const aConf = ACOLHIMENTO_CONFIG[tag];
+
+    html += `
+    <div class="group-section nivel-${nivel}">
+      <div class="group-header" onclick="toggleGroup('${key.replace('|','-')}')">
+        <div class="group-header-left">
+          <span style="font-size:1.5rem">${nConf.emoji} ${aConf.emoji}</span>
+          <div>
+            <div class="group-name">${nConf.label} — ${aConf.label}</div>
+            <div class="group-meta">Clique para ${groupUnits.length > 0 ? 'ver / ocultar' : ''} as unidades</div>
+          </div>
+          <span class="group-pill" style="background:${nConf.bg};color:${nConf.color}">${nConf.label}</span>
+          <span class="group-pill" style="background:${ACOLHIMENTO_CONFIG[tag] ? '#f0f0f0' : '#f0f0f0'};color:#555">${aConf.label}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="group-count">${groupUnits.length}</div>
+          <span class="group-arrow" id="arrow-${key.replace('|','-')}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </span>
+        </div>
+      </div>
+      <div class="group-body" id="group-${key.replace('|','-')}">
+        <div class="cards-grid">
+          ${groupUnits.map(u => renderUnitCard(u, nConf, tag)).join('')}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // Demais grupos não cobertos
+  Object.keys(groups).forEach(key => {
+    if (renderedKeys.has(key)) return;
+    const [nivel, tag] = key.split('|');
+    const nConf = NIVEL_CONFIG[nivel] || NIVEL_CONFIG.primaria;
+    const aConf = ACOLHIMENTO_CONFIG[tag] || ACOLHIMENTO_CONFIG.ambulatorial;
+    const groupUnits = groups[key];
+
+    html += `
+    <div class="group-section nivel-${nivel}">
+      <div class="group-header" onclick="toggleGroup('${key.replace('|','-')}')">
+        <div class="group-header-left">
+          <div>
+            <div class="group-name">${nConf.label} — ${aConf.label}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="group-count">${groupUnits.length}</div>
+          <span class="group-arrow" id="arrow-${key.replace('|','-')}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </span>
+        </div>
+      </div>
+      <div class="group-body" id="group-${key.replace('|','-')}">
+        <div class="cards-grid">
+          ${groupUnits.map(u => renderUnitCard(u, nConf, tag)).join('')}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function renderUnitCard(u, nConf, currentTag) {
+  const nome = u.no_fantasia || u.no_razao_social || 'Unidade sem nome';
+  const rua = [u.ds_tipo_logradouro, u.ds_logradouro || u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
+  const bairro = u.no_bairro || '';
+  const municipio = u.no_municipio || '';
+  const uf = u.sg_uf || '';
+  const cep = u.co_cep ? u.co_cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
+  const tel = u.nu_telefone ? formatPhone(u.nu_telefone) : '';
+  const email = u.ds_email || '';
+  const cnes = u.co_cnes || '';
+  const gestao = GESTAO_MAP[u.tp_gestao] || u.tp_gestao || '';
+  const enderecoCompleto = [rua, bairro, municipio, uf, cep].filter(Boolean).join(', ');
+
+  const lat = parseFloat(u.nu_latitude || u.latitude || 0);
+  const lng = parseFloat(u.nu_longitude || u.longitude || 0);
+  const mapsQuery = encodeURIComponent(nome + ' ' + enderecoCompleto);
+  const mapsUrl = lat && lng
+    ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+  const googleSearch = `https://www.google.com/search?q=${encodeURIComponent(nome + ' ' + municipio + ' ' + uf + ' saúde')}`;
+  const cnesUrl = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
+  const waText = `🏥 *${nome}*\n📍 ${enderecoCompleto}${tel ? '\n📞 ' + tel : ''}${cnesUrl ? '\n🔗 ' + cnesUrl : ''}`;
+  const waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+
+  const distBadge = u._distance
+    ? `<span class="unit-tag unit-tag-ambulatorial unit-distance">📍 ${u._distance.toFixed(1)}km</span>`
+    : '';
+
+  return `
+  <div class="unit-card">
+    <div class="unit-card-accent" style="background: ${nConf.color}"></div>
+    <div class="unit-card-inner">
+      <div class="unit-card-header">
+        <div class="unit-name">${escHtml(nome)}</div>
+        <span class="unit-type-badge" style="background:${nConf.bg};color:${nConf.color}">${escHtml(u._tipoNome || u.ds_tipo_unidade || '')}</span>
+      </div>
+      <div class="unit-cnes">CNES: ${cnes || '—'}</div>
+
+      <div class="unit-tags">
+        ${u._tags.map(t => `<span class="unit-tag ${ACOLHIMENTO_CONFIG[t]?.tagClass || ''}">${ACOLHIMENTO_CONFIG[t]?.emoji || ''} ${ACOLHIMENTO_CONFIG[t]?.label || t}</span>`).join('')}
+        ${gestao ? `<span class="unit-tag unit-tag-${u.tp_gestao === 'M' ? 'municipal' : u.tp_gestao === 'E' ? 'estadual' : 'federal'}">${gestao}</span>` : ''}
+        ${distBadge}
+      </div>
+
+      ${rua ? `<div class="unit-info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg><span>${escHtml(rua)}${bairro ? ', ' + escHtml(bairro) : ''}</span></div>` : ''}
+      ${municipio ? `<div class="unit-info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>${escHtml(municipio)}${uf ? ' — ' + uf : ''}${cep ? ' · CEP ' + cep : ''}</span></div>` : ''}
+      ${tel ? `<div class="unit-info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.63a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.03a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg><span>${escHtml(tel)}</span></div>` : ''}
+      ${email ? `<div class="unit-info-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>${escHtml(email)}</span></div>` : ''}
+
+      <div class="unit-actions">
+        ${cnesUrl ? `<button class="btn btn-icon" onclick="window.open('${cnesUrl}','_blank')" title="Ficha CNES/DATASUS">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </button>` : ''}
+        <button class="btn btn-icon search" onclick="window.open('${googleSearch}','_blank')" title="Google Search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
+        <button class="btn btn-icon maps" onclick="window.open('${mapsUrl}','_blank')" title="Google Maps">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </button>
+        <button class="btn btn-icon whatsapp" onclick="window.open('${waUrl}','_blank')" title="Compartilhar no WhatsApp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+        </button>
+        ${tel ? `<a class="btn btn-icon" href="tel:${tel.replace(/\D/g,'')}" title="Ligar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.63a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.03a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+        </a>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleGroup(key) {
+  const body = document.getElementById('group-' + key);
+  const arrow = document.getElementById('arrow-' + key);
+  if (!body) return;
+  const isOpen = body.classList.toggle('open');
+  if (arrow) arrow.classList.toggle('open', isOpen);
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORT EXCEL
+// ═══════════════════════════════════════════════════
+function exportarExcel() {
+  if (!filteredUnits.length) { showNotification('Nenhuma unidade para exportar.', 'error'); return; }
+
+  try {
+    const wb = XLSX.utils.book_new();
+    const niveisOrdem = ['terciaria','secundaria','primaria'];
+    const tagsOrdem = ['urgencia','maternidade','traumatologia','ambulatorial'];
+
+    niveisOrdem.forEach(nivel => {
+      tagsOrdem.forEach(tag => {
+        const units = filteredUnits.filter(u => u._nivel === nivel && u._tags.includes(tag));
+        if (!units.length) return;
+
+        const nConf = NIVEL_CONFIG[nivel];
+        const aConf = ACOLHIMENTO_CONFIG[tag];
+        const sheetName = `${nConf.label.substring(0,10)} - ${aConf.label.substring(0,10)}`.substring(0,31);
+
+        const rows = [
+          ['CNES','Nome / Fantasia','Razão Social','Tipo de Unidade','Nível de Atenção','Acolhimento','Gestão','Logradouro','Número','Complemento','Bairro','Município','UF','CEP','Telefone','E-mail','Latitude','Longitude','Link CNES','Google Maps']
+        ];
+
+        units.forEach(u => {
+          const cnes = u.co_cnes || '';
+          const rua = [u.ds_tipo_logradouro, u.ds_logradouro || u.no_logradouro].filter(Boolean).join(' ');
+          const lat = u.nu_latitude || u.latitude || '';
+          const lng = u.nu_longitude || u.longitude || '';
+          const cnesUrl = cnes ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
+          const mapsUrl = lat && lng ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : '';
+
+          rows.push([
+            cnes,
+            u.no_fantasia || '',
+            u.no_razao_social || '',
+            u.ds_tipo_unidade || '',
+            NIVEL_CONFIG[u._nivel]?.label || '',
+            u._tags.map(t => ACOLHIMENTO_CONFIG[t]?.label || t).join(' | '),
+            GESTAO_MAP[u.tp_gestao] || u.tp_gestao || '',
+            rua,
+            u.nu_endereco || '',
+            u.ds_complemento || '',
+            u.no_bairro || '',
+            u.no_municipio || '',
+            u.sg_uf || '',
+            u.co_cep || '',
+            u.nu_telefone || '',
+            u.ds_email || '',
+            lat,
+            lng,
+            cnesUrl,
+            mapsUrl
+          ]);
         });
 
-        // Inicializar
-        document.addEventListener('DOMContentLoaded', function() {
-            carregarEstados();
-            document.getElementById('selectEstado').addEventListener('change', function() {
-                carregarMunicipios(this.value);
-            });
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+
+        // Style header
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        ws['!cols'] = [
+          {wch:10},{wch:35},{wch:35},{wch:30},{wch:18},{wch:30},{wch:14},
+          {wch:30},{wch:8},{wch:15},{wch:20},{wch:20},{wch:5},{wch:10},
+          {wch:15},{wch:25},{wch:12},{wch:12},{wch:50},{wch:50}
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+    });
+
+    // Aba Resumo
+    const resumoRows = [
+      ['RELATÓRIO DE UNIDADES DE SAÚDE PÚBLICA — SaúdeBR / CNES-DATASUS'],
+      [`Gerado em: ${new Date().toLocaleString('pt-BR')}`],
+      [''],
+      ['PERFIL','ACOLHIMENTO','QUANTIDADE'],
+    ];
+    niveisOrdem.forEach(nivel => {
+      tagsOrdem.forEach(tag => {
+        const count = filteredUnits.filter(u => u._nivel === nivel && u._tags.includes(tag)).length;
+        if (count) resumoRows.push([NIVEL_CONFIG[nivel].label, ACOLHIMENTO_CONFIG[tag].label, count]);
+      });
+    });
+    resumoRows.push(['','TOTAL GERAL', filteredUnits.length]);
+    const wsResumo = XLSX.utils.aoa_to_sheet(resumoRows);
+    wsResumo['!cols'] = [{wch:22},{wch:22},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
+
+    const munNome = document.getElementById('selectMunicipio').options[document.getElementById('selectMunicipio').selectedIndex]?.text || 'Busca';
+    XLSX.writeFile(wb, `CNES_Unidades_Saude_${munNome.replace(/[^a-zA-Z0-9]/g,'_')}_${Date.now()}.xlsx`);
+    showNotification('✅ Planilha Excel exportada com sucesso!', 'success');
+  } catch(e) {
+    console.error(e);
+    showNotification('Erro ao gerar a planilha Excel.', 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORT PDF A5 HORIZONTAL
+// ═══════════════════════════════════════════════════
+function exportarPDF() {
+  if (!filteredUnits.length) { showNotification('Nenhuma unidade para exportar.', 'error'); return; }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    // A5 landscape: 210 x 148mm
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
+    const W = 210, H = 148;
+    const margin = 10;
+
+    const munNome = document.getElementById('selectMunicipio').options[document.getElementById('selectMunicipio').selectedIndex]?.text || '';
+    const ufSel = document.getElementById('selectEstado').value || '';
+
+    // ── CAPA ──
+    doc.setFillColor(11, 31, 58);
+    doc.rect(0, 0, W, H, 'F');
+
+    doc.setFillColor(0, 168, 120);
+    doc.rect(0, H - 25, W, 25, 'F');
+
+    // Cruz/logo
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(4);
+    doc.line(W/2 - 12, H/2 - 28, W/2 + 12, H/2 - 28); // horizontal
+    doc.line(W/2, H/2 - 40, W/2, H/2 - 16);              // vertical
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('SaúdeBR', W/2, H/2 - 4, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(180, 230, 210);
+    doc.text('Localizador de Unidades de Saúde Pública', W/2, H/2 + 5, { align: 'center' });
+    doc.text('CNES / DATASUS — Ministério da Saúde', W/2, H/2 + 12, { align: 'center' });
+
+    if (munNome) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${munNome}${ufSel ? ' — ' + ufSel : ''}`, W/2, H/2 + 24, { align: 'center' });
+    }
+
+    doc.setFillColor(0, 168, 120);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} | Total: ${filteredUnits.length} unidades`, W/2, H - 12, { align: 'center' });
+
+    const niveisOrdem = ['terciaria','secundaria','primaria'];
+    const tagsOrdem = ['urgencia','maternidade','traumatologia','ambulatorial'];
+    const nivelColors = {
+      terciaria:  { r:229, g:57,  b:53  },
+      secundaria: { r:21,  g:101, b:192 },
+      primaria:   { r:0,   g:168, b:120 },
+    };
+
+    niveisOrdem.forEach(nivel => {
+      tagsOrdem.forEach(tag => {
+        const units = filteredUnits.filter(u => u._nivel === nivel && u._tags.includes(tag));
+        if (!units.length) return;
+
+        const nc = nivelColors[nivel];
+        const nConf = NIVEL_CONFIG[nivel];
+        const aConf = ACOLHIMENTO_CONFIG[tag];
+
+        // ── PÁGINA DE SEÇÃO ──
+        doc.addPage('a5', 'landscape');
+        doc.setFillColor(nc.r, nc.g, nc.b);
+        doc.rect(0, 0, W, 18, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`${nConf.emoji} ${nConf.label}  ·  ${aConf.emoji} ${aConf.label}`, margin, 12);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(`${units.length} unidades`, W - margin, 12, { align: 'right' });
+
+        // Tabela de unidades
+        const tableBody = units.map((u, idx) => {
+          const rua = [u.ds_tipo_logradouro, u.ds_logradouro || u.no_logradouro, u.nu_endereco].filter(Boolean).join(' ');
+          const bairro = u.no_bairro || '';
+          const municipio = [u.no_municipio, u.sg_uf].filter(Boolean).join(' — ');
+          const cep = u.co_cep ? u.co_cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
+          const tel = u.nu_telefone ? formatPhone(u.nu_telefone) : '';
+          const cnes = u.co_cnes || '';
+
+          const endereco = [rua, bairro, municipio, cep ? 'CEP ' + cep : ''].filter(Boolean).join('\n');
+          const contato = [tel, u.ds_email].filter(Boolean).join('\n');
+          const cnesUrl = cnes ? `cnes.datasus.gov.br/pages/estabelecimentos/ficha.faces?pk=${cnes}` : '';
+
+          return [
+            `${idx + 1}`,
+            u.no_fantasia || u.no_razao_social || '—',
+            u.ds_tipo_unidade || '—',
+            GESTAO_MAP[u.tp_gestao] || '—',
+            endereco || '—',
+            contato || '—',
+            cnesUrl || '—',
+          ];
         });
 
-    </script>
+        doc.autoTable({
+          startY: 22,
+          head: [['#','Nome / Estabelecimento','Tipo','Gestão','Endereço','Contato','Link CNES']],
+          body: tableBody,
+          theme: 'grid',
+          styles: {
+            fontSize: 6.5,
+            cellPadding: 2,
+            overflow: 'linebreak',
+            lineColor: [220, 230, 240],
+            lineWidth: 0.2,
+            textColor: [15, 30, 55],
+            font: 'helvetica',
+          },
+          headStyles: {
+            fillColor: [nc.r, nc.g, nc.b],
+            textColor: [255,255,255],
+            fontStyle: 'bold',
+            fontSize: 7,
+          },
+          alternateRowStyles: { fillColor: [245, 248, 252] },
+          columnStyles: {
+            0: { cellWidth: 8, halign: 'center' },
+            1: { cellWidth: 45 },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 18 },
+            4: { cellWidth: 40 },
+            5: { cellWidth: 28 },
+            6: { cellWidth: 35 },
+          },
+          margin: { left: margin, right: margin },
+          didDrawPage: (data) => {
+            // Header repetido em cada página
+            if (data.pageCount > 1) {
+              doc.setFillColor(nc.r, nc.g, nc.b, 0.15);
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(7);
+              doc.setTextColor(nc.r, nc.g, nc.b);
+              doc.text(`${nConf.label} — ${aConf.label} (continuação)`, margin, 7);
+            }
+            // Rodapé
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6);
+            doc.setTextColor(150, 150, 150);
+            doc.text('SaúdeBR | CNES/DATASUS — Ministério da Saúde', margin, H - 4);
+            doc.text(`Pág. ${doc.internal.getCurrentPageInfo().pageNumber}`, W - margin, H - 4, { align: 'right' });
+          }
+        });
+      });
+    });
+
+    const munNomeSafe = munNome.replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`SaudeBR_CNES_${munNomeSafe}_${Date.now()}.pdf`);
+    showNotification('✅ PDF A5 exportado com sucesso!', 'success');
+  } catch(e) {
+    console.error(e);
+    showNotification('Erro ao gerar o PDF. Tente novamente.', 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  UTILITÁRIOS
+// ═══════════════════════════════════════════════════
+function formatPhone(tel) {
+  if (!tel) return '';
+  const d = String(tel).replace(/\D/g, '');
+  if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return tel;
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showNotification(msg, type='info') {
+  const existing = document.querySelector('.notification');
+  if (existing) existing.remove();
+  const n = document.createElement('div');
+  n.className = `notification ${type}`;
+  n.innerHTML = `<span>${msg}</span>`;
+  document.body.appendChild(n);
+  setTimeout(() => { n.style.opacity='0'; n.style.transform='translateX(30px)'; n.style.transition='all 0.3s'; setTimeout(()=>n.remove(),300); }, 3500);
+}
+</script>
 </body>
 </html>
