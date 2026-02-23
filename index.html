@@ -529,10 +529,11 @@
     .unit-tag-urgencia { background: var(--red-pale); color: var(--red); }
     .unit-tag-ambulatorial { background: var(--teal-pale); color: var(--teal); }
     .unit-tag-maternidade { background: var(--purple-pale); color: var(--purple); }
-    .unit-tag-traumatologia { background: var(--amber-pale); color: #C07A00; }
+    .unit-tag-especializado { background: var(--amber-pale); color: #C07A00; }
     .unit-tag-federal { background: #E8F0FE; color: var(--blue); }
     .unit-tag-estadual { background: #FFF8EC; color: #9C6E00; }
     .unit-tag-municipal { background: var(--teal-pale); color: #006B4F; }
+    .unit-tag-privado { background: var(--gray-200); color: var(--gray-700); }
     .unit-distance { background: var(--blue-pale); color: var(--blue); }
     .unit-actions {
       display: flex;
@@ -678,7 +679,7 @@
     .modal-content {
       background: var(--surface);
       border-radius: var(--radius);
-      max-width: 1200px;
+      max-width: 1400px;
       width: 100%;
       max-height: 90vh;
       display: flex;
@@ -725,192 +726,309 @@
       justify-content: flex-end;
     }
 
-    /* PDF Preview Styles */
-    .pdf-content-a5 {
-      background: white;
-      padding: 1rem;
-      border-radius: var(--radius-sm);
-      font-family: 'Fira Sans', sans-serif;
-      width: 100%;
+    /* ─── PDF PREVIEW STYLES - TOTALMENTE INDEPENDENTES ─── */
+    .pdf-container {
+      font-family: 'Outfit', 'Fira Sans', sans-serif;
+      max-width: 1200px;
       margin: 0 auto;
-      font-size: 0.8rem;
+      background: white;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
     }
 
-    .pdf-header-a5 {
+    .pdf-header {
+      background: linear-gradient(135deg, var(--navy), var(--navy-mid));
+      color: white;
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pdf-header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 300px;
+      height: 300px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 50%;
+    }
+
+    .pdf-header-content {
+      position: relative;
+      z-index: 1;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.75rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 2px solid var(--teal);
     }
 
-    .pdf-header-a5 h1 {
-      color: var(--navy);
-      font-size: 1.2rem;
-      font-weight: 700;
-    }
-
-    .pdf-header-a5 p {
-      color: var(--text-muted);
-      font-size: 0.7rem;
-    }
-
-    .pdf-stats-row-a5 {
-      display: flex;
-      gap: 0.4rem;
-      margin-bottom: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    .pdf-stat-card-a5 {
-      flex: 1;
-      min-width: 70px;
-      background: linear-gradient(135deg, var(--bg) 0%, #f1f5f9 100%);
-      border-radius: var(--radius-sm);
-      padding: 0.4rem 0.2rem;
-      text-align: center;
-      border-left: 3px solid var(--teal);
-    }
-
-    .pdf-stat-value-a5 {
-      font-size: 1rem;
+    .pdf-header-title h1 {
+      font-size: 2rem;
       font-weight: 800;
-      color: var(--teal);
-      line-height: 1.2;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
     }
 
-    .pdf-stat-label-a5 {
-      font-size: 0.55rem;
+    .pdf-header-title h1 span {
+      color: var(--teal-light);
+    }
+
+    .pdf-header-title p {
+      opacity: 0.8;
+      font-size: 0.9rem;
+    }
+
+    .pdf-header-badge {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(8px);
+      padding: 12px 20px;
+      border-radius: 12px;
+      text-align: right;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .pdf-header-badge .total {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--teal-light);
+    }
+
+    .pdf-header-badge .label {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .pdf-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      padding: 25px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pdf-stat-item {
+      background: white;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+      border-left: 4px solid;
+      transition: transform 0.2s;
+    }
+
+    .pdf-stat-item.primaria { border-color: var(--teal); }
+    .pdf-stat-item.secundaria { border-color: var(--blue); }
+    .pdf-stat-item.terciaria { border-color: var(--red); }
+    .pdf-stat-item.urgencia { border-color: var(--amber); }
+
+    .pdf-stat-icon {
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+    }
+
+    .pdf-stat-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1;
+    }
+
+    .pdf-stat-label {
+      font-size: 0.8rem;
       color: var(--text-muted);
       text-transform: uppercase;
-      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
     }
 
-    .pdf-section-a5 {
-      margin-bottom: 0.75rem;
+    .pdf-acolhimento-section {
+      padding: 25px;
+      background: white;
     }
 
-    .pdf-section-title-a5 {
-      font-size: 0.9rem;
+    .pdf-section-title {
+      font-size: 1.2rem;
       font-weight: 700;
       color: var(--navy);
-      margin-bottom: 0.4rem;
-      padding-bottom: 0.2rem;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pdf-section-title span {
+      background: var(--teal-pale);
+      color: var(--teal);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+    }
+
+    .pdf-acolhimento-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+
+    .pdf-acolhimento-card {
+      background: linear-gradient(135deg, var(--bg), white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 15px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pdf-acolhimento-icon {
+      width: 40px;
+      height: 40px;
+      background: white;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .pdf-acolhimento-info h4 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 2px;
+    }
+
+    .pdf-acolhimento-info p {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--teal);
+      line-height: 1;
+    }
+
+    .pdf-nivel-section {
+      padding: 0 25px 25px;
+      background: white;
+    }
+
+    .pdf-nivel-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 15px 20px;
+      border-radius: 12px;
+      color: white;
+      margin-bottom: 20px;
+    }
+
+    .pdf-nivel-header.primaria { background: linear-gradient(135deg, var(--teal), #00c896); }
+    .pdf-nivel-header.secundaria { background: linear-gradient(135deg, var(--blue), #2196f3); }
+    .pdf-nivel-header.terciaria { background: linear-gradient(135deg, var(--red), #f44336); }
+
+    .pdf-nivel-icon {
+      font-size: 2rem;
+    }
+
+    .pdf-nivel-title {
+      flex: 1;
+    }
+
+    .pdf-nivel-title h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .pdf-nivel-title p {
+      opacity: 0.9;
+      font-size: 0.8rem;
+    }
+
+    .pdf-nivel-count {
+      font-size: 2rem;
+      font-weight: 800;
+    }
+
+    .pdf-units-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .pdf-unit-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 15px;
+      transition: transform 0.2s;
+    }
+
+    .pdf-unit-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      background: white;
+    }
+
+    .pdf-unit-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
       border-bottom: 2px solid var(--border);
     }
 
-    .pdf-category-header-a5 {
+    .pdf-unit-detail {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.25rem 0.6rem;
-      border-radius: var(--radius-sm);
-      color: white;
-      font-weight: 600;
+      gap: 8px;
+      margin-bottom: 6px;
       font-size: 0.8rem;
-      margin-bottom: 0.5rem;
+      color: var(--text-muted);
     }
 
-    .pdf-category-header-a5.primaria {
-      background: linear-gradient(135deg, var(--teal) 0%, #10b981 100%);
-    }
-
-    .pdf-category-header-a5.secundaria {
-      background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
-    }
-
-    .pdf-category-header-a5.terciaria {
-      background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-    }
-
-    .pdf-units-grid-a5 {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .pdf-unit-card-a5 {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 0.5rem;
-      background: var(--bg);
-    }
-
-    .pdf-unit-name-a5 {
-      font-weight: 700;
+    .pdf-unit-detail strong {
       color: var(--navy);
-      font-size: 0.8rem;
-      margin-bottom: 0.3rem;
+      font-weight: 600;
     }
 
-    .pdf-unit-address-a5 {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      margin-bottom: 0.2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.2rem;
+    .pdf-unit-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-top: 8px;
     }
 
-    .pdf-unit-phone-a5 {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      margin-bottom: 0.2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.2rem;
-    }
+    .pdf-unit-badge.urgente { background: var(--red-pale); color: var(--red); }
+    .pdf-unit-badge.ambulatorial { background: var(--teal-pale); color: var(--teal); }
+    .pdf-unit-badge.maternidade { background: var(--purple-pale); color: var(--purple); }
+    .pdf-unit-badge.especializado { background: var(--amber-pale); color: #C07A00; }
 
-    .pdf-unit-profile-a5 {
-      font-size: 0.65rem;
-      color: var(--text);
-      margin-bottom: 0.2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.2rem;
-      font-weight: 500;
-    }
-
-    .pdf-unit-row-a5 {
+    .pdf-footer {
+      background: var(--navy);
+      color: white;
+      padding: 20px 30px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 0.2rem;
+      font-size: 0.8rem;
     }
 
-    .pdf-acolhimento-badge-a5 {
-      display: inline-block;
-      padding: 0.15rem 0.4rem;
-      border-radius: 9999px;
-      font-size: 0.6rem;
-      font-weight: 600;
+    .pdf-footer-left {
+      opacity: 0.7;
     }
 
-    .pdf-acolhimento-badge-a5.urgente {
-      background: var(--red-pale);
-      color: var(--red);
-    }
-
-    .pdf-acolhimento-badge-a5.ambulatorial {
-      background: var(--teal-pale);
-      color: var(--teal);
-    }
-
-    .pdf-distance-a5 {
-      font-size: 0.6rem;
-      color: var(--blue);
-      font-weight: 600;
-    }
-
-    .pdf-footer-a5 {
-      margin-top: 0.75rem;
-      padding-top: 0.4rem;
-      border-top: 1px solid var(--border);
-      text-align: center;
-      color: var(--text-light);
-      font-size: 0.55rem;
+    .pdf-footer-right {
+      text-align: right;
     }
 
     /* ─── NOTIFICATION ─── */
@@ -979,7 +1097,7 @@
     </div>
     <div class="header-titles">
       <h1>Saúde<span>BR</span> &mdash; Localizador CNES</h1>
-      <p>Dados em tempo real via OpenStreetMap + Nominatim • Todas as esferas de gestão</p>
+      <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
     <span class="header-badge">🟢 Online</span>
   </div>
@@ -1032,9 +1150,9 @@
           <label class="form-label">Perfil / Nível de Atenção</label>
           <select class="form-control" id="selectNivel" onchange="applyLocalFilters()">
             <option value="">Todos os Níveis</option>
-            <option value="Primária">Atenção Primária</option>
-            <option value="Secundária">Atenção Secundária</option>
-            <option value="Terciária">Atenção Terciária</option>
+            <option value="primaria">Atenção Primária</option>
+            <option value="secundaria">Atenção Secundária</option>
+            <option value="terciaria">Atenção Terciária</option>
           </select>
         </div>
         <div class="form-group">
@@ -1042,13 +1160,10 @@
           <select class="form-control" id="selectAcolhimento" onchange="applyLocalFilters()">
             <option value="">Todas as Formas</option>
             <option value="ambulatorial">Atendimento Ambulatorial</option>
-            <option value="urgente">Urgência / Emergência</option>
+            <option value="urgencia">Urgência / Emergência</option>
             <option value="maternidade">Maternidade</option>
             <option value="especializado">Atendimento Especializado</option>
-            <option value="transferencia">Admissão por Transferência</option>
             <option value="samu">SAMU</option>
-            <option value="hemoterapia">Hemoterapia</option>
-            <option value="psiquiatria">Psiquiatria</option>
           </select>
         </div>
         <div class="form-group">
@@ -1122,7 +1237,7 @@
       <div class="stat-card-icon" style="background: var(--blue-pale); color: var(--blue);">🔬</div>
       <div class="stat-card-value" id="statSecundaria">—</div>
       <div class="stat-card-label">Atenção Secundária</div>
-      <div class="stat-card-sublabel">Policlínicas, UPA</div>
+      <div class="stat-card-sublabel">Policlínicas, UPA, CAPS</div>
     </div>
     <div class="stat-card" style="--card-accent: var(--red);">
       <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🏨</div>
@@ -1134,7 +1249,7 @@
       <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🚨</div>
       <div class="stat-card-value" id="statUrgencia">—</div>
       <div class="stat-card-label">Urgência/Emergência</div>
-      <div class="stat-card-sublabel">UPAs, PS, SAMU</div>
+      <div class="stat-card-sublabel">UPAs, PS</div>
     </div>
     <div class="stat-card" style="--card-accent: var(--purple);">
       <div class="stat-card-icon" style="background: var(--purple-pale); color: var(--purple);">🤱</div>
@@ -1144,7 +1259,7 @@
     </div>
     <div class="stat-card" style="--card-accent: var(--amber);">
       <div class="stat-card-icon" style="background: var(--amber-pale); color: var(--amber);">🦴</div>
-      <div class="stat-card-value" id="statTraumatologia">—</div>
+      <div class="stat-card-value" id="statEspecializado">—</div>
       <div class="stat-card-label">Especializado</div>
       <div class="stat-card-sublabel">Ortopedia, cardiologia</div>
     </div>
@@ -1171,7 +1286,7 @@
 <div class="modal-overlay" id="pdfModal">
   <div class="modal-content">
     <div class="modal-header">
-      <h3 class="modal-title">📄 Visualização do PDF - Formato A5 Horizontal</h3>
+      <h3 class="modal-title">📄 Visualização do Relatório PDF</h3>
       <button class="modal-close" onclick="closePDFModal()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1214,10 +1329,20 @@ const CONFIG = {
     OVERPASS: 'https://overpass-api.de/api/interpreter'
 };
 
-// Tipos a excluir da busca (farmácias, veterinários, etc)
+// Tipos a excluir da busca
 const EXCLUIR_TIPOS = 'pharmacy|dentist|doctors|optometrist|laboratory|' +
     'sample_collection|physiotherapist|psychotherapist|audiologist|' +
     'alternative|medical_imaging|blood_donation|veterinary';
+
+// Palavras que indicam vínculo com o SUS
+const SUS_KEYWORDS = ['sus', 'público', 'pública', 'municipal', 'estadual', 'federal', 
+                      'ubs', 'posto de saúde', 'unidade básica', 'centro de saúde',
+                      'hospital municipal', 'hospital estadual', 'hospital federal',
+                      'upa', 'policlínica municipal', 'cms', 'caps', 'samu'];
+
+// Palavras que indicam unidades privadas a serem excluídas
+const PRIVATE_KEYWORDS = ['particular', 'privado', 'privada', 'rede privada', 
+                          'clínica particular', 'laboratório particular'];
 
 // Estado da aplicação
 let allUnits = [];
@@ -1226,10 +1351,6 @@ let currentGeoPosition = null;
 let estados = [];
 let municipiosPorEstado = {};
 let buscaAtiva = false;
-
-// Fila para geocoding reverso
-const geoQueue = [];
-let geoRunning = false;
 
 // ═══════════════════════════════════════════════════
 //  FUNÇÕES AUXILIARES
@@ -1303,105 +1424,130 @@ function showNotification(message, type = 'info') {
 }
 
 // ═══════════════════════════════════════════════════
-//  CLASSIFICAÇÃO DE UNIDADES
+//  CLASSIFICAÇÃO CORRIGIDA DE UNIDADES
 // ═══════════════════════════════════════════════════
-function classificarUnidade(tags, nome) {
+function isVinculadoSUS(tags, nome) {
+    const operador = norm(tags.operator || '');
+    const descricao = norm(tags.description || '');
+    const nomeNorm = norm(nome);
+    const acesso = norm(tags.access || '');
+    
+    // Se explicitamente privado, excluir
+    if (acesso === 'private') return false;
+    
+    // Verificar palavras que indicam vínculo SUS
+    for (const keyword of SUS_KEYWORDS) {
+        if (operador.includes(keyword) || nomeNorm.includes(keyword) || descricao.includes(keyword)) {
+            return true;
+        }
+    }
+    
+    // Verificar palavras que indicam privado (excluir)
+    for (const keyword of PRIVATE_KEYWORDS) {
+        if (operador.includes(keyword) || nomeNorm.includes(keyword)) {
+            return false;
+        }
+    }
+    
+    // Se tem CNES, provavelmente é SUS
+    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
+    
+    // Por padrão, incluir apenas se parecer público
+    const tiposPublicos = ['hospital', 'clinic', 'health_post', 'health_centre', 'doctors'];
+    const amenity = tags.amenity || '';
+    const healthcare = tags.healthcare || '';
+    
+    if (tiposPublicos.includes(amenity) || tiposPublicos.includes(healthcare)) {
+        // Para estes tipos, incluir apenas se tiver indício de público
+        return operador.includes('municipal') || operador.includes('estadual') || 
+               operador.includes('federal') || nomeNorm.includes('ubs') || 
+               nomeNorm.includes('upa') || nomeNorm.includes('caps');
+    }
+    
+    return false;
+}
+
+function classificarNivel(tags, nome) {
     const healthcare = tags.healthcare || tags.amenity;
     const n = norm(nome + (tags.description || ''));
     
-    if (!healthcare && !n.includes('hospital') && !n.includes('clinica') && 
-        !n.includes('upa') && !n.includes('posto') && !n.includes('ubs') && 
-        !n.includes('caps') && !n.includes('policlinica')) return null;
-
-    // Verificar se é público (SUS)
-    const operador = (tags.operator || tags['operator:type'] || tags.ownership || '').toLowerCase();
-    const acessoTag = (tags.access || '').toLowerCase();
+    // ATENÇÃO PRIMÁRIA
+    if (n.includes('ubs') || n.includes('posto de saude') || n.includes('unidade basica') ||
+        n.includes('esf') || n.includes('saude da familia') || n.includes('psf') ||
+        n.includes('centro de saude') || n.includes('cms') || healthcare === 'health_post' ||
+        healthcare === 'health_centre' || n.includes('ambulatorio')) {
+        return {
+            nivel: 'primaria',
+            perfil: n.includes('ubs') ? 'UBS' : 
+                    n.includes('posto') ? 'Posto de Saúde' :
+                    n.includes('esf') ? 'ESF' :
+                    n.includes('caps') ? 'CAPS' :
+                    n.includes('ambulatorio') ? 'Ambulatório' : 'Centro de Saúde'
+        };
+    }
     
-    if (acessoTag === 'private') return null;
-    if (operador && operador.includes('privad') && !operador.includes('sus') && 
-        !operador.includes('federal') && !operador.includes('estadual') && 
-        !operador.includes('municipal')) return null;
-
-    let perfil = 'Unidade de Saúde';
-    let nivel = 'Primária';
-
-    // Classificação por tipo de unidade
-    if (n.includes('upa') || (n.includes('urgencia') && !n.includes('hospital')) || 
-        n.includes('pronto atendimento') || n.includes('pronto socorro')) {
-        perfil = n.includes('upa') ? 'UPA' : 'Pronto-Socorro';
-        nivel = 'Secundária';
-    } else if (healthcare === 'hospital' || n.includes('hospital')) {
-        if (n.includes('maternidad') || n.includes('mulher') || n.includes('mae') || 
-            n.includes('matern') || n.includes('obstetri') || n.includes('perinatal')) {
+    // ATENÇÃO SECUNDÁRIA
+    if (n.includes('upa') || n.includes('policlinica') || n.includes('policlínica') ||
+        n.includes('pronto atendimento') || n.includes('pronto socorro') ||
+        n.includes('caps') || n.includes('cri') || n.includes('centro de atencao') ||
+        healthcare === 'clinic' || n.includes('clinica especializada')) {
+        return {
+            nivel: 'secundaria',
+            perfil: n.includes('upa') ? 'UPA' :
+                    n.includes('policlinica') ? 'Policlínica' :
+                    n.includes('pronto') ? 'Pronto Atendimento' :
+                    n.includes('caps') ? 'CAPS' : 'Clínica Especializada'
+        };
+    }
+    
+    // ATENÇÃO TERCIÁRIA (Hospitais)
+    if (healthcare === 'hospital' || n.includes('hospital') || n.includes('hosp')) {
+        // Classificar por especialidade
+        let perfil = 'Hospital Geral';
+        
+        if (n.includes('maternidade') || n.includes('matern')) {
             perfil = 'Hospital Maternidade';
-        } else if (n.includes('infantil') || n.includes('crianca') || n.includes('pediatri')) {
+        } else if (n.includes('infantil') || n.includes('crianca') || n.includes('pediatrico')) {
             perfil = 'Hospital Infantil';
-        } else if (n.includes('oncologi') || n.includes('cancer') || n.includes('inca')) {
+        } else if (n.includes('oncologia') || n.includes('cancer') || n.includes('inca')) {
             perfil = 'Hospital Oncológico';
-        } else if (n.includes('psiquiatri') || n.includes('mental') || n.includes('caps')) {
+        } else if (n.includes('psiquiatria') || n.includes('mental')) {
             perfil = 'Hospital Psiquiátrico';
-        } else if (n.includes('especializad') || n.includes('ortopedi') || 
-                   n.includes('cardiolog') || n.includes('neurologica')) {
+        } else if (n.includes('ortopedia') || n.includes('trauma') || n.includes('cardiologia')) {
             perfil = 'Hospital Especializado';
-        } else {
-            perfil = 'Hospital Geral';
+        } else if (n.includes('universitario') || n.includes('referencia') || n.includes('federal')) {
+            perfil = 'Hospital de Referência';
         }
         
-        // Definir nível para hospitais
-        if (n.includes('universitari') || n.includes('referencia') || 
-            n.includes('federal') || n.includes('estadual') || n.includes('complexo') || 
-            n.includes('inca') || n.includes('nacional') || n.includes('regional') || 
-            n.includes('instituto') || operador.includes('federal') || operador.includes('estadual') ||
-            (tags['healthcare:speciality'] && tags['healthcare:speciality'].split(';').length >= 3)) {
-            nivel = 'Terciária';
-        } else {
-            nivel = 'Secundária';
-        }
-    } else if (healthcare === 'clinic' || n.includes('clinica') || n.includes('policlinica')) {
-        perfil = n.includes('policlinica') ? 'Policlínica' : 'Clínica';
-        nivel = 'Secundária';
-    } else if (healthcare === 'health_post' || n.includes('posto') || n.includes('ubs') || n.includes('psf')) {
-        perfil = 'Posto/UBS';
-        nivel = 'Primária';
-    } else if (healthcare === 'health_centre' || n.includes('centro de saude') || n.includes('cms')) {
-        perfil = 'Centro de Saúde';
-        nivel = 'Primária';
-    } else if (n.includes('caps') || n.includes('cri') || n.includes('saude mental')) {
-        perfil = 'CAPS';
-        nivel = 'Secundária';
-    } else if (n.includes('ambulatorio')) {
-        perfil = 'Ambulatório';
-        nivel = 'Primária';
-    } else if (n.includes('laboratorio')) {
-        return null;
+        return {
+            nivel: 'terciaria',
+            perfil
+        };
     }
-
-    return { perfil, nivel };
+    
+    // Default
+    return {
+        nivel: 'primaria',
+        perfil: 'Unidade de Saúde'
+    };
 }
 
 function determinarAcolhimento(u) {
     const n = norm(u.nome + u.perfil);
     
-    if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia')) {
-        return 'urgente';
+    if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia') || 
+        n.includes('pronto socorro') || n.includes('pronto atendimento')) {
+        return 'urgencia';
     }
-    if (n.includes('maternidad') || n.includes('obstetri') || n.includes('parto')) {
+    if (n.includes('maternidade') || n.includes('obstetricia') || n.includes('parto')) {
         return 'maternidade';
     }
-    if (n.includes('especializad') || n.includes('ortopedi') || n.includes('cardiolog')) {
+    if (n.includes('ortopedia') || n.includes('cardiologia') || n.includes('oncologia') ||
+        n.includes('especializado') || n.includes('referencia')) {
         return 'especializado';
     }
     if (n.includes('samu')) {
         return 'samu';
-    }
-    if (n.includes('hemoterapia') || n.includes('sangue') || n.includes('hemocentro')) {
-        return 'hemoterapia';
-    }
-    if (n.includes('psiquiatri') || n.includes('mental') || n.includes('caps')) {
-        return 'psiquiatria';
-    }
-    if (n.includes('transferencia')) {
-        return 'transferencia';
     }
     
     return 'ambulatorial';
@@ -1410,13 +1556,10 @@ function determinarAcolhimento(u) {
 function getTextoAcolhimento(acolhimento) {
     const textos = {
         'ambulatorial': 'Atendimento Ambulatorial',
-        'urgente': 'Urgência/Emergência',
+        'urgencia': 'Urgência/Emergência',
         'maternidade': 'Maternidade',
         'especializado': 'Atendimento Especializado',
-        'samu': 'SAMU',
-        'hemoterapia': 'Hemoterapia',
-        'psiquiatria': 'Psiquiatria',
-        'transferencia': 'Admissão por Transferência'
+        'samu': 'SAMU'
     };
     return textos[acolhimento] || 'Atendimento Geral';
 }
@@ -1425,9 +1568,11 @@ function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
     if (!nome) return null;
     
-    const classif = classificarUnidade(tags, nome);
-    if (!classif) return null;
-
+    // Verificar vínculo com SUS
+    if (!isVinculadoSUS(tags, nome)) return null;
+    
+    const classif = classificarNivel(tags, nome);
+    
     // Determinar gestão
     const operador = (tags.operator || '').toLowerCase();
     let gestao = 'Municipal';
@@ -1452,7 +1597,9 @@ function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
         gestao,
         cnes: tags['ref:CNES'] || tags['ref:cnes'] || '',
         enderecoCompleto: '',
-        telefoneFormatado: ''
+        telefoneFormatado: '',
+        mapsLink: lat && lon ? `https://www.google.com/maps?q=${lat},${lon}` : '',
+        cnesLink: tags['ref:CNES'] ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.jsp?pk=${tags['ref:CNES']}` : ''
     };
 }
 
@@ -1872,7 +2019,7 @@ out center tags;`;
 }
 
 // ═══════════════════════════════════════════════════
-//  ENRIQUECIMENTO DE DADOS E GEOCODING REVERSO
+//  ENRIQUECIMENTO DE DADOS
 // ═══════════════════════════════════════════════════
 async function enrichUnitsData(units, cidadeRef) {
     for (const unit of units) {
@@ -1893,111 +2040,9 @@ async function enrichUnitsData(units, cidadeRef) {
                 unit.telefoneFormatado = unit.telefone;
             }
         }
-        
-        // Google Maps link
-        if (unit.lat && unit.lon) {
-            unit.mapsLink = `https://www.google.com/maps?q=${unit.lat},${unit.lon}`;
-        }
-        
-        // Link CNES
-        if (unit.cnes) {
-            unit.cnesLink = `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.jsp?pk=${unit.cnes}`;
-        }
     }
-
-    // Iniciar geocoding reverso para bairros
-    iniciarGeoReverso(units);
 
     return units;
-}
-
-function iniciarGeoReverso(units) {
-    geoQueue.length = 0;
-    units.forEach((u, idx) => {
-        if (u.lat && u.lon && !u.bairro) {
-            geoQueue.push({ idx, unit: u });
-        }
-    });
-    processarGeoQueue();
-}
-
-async function processarGeoQueue() {
-    if (geoRunning || geoQueue.length === 0) return;
-    geoRunning = true;
-
-    while (geoQueue.length > 0) {
-        const { idx, unit } = geoQueue.shift();
-        
-        try {
-            const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?lat=${unit.lat}&lon=${unit.lon}&format=json&zoom=14&addressdetails=1&accept-language=pt-BR`;
-            
-            const response = await fetch(url, {
-                headers: {
-                    'User-Agent': `SaudeBR-Localizador/3.0 (${CONFIG.NOMINATIM.EMAIL})`
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const addr = data.address || {};
-                
-                const bairro = addr.neighbourhood || addr.suburb || addr.quarter || '';
-                unit.bairro = bairro;
-                
-                // Atualizar card se já estiver renderizado
-                atualizarCardLocalizacao(idx, bairro);
-            }
-        } catch (e) {
-            console.warn('Nominatim reverse error:', e);
-        }
-
-        if (geoQueue.length > 0) {
-            await sleep(1100); // Rate limiting Nominatim
-        }
-    }
-
-    geoRunning = false;
-}
-
-function atualizarCardLocalizacao(idx, bairro) {
-    // Função chamada quando o geocoding reverso encontra um bairro
-    // Será implementada na renderização
-}
-
-// ═══════════════════════════════════════════════════
-//  FILTROS LOCAIS
-// ═══════════════════════════════════════════════════
-function applyLocalFilters() {
-    const bairro = document.getElementById('inputBairro').value.toLowerCase().trim();
-    const nivel = document.getElementById('selectNivel').value;
-    const acolhimento = document.getElementById('selectAcolhimento').value;
-    const gestao = document.getElementById('selectGestao').value;
-    
-    filteredUnits = allUnits.filter(u => {
-        // Filtro de bairro
-        if (bairro && u.bairro && !u.bairro.toLowerCase().includes(bairro)) {
-            return false;
-        }
-        
-        // Filtro de nível
-        if (nivel && u.nivel !== nivel) {
-            return false;
-        }
-        
-        // Filtro de acolhimento
-        if (acolhimento && u.acolhimento !== acolhimento) {
-            return false;
-        }
-        
-        // Filtro de gestão
-        if (gestao && u.gestao !== gestao) {
-            return false;
-        }
-        
-        return true;
-    });
-    
-    renderResults();
 }
 
 // ═══════════════════════════════════════════════════
@@ -2099,6 +2144,42 @@ function limparFiltros() {
 }
 
 // ═══════════════════════════════════════════════════
+//  FILTROS LOCAIS
+// ═══════════════════════════════════════════════════
+function applyLocalFilters() {
+    const bairro = document.getElementById('inputBairro').value.toLowerCase().trim();
+    const nivel = document.getElementById('selectNivel').value;
+    const acolhimento = document.getElementById('selectAcolhimento').value;
+    const gestao = document.getElementById('selectGestao').value;
+    
+    filteredUnits = allUnits.filter(u => {
+        // Filtro de bairro
+        if (bairro && u.bairro && !u.bairro.toLowerCase().includes(bairro)) {
+            return false;
+        }
+        
+        // Filtro de nível
+        if (nivel && u.nivel !== nivel) {
+            return false;
+        }
+        
+        // Filtro de acolhimento
+        if (acolhimento && u.acolhimento !== acolhimento) {
+            return false;
+        }
+        
+        // Filtro de gestão
+        if (gestao && u.gestao !== gestao) {
+            return false;
+        }
+        
+        return true;
+    });
+    
+    renderResults();
+}
+
+// ═══════════════════════════════════════════════════
 //  RENDERIZAÇÃO DE RESULTADOS
 // ═══════════════════════════════════════════════════
 function renderResults() {
@@ -2119,9 +2200,9 @@ function renderResults() {
     
     // Agrupar por nível
     const groups = {
-        'Primária': filteredUnits.filter(u => u.nivel === 'Primária'),
-        'Secundária': filteredUnits.filter(u => u.nivel === 'Secundária'),
-        'Terciária': filteredUnits.filter(u => u.nivel === 'Terciária')
+        'primaria': filteredUnits.filter(u => u.nivel === 'primaria'),
+        'secundaria': filteredUnits.filter(u => u.nivel === 'secundaria'),
+        'terciaria': filteredUnits.filter(u => u.nivel === 'terciaria')
     };
     
     let html = `
@@ -2151,9 +2232,9 @@ function renderResults() {
     
     // Renderizar grupos
     const groupConfigs = [
-        { key: 'Primária', label: 'Atenção Primária', color: '#00A878', icon: '🏠' },
-        { key: 'Secundária', label: 'Atenção Secundária', color: '#1565C0', icon: '🔬' },
-        { key: 'Terciária', label: 'Atenção Terciária', color: '#E53935', icon: '🏨' }
+        { key: 'primaria', label: 'Atenção Primária', color: '#00A878', icon: '🏠' },
+        { key: 'secundaria', label: 'Atenção Secundária', color: '#1565C0', icon: '🔬' },
+        { key: 'terciaria', label: 'Atenção Terciária', color: '#E53935', icon: '🏨' }
     ];
     
     groupConfigs.forEach(cfg => {
@@ -2215,9 +2296,10 @@ function renderUnitCard(unit, accentColor, idx) {
     // Tag de acolhimento
     const acolhimentoClass = {
         'ambulatorial': 'ambulatorial',
-        'urgente': 'urgencia',
+        'urgencia': 'urgencia',
         'maternidade': 'maternidade',
-        'especializado': 'traumatologia'
+        'especializado': 'especializado',
+        'samu': 'urgencia'
     }[unit.acolhimento] || 'ambulatorial';
     
     tagsHTML += `<span class="unit-tag unit-tag-${acolhimentoClass}">${getTextoAcolhimento(unit.acolhimento)}</span>`;
@@ -2339,11 +2421,11 @@ function toggleGroup(groupId) {
 function updateDashboard() {
     document.getElementById('statTotal').textContent = filteredUnits.length;
     
-    const primaria = filteredUnits.filter(u => u.nivel === 'Primária').length;
-    const secundaria = filteredUnits.filter(u => u.nivel === 'Secundária').length;
-    const terciaria = filteredUnits.filter(u => u.nivel === 'Terciária').length;
+    const primaria = filteredUnits.filter(u => u.nivel === 'primaria').length;
+    const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria').length;
+    const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria').length;
     
-    const urgencia = filteredUnits.filter(u => u.acolhimento === 'urgente').length;
+    const urgencia = filteredUnits.filter(u => u.acolhimento === 'urgencia').length;
     const maternidade = filteredUnits.filter(u => u.acolhimento === 'maternidade').length;
     const especializado = filteredUnits.filter(u => u.acolhimento === 'especializado').length;
     const ambulatorial = filteredUnits.filter(u => u.acolhimento === 'ambulatorial').length;
@@ -2353,12 +2435,12 @@ function updateDashboard() {
     document.getElementById('statTerciaria').textContent = terciaria;
     document.getElementById('statUrgencia').textContent = urgencia;
     document.getElementById('statMaternidade').textContent = maternidade;
-    document.getElementById('statTraumatologia').textContent = especializado;
+    document.getElementById('statEspecializado').textContent = especializado;
     document.getElementById('statAmbulatorial').textContent = ambulatorial;
 }
 
 // ═══════════════════════════════════════════════════
-//  EXPORTAÇÃO
+//  EXPORTAÇÃO - EXCEL
 // ═══════════════════════════════════════════════════
 function exportToExcel() {
     if (filteredUnits.length === 0) {
@@ -2369,7 +2451,7 @@ function exportToExcel() {
     const data = filteredUnits.map(u => ({
         'Nome': u.nome,
         'Perfil': u.perfil,
-        'Nível de Atenção': u.nivel,
+        'Nível de Atenção': u.nivel === 'primaria' ? 'Primária' : u.nivel === 'secundaria' ? 'Secundária' : 'Terciária',
         'Tipo de Acolhimento': getTextoAcolhimento(u.acolhimento),
         'Cidade': u.cidade,
         'Bairro': u.bairro || '',
@@ -2379,9 +2461,7 @@ function exportToExcel() {
         'CNES': u.cnes || '',
         'Distância (km)': u.distancia ? u.distancia.toFixed(2) : '',
         'Latitude': u.lat || '',
-        'Longitude': u.lon || '',
-        'Link Maps': u.mapsLink || '',
-        'Link CNES': u.cnesLink || ''
+        'Longitude': u.lon || ''
     }));
     
     const ws = XLSX.utils.json_to_sheet(data);
@@ -2394,7 +2474,10 @@ function exportToExcel() {
     showNotification(`Arquivo Excel exportado: ${fileName}`, 'success');
 }
 
-function gerarConteudoPDF_A5() {
+// ═══════════════════════════════════════════════════
+//  PDF - TOTALMENTE INDEPENDENTE DO DASHBOARD
+// ═══════════════════════════════════════════════════
+function gerarPDFHTML() {
     const dataAtual = new Date().toLocaleString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
@@ -2403,103 +2486,271 @@ function gerarConteudoPDF_A5() {
         minute: '2-digit'
     });
 
-    const porNivel = {
-        'Primária': filteredUnits.filter(u => u.nivel === 'Primária'),
-        'Secundária': filteredUnits.filter(u => u.nivel === 'Secundária'),
-        'Terciária': filteredUnits.filter(u => u.nivel === 'Terciária')
+    // Estatísticas por nível
+    const primaria = filteredUnits.filter(u => u.nivel === 'primaria');
+    const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria');
+    const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria');
+    
+    // Estatísticas por acolhimento
+    const acolhimentos = {
+        ambulatorial: filteredUnits.filter(u => u.acolhimento === 'ambulatorial').length,
+        urgencia: filteredUnits.filter(u => u.acolhimento === 'urgencia').length,
+        maternidade: filteredUnits.filter(u => u.acolhimento === 'maternidade').length,
+        especializado: filteredUnits.filter(u => u.acolhimento === 'especializado').length,
+        samu: filteredUnits.filter(u => u.acolhimento === 'samu').length
     };
 
-    const acolhimentos = {
-        'ambulatorial': filteredUnits.filter(u => u.acolhimento === 'ambulatorial').length,
-        'urgente': filteredUnits.filter(u => u.acolhimento === 'urgente').length,
-        'maternidade': filteredUnits.filter(u => u.acolhimento === 'maternidade').length,
-        'especializado': filteredUnits.filter(u => u.acolhimento === 'especializado').length,
-        'samu': filteredUnits.filter(u => u.acolhimento === 'samu').length,
-        'hemoterapia': filteredUnits.filter(u => u.acolhimento === 'hemoterapia').length,
-        'psiquiatria': filteredUnits.filter(u => u.acolhimento === 'psiquiatria').length,
-        'transferencia': filteredUnits.filter(u => u.acolhimento === 'transferencia').length
+    // Função para formatar nível para exibição
+    const formatNivel = (nivel) => {
+        if (nivel === 'primaria') return 'Primária';
+        if (nivel === 'secundaria') return 'Secundária';
+        return 'Terciária';
     };
 
     let html = `
-        <div class="pdf-content-a5">
-            <div class="pdf-header-a5">
-                <h1>🏥 SaúdeBR - Unidades de Saúde</h1>
-                <p>Gerado em: ${dataAtual} | Total: ${filteredUnits.length} unidades</p>
+        <div class="pdf-container">
+            <!-- HEADER -->
+            <div class="pdf-header">
+                <div class="pdf-header-content">
+                    <div class="pdf-header-title">
+                        <h1>Saúde<span>BR</span> — Relatório de Unidades</h1>
+                        <p>Dados em tempo real • OpenStreetMap • Apenas unidades vinculadas ao SUS</p>
+                    </div>
+                    <div class="pdf-header-badge">
+                        <div class="total">${filteredUnits.length}</div>
+                        <div class="label">Total de Unidades</div>
+                        <div style="font-size: 0.7rem; margin-top: 5px;">${dataAtual}</div>
+                    </div>
+                </div>
             </div>
-            
-            <div class="pdf-stats-row-a5">
-                <div class="pdf-stat-card-a5">
-                    <div class="pdf-stat-value-a5">${filteredUnits.length}</div>
-                    <div class="pdf-stat-label-a5">Total</div>
+
+            <!-- STATS GRID -->
+            <div class="pdf-stats-grid">
+                <div class="pdf-stat-item primaria">
+                    <div class="pdf-stat-icon">🏠</div>
+                    <div class="pdf-stat-value">${primaria.length}</div>
+                    <div class="pdf-stat-label">Atenção Primária</div>
                 </div>
-                <div class="pdf-stat-card-a5">
-                    <div class="pdf-stat-value-a5">${porNivel['Primária'].length}</div>
-                    <div class="pdf-stat-label-a5">Primária</div>
+                <div class="pdf-stat-item secundaria">
+                    <div class="pdf-stat-icon">🔬</div>
+                    <div class="pdf-stat-value">${secundaria.length}</div>
+                    <div class="pdf-stat-label">Atenção Secundária</div>
                 </div>
-                <div class="pdf-stat-card-a5">
-                    <div class="pdf-stat-value-a5">${porNivel['Secundária'].length}</div>
-                    <div class="pdf-stat-label-a5">Secundária</div>
+                <div class="pdf-stat-item terciaria">
+                    <div class="pdf-stat-icon">🏨</div>
+                    <div class="pdf-stat-value">${terciaria.length}</div>
+                    <div class="pdf-stat-label">Atenção Terciária</div>
                 </div>
-                <div class="pdf-stat-card-a5">
-                    <div class="pdf-stat-value-a5">${porNivel['Terciária'].length}</div>
-                    <div class="pdf-stat-label-a5">Terciária</div>
+                <div class="pdf-stat-item urgencia">
+                    <div class="pdf-stat-icon">🚨</div>
+                    <div class="pdf-stat-value">${acolhimentos.urgencia}</div>
+                    <div class="pdf-stat-label">Urgência/Emergência</div>
                 </div>
-                <div class="pdf-stat-card-a5">
-                    <div class="pdf-stat-value-a5">${acolhimentos.urgente}</div>
-                    <div class="pdf-stat-label-a5">Urgência</div>
+            </div>
+
+            <!-- ACOLHIMENTO SECTION -->
+            <div class="pdf-acolhimento-section">
+                <div class="pdf-section-title">
+                    📊 Distribuição por Tipo de Acolhimento
+                    <span>${filteredUnits.length} unidades</span>
+                </div>
+                <div class="pdf-acolhimento-grid">
+                    <div class="pdf-acolhimento-card">
+                        <div class="pdf-acolhimento-icon">🩺</div>
+                        <div class="pdf-acolhimento-info">
+                            <h4>Ambulatorial</h4>
+                            <p>${acolhimentos.ambulatorial}</p>
+                        </div>
+                    </div>
+                    <div class="pdf-acolhimento-card">
+                        <div class="pdf-acolhimento-icon">🚨</div>
+                        <div class="pdf-acolhimento-info">
+                            <h4>Urgência</h4>
+                            <p>${acolhimentos.urgencia}</p>
+                        </div>
+                    </div>
+                    <div class="pdf-acolhimento-card">
+                        <div class="pdf-acolhimento-icon">🤱</div>
+                        <div class="pdf-acolhimento-info">
+                            <h4>Maternidade</h4>
+                            <p>${acolhimentos.maternidade}</p>
+                        </div>
+                    </div>
+                    <div class="pdf-acolhimento-card">
+                        <div class="pdf-acolhimento-icon">🔬</div>
+                        <div class="pdf-acolhimento-info">
+                            <h4>Especializado</h4>
+                            <p>${acolhimentos.especializado}</p>
+                        </div>
+                    </div>
+                    <div class="pdf-acolhimento-card">
+                        <div class="pdf-acolhimento-icon">🚑</div>
+                        <div class="pdf-acolhimento-info">
+                            <h4>SAMU</h4>
+                            <p>${acolhimentos.samu}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
     `;
 
-    Object.entries(porNivel).forEach(([nivel, unidades]) => {
-        if (unidades.length === 0) return;
-        
-        const classe = nivel.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        
+    // Seção Atenção Primária
+    if (primaria.length > 0) {
         html += `
-            <div class="pdf-section-a5">
-                <div class="pdf-category-header-a5 ${classe}">
-                    <span>${nivel === 'Primária' ? '🏠' : nivel === 'Secundária' ? '🔬' : '🏨'}</span>
-                    Atenção ${nivel} (${unidades.length} unidades)
+            <div class="pdf-nivel-section">
+                <div class="pdf-nivel-header primaria">
+                    <div class="pdf-nivel-icon">🏠</div>
+                    <div class="pdf-nivel-title">
+                        <h3>Atenção Primária</h3>
+                        <p>UBS, Postos de Saúde, Centros de Saúde</p>
+                    </div>
+                    <div class="pdf-nivel-count">${primaria.length}</div>
                 </div>
-                <div class="pdf-units-grid-a5">
+                <div class="pdf-units-grid">
         `;
-
-        unidades.slice(0, 10).forEach(u => {
-            const enderecoCompleto = u.enderecoCompleto || 'Endereço não informado';
-            const telefone = u.telefoneFormatado || u.telefone || 'Telefone não informado';
-            
+        
+        primaria.slice(0, 10).forEach(u => {
             html += `
-                <div class="pdf-unit-card-a5">
-                    <div class="pdf-unit-name-a5" title="${u.nome}">${u.nome.substring(0, 35)}${u.nome.length > 35 ? '...' : ''}</div>
-                    <div class="pdf-unit-profile-a5">
+                <div class="pdf-unit-card">
+                    <div class="pdf-unit-name">${u.nome}</div>
+                    <div class="pdf-unit-detail">
+                        <span>📍</span>
+                        <span>${u.endereco || 'Endereço não informado'}</span>
+                    </div>
+                    <div class="pdf-unit-detail">
+                        <span>📞</span>
+                        <span>${u.telefoneFormatado || u.telefone || 'Não informado'}</span>
+                    </div>
+                    <div class="pdf-unit-detail">
+                        <span>🏥</span>
                         <span>${u.perfil}</span>
                     </div>
-                    <div class="pdf-unit-address-a5" title="${enderecoCompleto}">
-                        <span>📍 ${enderecoCompleto.substring(0, 35)}${enderecoCompleto.length > 35 ? '...' : ''}</span>
-                    </div>
-                    <div class="pdf-unit-phone-a5">
-                        <span>📞 ${telefone}</span>
-                    </div>
-                    <div class="pdf-unit-row-a5">
-                        <span class="pdf-acolhimento-badge-a5 ${u.acolhimento}">${getTextoAcolhimento(u.acolhimento).substring(0, 15)}</span>
-                        ${u.distancia ? `<span class="pdf-distance-a5">🧭 ${u.distancia.toFixed(1)} km</span>` : ''}
-                    </div>
+                    ${u.distancia ? `
+                        <div class="pdf-unit-detail">
+                            <span>🧭</span>
+                            <span><strong>${u.distancia.toFixed(1)} km</strong> de distância</span>
+                        </div>
+                    ` : ''}
+                    <span class="pdf-unit-badge ${u.acolhimento}">${getTextoAcolhimento(u.acolhimento)}</span>
                 </div>
             `;
         });
-
-        if (unidades.length > 10) {
-            html += `<div style="grid-column: span 2; text-align: center; color: var(--text-muted); font-size: 0.7rem; padding: 0.5rem;">... e mais ${unidades.length - 10} unidades</div>`;
+        
+        if (primaria.length > 10) {
+            html += `<div style="grid-column: span 2; text-align: center; padding: 10px; color: var(--text-muted); background: var(--bg); border-radius: 8px;">... e mais ${primaria.length - 10} unidades</div>`;
         }
-
+        
         html += `</div></div>`;
-    });
+    }
 
+    // Seção Atenção Secundária
+    if (secundaria.length > 0) {
+        html += `
+            <div class="pdf-nivel-section">
+                <div class="pdf-nivel-header secundaria">
+                    <div class="pdf-nivel-icon">🔬</div>
+                    <div class="pdf-nivel-title">
+                        <h3>Atenção Secundária</h3>
+                        <p>Policlínicas, UPA, CAPS, Clínicas Especializadas</p>
+                    </div>
+                    <div class="pdf-nivel-count">${secundaria.length}</div>
+                </div>
+                <div class="pdf-units-grid">
+        `;
+        
+        secundaria.slice(0, 10).forEach(u => {
+            html += `
+                <div class="pdf-unit-card">
+                    <div class="pdf-unit-name">${u.nome}</div>
+                    <div class="pdf-unit-detail">
+                        <span>📍</span>
+                        <span>${u.endereco || 'Endereço não informado'}</span>
+                    </div>
+                    <div class="pdf-unit-detail">
+                        <span>📞</span>
+                        <span>${u.telefoneFormatado || u.telefone || 'Não informado'}</span>
+                    </div>
+                    <div class="pdf-unit-detail">
+                        <span>🏥</span>
+                        <span>${u.perfil}</span>
+                    </div>
+                    ${u.distancia ? `
+                        <div class="pdf-unit-detail">
+                            <span>🧭</span>
+                            <span><strong>${u.distancia.toFixed(1)} km</strong> de distância</span>
+                        </div>
+                    ` : ''}
+                    <span class="pdf-unit-badge ${u.acolhimento}">${getTextoAcolhimento(u.acolhimento)}</span>
+                </div>
+            `;
+        });
+        
+        if (secundaria.length > 10) {
+            html += `<div style="grid-column: span 2; text-align: center; padding: 10px; color: var(--text-muted); background: var(--bg); border-radius: 8px;">... e mais ${secundaria.length - 10} unidades</div>`;
+        }
+        
+        html += `</div></div>`;
+    }
+
+    // Seção Atenção Terciária
+    if (terciaria.length > 0) {
+        html += `
+            <div class="pdf-nivel-section">
+                <div class="pdf-nivel-header terciaria">
+                    <div class="pdf-nivel-icon">🏨</div>
+                    <div class="pdf-nivel-title">
+                        <h3>Atenção Terciária</h3>
+                        <p>Hospitais de Referência, Hospitais Especializados</p>
+                    </div>
+                    <div class="pdf-nivel-count">${terciaria.length}</div>
+                </div>
+                <div class="pdf-units-grid">
+        `;
+        
+        terciaria.slice(0, 10).forEach(u => {
+            html += `
+                <div class="pdf-unit-card">
+                    <div class="pdf-unit-name">${u.nome}</div>
+                    <div class="pdf-unit-detail">
+                        <span>📍</span>
+                        <span>${u.endereco || 'Endereço não informado'}</span>
+                    </div>
+                    <div class="pdf-unit-detail">
+                        <span>📞</span>
+                        <span>${u.telefoneFormatado || u.telefone || 'Não informado'}</span>
+                    </div>
+                    <div class="pdf-unit-detail">
+                        <span>🏥</span>
+                        <span>${u.perfil}</span>
+                    </div>
+                    ${u.distancia ? `
+                        <div class="pdf-unit-detail">
+                            <span>🧭</span>
+                            <span><strong>${u.distancia.toFixed(1)} km</strong> de distância</span>
+                        </div>
+                    ` : ''}
+                    <span class="pdf-unit-badge ${u.acolhimento}">${getTextoAcolhimento(u.acolhimento)}</span>
+                </div>
+            `;
+        });
+        
+        if (terciaria.length > 10) {
+            html += `<div style="grid-column: span 2; text-align: center; padding: 10px; color: var(--text-muted); background: var(--bg); border-radius: 8px;">... e mais ${terciaria.length - 10} unidades</div>`;
+        }
+        
+        html += `</div></div>`;
+    }
+
+    // FOOTER
     html += `
-            <div class="pdf-footer-a5">
-                <p>Relatório gerado pelo SaúdeBR Localizador - Dados do OpenStreetMap</p>
-                <p>© 2025 - Todos os direitos reservados</p>
+            <div class="pdf-footer">
+                <div class="pdf-footer-left">
+                    <span>🔍 Relatório gerado pelo SaúdeBR Localizador</span>
+                </div>
+                <div class="pdf-footer-right">
+                    <span>📅 ${dataAtual}</span><br>
+                    <span style="font-size: 0.7rem;">Dados do OpenStreetMap • Fonte pública colaborativa</span>
+                </div>
             </div>
         </div>
     `;
@@ -2517,7 +2768,7 @@ async function visualizarPDF() {
     updateSearchProgress(10, 'Gerando visualização do PDF...', 'Preparando conteúdo');
 
     try {
-        const html = gerarConteudoPDF_A5();
+        const html = gerarPDFHTML();
         document.getElementById('pdfModalBody').innerHTML = html;
         document.getElementById('pdfModal').classList.add('visible');
         showSearchProgress(false);
@@ -2542,9 +2793,9 @@ async function downloadPDF() {
         const { jsPDF } = window.jspdf;
         
         const element = document.createElement('div');
-        element.innerHTML = gerarConteudoPDF_A5();
-        element.style.width = '1100px';
-        element.style.padding = '15px';
+        element.innerHTML = gerarPDFHTML();
+        element.style.width = '1200px';
+        element.style.padding = '0';
         element.style.background = 'white';
         element.style.position = 'absolute';
         element.style.left = '-9999px';
@@ -2565,9 +2816,9 @@ async function downloadPDF() {
         const imgData = canvas.toDataURL('image/png');
         
         const pdf = new jsPDF({
-            orientation: 'landscape',
+            orientation: 'portrait',
             unit: 'mm',
-            format: 'a5'
+            format: 'a4'
         });
 
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -2606,9 +2857,9 @@ async function compartilharPDFWhatsApp() {
         const { jsPDF } = window.jspdf;
         
         const element = document.createElement('div');
-        element.innerHTML = gerarConteudoPDF_A5();
-        element.style.width = '1100px';
-        element.style.padding = '15px';
+        element.innerHTML = gerarPDFHTML();
+        element.style.width = '1200px';
+        element.style.padding = '0';
         element.style.background = 'white';
         element.style.position = 'absolute';
         element.style.left = '-9999px';
@@ -2628,9 +2879,9 @@ async function compartilharPDFWhatsApp() {
 
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF({
-            orientation: 'landscape',
+            orientation: 'portrait',
             unit: 'mm',
-            format: 'a5'
+            format: 'a4'
         });
 
         const pdfWidth = pdf.internal.pageSize.getWidth();
