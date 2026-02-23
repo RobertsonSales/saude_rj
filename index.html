@@ -1453,7 +1453,7 @@ function isVinculadoSUS(tags, nome) {
     if (tags['ref:CNES'] || tags['ref:cnes']) return true;
     
     // Por padrão, incluir apenas se parecer público
-    const tiposPublicos = ['hospital', 'clinic', 'health_post', 'health_centre', 'doctors'];
+    const tiposPublicos = ['hospital', 'clinic', 'health_post', 'health_centre'];
     const amenity = tags.amenity || '';
     const healthcare = tags.healthcare || '';
     
@@ -1461,7 +1461,8 @@ function isVinculadoSUS(tags, nome) {
         // Para estes tipos, incluir apenas se tiver indício de público
         return operador.includes('municipal') || operador.includes('estadual') || 
                operador.includes('federal') || nomeNorm.includes('ubs') || 
-               nomeNorm.includes('upa') || nomeNorm.includes('caps');
+               nomeNorm.includes('upa') || nomeNorm.includes('caps') ||
+               nomeNorm.includes('posto') || nomeNorm.includes('hospital');
     }
     
     return false;
@@ -1475,7 +1476,8 @@ function classificarNivel(tags, nome) {
     if (n.includes('ubs') || n.includes('posto de saude') || n.includes('unidade basica') ||
         n.includes('esf') || n.includes('saude da familia') || n.includes('psf') ||
         n.includes('centro de saude') || n.includes('cms') || healthcare === 'health_post' ||
-        healthcare === 'health_centre' || n.includes('ambulatorio')) {
+        healthcare === 'health_centre' || n.includes('ambulatorio') ||
+        (n.includes('posto') && !n.includes('policlinica'))) {
         return {
             nivel: 'primaria',
             perfil: n.includes('ubs') ? 'UBS' : 
@@ -1490,7 +1492,8 @@ function classificarNivel(tags, nome) {
     if (n.includes('upa') || n.includes('policlinica') || n.includes('policlínica') ||
         n.includes('pronto atendimento') || n.includes('pronto socorro') ||
         n.includes('caps') || n.includes('cri') || n.includes('centro de atencao') ||
-        healthcare === 'clinic' || n.includes('clinica especializada')) {
+        healthcare === 'clinic' || n.includes('clinica especializada') ||
+        (n.includes('hospital') && !n.includes('referencia') && !n.includes('universitario'))) {
         return {
             nivel: 'secundaria',
             perfil: n.includes('upa') ? 'UPA' :
@@ -1604,7 +1607,7 @@ function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
 }
 
 // ═══════════════════════════════════════════════════
-//  GEOLOCALIZAÇÃO E BUSCA POR PROXIMIDADE
+//  GEOLOCALIZAÇÃO E BUSCA POR PROXIMIDADE - CORRIGIDA
 // ═══════════════════════════════════════════════════
 async function usarGeolocalizacao() {
     if (!navigator.geolocation) {
@@ -1637,7 +1640,7 @@ async function usarGeolocalizacao() {
 
                 updateSearchProgress(30, 'Município detectado', location.cidade);
                 
-                // Buscar unidades próximas
+                // Buscar unidades próximas - RAIO CORRIGIDO
                 const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
                 const units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio);
                 
@@ -1704,16 +1707,29 @@ async function usarGeolocalizacao() {
     );
 }
 
+// ═══════════════════════════════════════════════════
+//  BUSCA POR PROXIMIDADE - CORRIGIDA PARA MAIOR VOLUME
+// ═══════════════════════════════════════════════════
 async function buscarUnidadesProximas(lat, lon, raioKm) {
     const raioMetros = raioKm * 1000;
     
+    // QUERY MAIS ABRANGENTE - Inclui mais tipos de estabelecimentos
     const query = `
-[out:json][timeout:45];
+[out:json][timeout:60];
 (
+  // Healthcare nodes
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
-  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raioMetros},${lat},${lon});
-  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"](around:${raioMetros},${lat},${lon});
+  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
+  
+  // Amenity nodes - mais abrangente
+  node["amenity"~"^(hospital|clinic|health_post|health_centre|doctors)$"](around:${raioMetros},${lat},${lon});
+  way["amenity"~"^(hospital|clinic|health_post|health_centre|doctors)$"](around:${raioMetros},${lat},${lon});
+  relation["amenity"~"^(hospital|clinic|health_post|health_centre|doctors)$"](around:${raioMetros},${lat},${lon});
+  
+  // Busca por nome (unidades que podem não ter tag específica)
+  node["name"~"(?i)(hospital|ubs|posto|upa|policlinica|centro de saude|caps)"](around:${raioMetros},${lat},${lon});
+  way["name"~"(?i)(hospital|ubs|posto|upa|policlinica|centro de saude|caps)"](around:${raioMetros},${lat},${lon});
 );
 out center tags;
     `.trim();
@@ -1746,7 +1762,7 @@ out center tags;
             const u = montarUnidade(
                 tags, elLat, elLon,
                 el.id,
-                el.type === 'node' ? 'node' : 'way',
+                el.type,
                 distancia
             );
             
@@ -1754,7 +1770,7 @@ out center tags;
                 unidades.push(u);
             }
 
-            if (i % 10 === 0) {
+            if (i % 20 === 0) {
                 const pct = 60 + Math.round((i + 1) / elementos.length * 25);
                 updateSearchProgress(pct, 'Processando...', `${unidades.length} unidades válidas encontradas`);
             }
@@ -1928,7 +1944,7 @@ async function getMunicipioData(uf, codigoIBGE) {
 }
 
 async function buscarUnidadesNoMunicipio(municipio) {
-    // Primeiro tenta por área administrativa
+    // QUERY MAIS ABRANGENTE para município
     const excl = EXCLUIR_TIPOS;
     const nome = municipio.nome;
     const nomesAlternativos = [nome, nome.replace(/^(São|Santo|Santa) /, 'S. ')];
@@ -1941,8 +1957,10 @@ area["name"="${nomeAlt}"]["admin_level"~"^(7|8|9)$"]["boundary"="administrative"
 (
   node["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
   way["healthcare"]["healthcare"!~"^(${excl})$"](area.mun);
-  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
-  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](area.mun);
+  node["amenity"~"^(hospital|clinic|health_post|health_centre|doctors)$"]["name"](area.mun);
+  way["amenity"~"^(hospital|clinic|health_post|health_centre|doctors)$"]["name"](area.mun);
+  node["name"~"(?i)(hospital|ubs|posto|upa|policlinica|centro de saude|caps)"](area.mun);
+  way["name"~"(?i)(hospital|ubs|posto|upa|policlinica|centro de saude|caps)"](area.mun);
 );
 out center tags;`;
         
@@ -1959,7 +1977,7 @@ out center tags;`;
     if (elementos.length === 0) {
         updateSearchProgress(35, 'Expandindo busca por coordenadas...', 'Usando bounding box');
         
-        const raio = 0.25;
+        const raio = 0.35; // Aumentado para cobrir melhor o município
         const sul = (municipio.latitude - raio).toFixed(6);
         const norte = (municipio.latitude + raio).toFixed(6);
         const oeste = (municipio.longitude - raio).toFixed(6);
@@ -1969,8 +1987,10 @@ out center tags;`;
 (
   node["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
   way["healthcare"]["healthcare"!~"^(${excl})$"](${sul},${oeste},${norte},${leste});
-  node["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
-  way["amenity"~"^(hospital|clinic|health_post|health_centre)$"]["name"](${sul},${oeste},${norte},${leste});
+  node["amenity"~"^(hospital|clinic|health_post|health_centre|doctors)$"]["name"](${sul},${oeste},${norte},${leste});
+  way["amenity"~"^(hospital|clinic|health_post|health_centre|doctors)$"]["name"](${sul},${oeste},${norte},${leste});
+  node["name"~"(?i)(hospital|ubs|posto|upa|policlinica|centro de saude|caps)"](${sul},${oeste},${norte},${leste});
+  way["name"~"(?i)(hospital|ubs|posto|upa|policlinica|centro de saude|caps)"](${sul},${oeste},${norte},${leste});
 );
 out center tags;`;
         
@@ -1988,7 +2008,7 @@ out center tags;`;
 
     updateSearchProgress(50, 'Classificando unidades...', `${elementos.length} candidatos encontrados`);
 
-    const raioKm = Math.max(15, municipio.area_km2 ? Math.sqrt(municipio.area_km2 / Math.PI) * 1.3 : 15);
+    const raioKm = Math.max(25, municipio.area_km2 ? Math.sqrt(municipio.area_km2 / Math.PI) * 1.5 : 25);
     const unidades = [];
 
     for (let i = 0; i < elementos.length; i++) {
@@ -2003,8 +2023,8 @@ out center tags;`;
 
         const dist = calcularDistancia(municipio.latitude, municipio.longitude, lat, lon);
 
-        if (dist <= raioKm + 5) {
-            const u = montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
+        if (dist <= raioKm) {
+            const u = montarUnidade(tags, lat, lon, el.id, el.type);
             if (u) {
                 u.cidade = municipio.nome;
                 unidades.push(u);
@@ -2476,6 +2496,7 @@ function exportToExcel() {
 
 // ═══════════════════════════════════════════════════
 //  PDF - TOTALMENTE INDEPENDENTE DO DASHBOARD
+//  AGORA LISTA TODAS AS UNIDADES, SEM LIMITE
 // ═══════════════════════════════════════════════════
 function gerarPDFHTML() {
     const dataAtual = new Date().toLocaleString('pt-BR', {
@@ -2498,13 +2519,6 @@ function gerarPDFHTML() {
         maternidade: filteredUnits.filter(u => u.acolhimento === 'maternidade').length,
         especializado: filteredUnits.filter(u => u.acolhimento === 'especializado').length,
         samu: filteredUnits.filter(u => u.acolhimento === 'samu').length
-    };
-
-    // Função para formatar nível para exibição
-    const formatNivel = (nivel) => {
-        if (nivel === 'primaria') return 'Primária';
-        if (nivel === 'secundaria') return 'Secundária';
-        return 'Terciária';
     };
 
     let html = `
@@ -2594,23 +2608,26 @@ function gerarPDFHTML() {
             </div>
     `;
 
-    // Seção Atenção Primária
-    if (primaria.length > 0) {
-        html += `
+    // Função para gerar seção de unidades (sem limite)
+    function gerarSecaoUnidades(titulo, icon, cor, unidades, descricao) {
+        if (unidades.length === 0) return '';
+        
+        let secao = `
             <div class="pdf-nivel-section">
-                <div class="pdf-nivel-header primaria">
-                    <div class="pdf-nivel-icon">🏠</div>
+                <div class="pdf-nivel-header ${cor}">
+                    <div class="pdf-nivel-icon">${icon}</div>
                     <div class="pdf-nivel-title">
-                        <h3>Atenção Primária</h3>
-                        <p>UBS, Postos de Saúde, Centros de Saúde</p>
+                        <h3>${titulo}</h3>
+                        <p>${descricao}</p>
                     </div>
-                    <div class="pdf-nivel-count">${primaria.length}</div>
+                    <div class="pdf-nivel-count">${unidades.length}</div>
                 </div>
                 <div class="pdf-units-grid">
         `;
         
-        primaria.slice(0, 10).forEach(u => {
-            html += `
+        // LISTA TODAS AS UNIDADES, SEM LIMITE
+        unidades.forEach(u => {
+            secao += `
                 <div class="pdf-unit-card">
                     <div class="pdf-unit-name">${u.nome}</div>
                     <div class="pdf-unit-detail">
@@ -2636,110 +2653,14 @@ function gerarPDFHTML() {
             `;
         });
         
-        if (primaria.length > 10) {
-            html += `<div style="grid-column: span 2; text-align: center; padding: 10px; color: var(--text-muted); background: var(--bg); border-radius: 8px;">... e mais ${primaria.length - 10} unidades</div>`;
-        }
-        
-        html += `</div></div>`;
+        secao += `</div></div>`;
+        return secao;
     }
 
-    // Seção Atenção Secundária
-    if (secundaria.length > 0) {
-        html += `
-            <div class="pdf-nivel-section">
-                <div class="pdf-nivel-header secundaria">
-                    <div class="pdf-nivel-icon">🔬</div>
-                    <div class="pdf-nivel-title">
-                        <h3>Atenção Secundária</h3>
-                        <p>Policlínicas, UPA, CAPS, Clínicas Especializadas</p>
-                    </div>
-                    <div class="pdf-nivel-count">${secundaria.length}</div>
-                </div>
-                <div class="pdf-units-grid">
-        `;
-        
-        secundaria.slice(0, 10).forEach(u => {
-            html += `
-                <div class="pdf-unit-card">
-                    <div class="pdf-unit-name">${u.nome}</div>
-                    <div class="pdf-unit-detail">
-                        <span>📍</span>
-                        <span>${u.endereco || 'Endereço não informado'}</span>
-                    </div>
-                    <div class="pdf-unit-detail">
-                        <span>📞</span>
-                        <span>${u.telefoneFormatado || u.telefone || 'Não informado'}</span>
-                    </div>
-                    <div class="pdf-unit-detail">
-                        <span>🏥</span>
-                        <span>${u.perfil}</span>
-                    </div>
-                    ${u.distancia ? `
-                        <div class="pdf-unit-detail">
-                            <span>🧭</span>
-                            <span><strong>${u.distancia.toFixed(1)} km</strong> de distância</span>
-                        </div>
-                    ` : ''}
-                    <span class="pdf-unit-badge ${u.acolhimento}">${getTextoAcolhimento(u.acolhimento)}</span>
-                </div>
-            `;
-        });
-        
-        if (secundaria.length > 10) {
-            html += `<div style="grid-column: span 2; text-align: center; padding: 10px; color: var(--text-muted); background: var(--bg); border-radius: 8px;">... e mais ${secundaria.length - 10} unidades</div>`;
-        }
-        
-        html += `</div></div>`;
-    }
-
-    // Seção Atenção Terciária
-    if (terciaria.length > 0) {
-        html += `
-            <div class="pdf-nivel-section">
-                <div class="pdf-nivel-header terciaria">
-                    <div class="pdf-nivel-icon">🏨</div>
-                    <div class="pdf-nivel-title">
-                        <h3>Atenção Terciária</h3>
-                        <p>Hospitais de Referência, Hospitais Especializados</p>
-                    </div>
-                    <div class="pdf-nivel-count">${terciaria.length}</div>
-                </div>
-                <div class="pdf-units-grid">
-        `;
-        
-        terciaria.slice(0, 10).forEach(u => {
-            html += `
-                <div class="pdf-unit-card">
-                    <div class="pdf-unit-name">${u.nome}</div>
-                    <div class="pdf-unit-detail">
-                        <span>📍</span>
-                        <span>${u.endereco || 'Endereço não informado'}</span>
-                    </div>
-                    <div class="pdf-unit-detail">
-                        <span>📞</span>
-                        <span>${u.telefoneFormatado || u.telefone || 'Não informado'}</span>
-                    </div>
-                    <div class="pdf-unit-detail">
-                        <span>🏥</span>
-                        <span>${u.perfil}</span>
-                    </div>
-                    ${u.distancia ? `
-                        <div class="pdf-unit-detail">
-                            <span>🧭</span>
-                            <span><strong>${u.distancia.toFixed(1)} km</strong> de distância</span>
-                        </div>
-                    ` : ''}
-                    <span class="pdf-unit-badge ${u.acolhimento}">${getTextoAcolhimento(u.acolhimento)}</span>
-                </div>
-            `;
-        });
-        
-        if (terciaria.length > 10) {
-            html += `<div style="grid-column: span 2; text-align: center; padding: 10px; color: var(--text-muted); background: var(--bg); border-radius: 8px;">... e mais ${terciaria.length - 10} unidades</div>`;
-        }
-        
-        html += `</div></div>`;
-    }
+    // Adicionar seções
+    html += gerarSecaoUnidades('Atenção Primária', '🏠', 'primaria', primaria, 'UBS, Postos de Saúde, Centros de Saúde');
+    html += gerarSecaoUnidades('Atenção Secundária', '🔬', 'secundaria', secundaria, 'Policlínicas, UPA, CAPS, Clínicas Especializadas');
+    html += gerarSecaoUnidades('Atenção Terciária', '🏨', 'terciaria', terciaria, 'Hospitais de Referência, Hospitais Especializados');
 
     // FOOTER
     html += `
@@ -2815,8 +2736,9 @@ async function downloadPDF() {
 
         const imgData = canvas.toDataURL('image/png');
         
+        // Usar A4 em modo paisagem para acomodar muitas unidades
         const pdf = new jsPDF({
-            orientation: 'portrait',
+            orientation: 'landscape',
             unit: 'mm',
             format: 'a4'
         });
@@ -2879,7 +2801,7 @@ async function compartilharPDFWhatsApp() {
 
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF({
-            orientation: 'portrait',
+            orientation: 'landscape',
             unit: 'mm',
             format: 'a4'
         });
