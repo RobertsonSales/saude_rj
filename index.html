@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SaúdeBR — Localizador CNES de Unidades de Saúde Pública</title>
+  <title>Saúde-BR — Localizador de Unidades de Saúde Pública</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -792,7 +792,7 @@
       </svg>
     </div>
     <div class="header-titles">
-      <h1>Saúde<span>BR</span> &mdash; Localizador CNES</h1>
+      <h1>Saúde<span> - BR</span> &mdash; Localizador Unid. de Saúde</h1>
       <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
     <span class="header-badge">🟢 Online</span>
@@ -890,7 +890,7 @@
     <div style="font-size: 1.8rem;">📍</div>
     <div class="geo-info">
       <h3>Busca por Proximidade Geográfica</h3>
-      <p id="geoStatus">Detecta automaticamente sua localização via GPS e busca unidades no raio configurado.</p>
+      <p id="geoStatus">Detecta automaticamente sua localização via GPS e busca unidades no raio (km) configurado abaixo:</p>
     </div>
     <div class="geo-radius-row">
       <span class="geo-radius-label">Raio (km):</span>
@@ -898,7 +898,7 @@
     </div>
     <button class="btn btn-geo" onclick="usarGeolocalizacao()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>
-      Buscar Perto de Mim
+      Buscar Unidades Perto de Mim
     </button>
   </div>
 
@@ -972,7 +972,7 @@
     <div class="status-box">
       <span class="status-icon">🔍</span>
       <h3>Pronto para buscar</h3>
-      <p>Selecione estado e município nos filtros e clique em <strong>Buscar por Município</strong>, ou use <strong>Buscar Perto de Mim</strong> para detecção automática.</p>
+      <p>Selecione estado e município nos filtros e clique em <strong>Buscar por Município</strong>, ou use <strong>Buscar Unidades Perto de Mim</strong> para detecção automática.</p>
     </div>
   </div>
 
@@ -1009,7 +1009,7 @@
 </div>
 
 <footer class="footer">
-  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.5 (SUS exclusivo)
+  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
 </footer>
 
 <script>
