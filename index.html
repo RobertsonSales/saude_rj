@@ -2305,209 +2305,189 @@ function exportToExcel() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PDF - FORMATO A5 HORIZONTAL (TOTALMENTE INDEPENDENTE E LEVE)
+//  PDF - FORMATO A5 HORIZONTAL (CORRIGIDO COM PAGINAÇÃO E CARDS COMPACTOS)
 // ════════════════════════════════════════════════════════════════════════════
-function gerarPDFHTML_A5() {
-    const dataAtual = new Date().toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
 
-    // Estatísticas por nível
-    const primaria = filteredUnits.filter(u => u.nivel === 'primaria');
-    const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria');
-    const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria');
-    
-    // Estatísticas por acolhimento
-    const acolhimentos = {
-        ambulatorial: filteredUnits.filter(u => u.acolhimento === 'ambulatorial').length,
-        urgencia: filteredUnits.filter(u => u.acolhimento === 'urgencia').length,
-        maternidade: filteredUnits.filter(u => u.acolhimento === 'maternidade').length,
-        especializado: filteredUnits.filter(u => u.acolhimento === 'especializado').length,
-        samu: filteredUnits.filter(u => u.acolhimento === 'samu').length
-    };
+/**
+ * Gera o HTML de uma única página do PDF, contendo um cabeçalho e uma grade de cards.
+ * @param {Array} units - Lista de unidades a serem exibidas nesta página.
+ * @param {string} tituloNivel - Título do nível (ex: "Atenção Primária").
+ * @param {string} iconeNivel - Ícone do nível.
+ * @param {string} corClasse - Classe CSS para cor (primaria, secundaria, terciaria).
+ * @param {number} paginaAtual - Número da página atual.
+ * @param {number} totalPaginas - Total de páginas.
+ * @param {number} totalUnidades - Total geral de unidades.
+ * @param {string} dataAtual - Data de geração.
+ * @returns {string} HTML da página.
+ */
+function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual, totalPaginas, totalUnidades, dataAtual) {
+    const cardsHTML = units.map(u => {
+        const endereco = u.enderecoCompleto || u.endereco || '';
+        const bairro = u.bairro ? ` - ${u.bairro}` : '';
+        const telefone = u.telefoneFormatado || u.telefone || 'Não informado';
+        const acolhimentoClass = u.acolhimento || 'ambulatorial';
+        const acolhimentoTexto = getTextoAcolhimento(u.acolhimento);
+        const distancia = u.distancia ? `<div class="pdf-unit-detail"><span>🧭</span> <span>${u.distancia.toFixed(1)} km</span></div>` : '';
+        const cnes = u.cnes ? `<div style="font-size:0.55rem; margin-top:2px;">CNES: ${u.cnes}</div>` : '';
 
-    // CSS específico para o PDF (totalmente independente, otimizado para A5 horizontal)
-    const pdfStyles = `
-        <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Outfit', 'Fira Sans', sans-serif; background: #f5f7fa; padding: 10px; }
-            .pdf-container { max-width: 1100px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-            .pdf-header { background: linear-gradient(135deg, #0B1F3A, #132D50); color: white; padding: 18px; position: relative; }
-            .pdf-header::before { content: ''; position: absolute; top: -50%; right: -10%; width: 300px; height: 300px; background: rgba(255,255,255,0.05); border-radius: 50%; }
-            .pdf-header-content { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; }
-            .pdf-header-title h1 { font-size: 1.6rem; font-weight: 800; margin-bottom: 4px; }
-            .pdf-header-title h1 span { color: #00C896; }
-            .pdf-header-title p { opacity: 0.8; font-size: 0.75rem; }
-            .pdf-header-badge { background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); padding: 8px 12px; border-radius: 12px; text-align: right; border: 1px solid rgba(255,255,255,0.2); }
-            .pdf-header-badge .total { font-size: 1.6rem; font-weight: 800; color: #00C896; }
-            .pdf-header-badge .label { font-size: 0.65rem; opacity: 0.7; text-transform: uppercase; }
-            .pdf-stats-row { display: flex; gap: 8px; padding: 16px; background: #f0f4f8; flex-wrap: wrap; }
-            .pdf-stat-card { flex: 1; min-width: 90px; background: white; border-radius: 12px; padding: 10px; border-left: 4px solid; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-            .pdf-stat-card.primaria { border-color: #00A878; }
-            .pdf-stat-card.secundaria { border-color: #1565C0; }
-            .pdf-stat-card.terciaria { border-color: #E53935; }
-            .pdf-stat-card.urgencia { border-color: #F5A623; }
-            .pdf-stat-value { font-size: 1.3rem; font-weight: 800; color: #0B1F3A; }
-            .pdf-stat-label { font-size: 0.6rem; color: #5A6E85; text-transform: uppercase; letter-spacing: 0.5px; }
-            .pdf-acolhimento-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 16px; background: white; }
-            .pdf-acolhimento-card { background: #f8fafd; border: 1px solid #D8E2EE; border-radius: 10px; padding: 10px; display: flex; align-items: center; gap: 6px; }
-            .pdf-acolhimento-icon { width: 30px; height: 30px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
-            .pdf-acolhimento-info h4 { font-size: 0.7rem; color: #0B1F3A; }
-            .pdf-acolhimento-info p { font-size: 1rem; font-weight: 800; color: #00A878; }
-            .pdf-nivel-section { padding: 0 16px 16px; }
-            .pdf-nivel-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; color: white; margin-bottom: 12px; }
-            .pdf-nivel-header.primaria { background: linear-gradient(135deg, #00A878, #00C896); }
-            .pdf-nivel-header.secundaria { background: linear-gradient(135deg, #1565C0, #2196f3); }
-            .pdf-nivel-header.terciaria { background: linear-gradient(135deg, #E53935, #f44336); }
-            .pdf-nivel-icon { font-size: 1.4rem; }
-            .pdf-nivel-title { flex: 1; }
-            .pdf-nivel-title h3 { font-size: 0.9rem; font-weight: 700; }
-            .pdf-nivel-title p { font-size: 0.65rem; opacity: 0.9; }
-            .pdf-nivel-count { font-size: 1.3rem; font-weight: 800; }
-            .pdf-units-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-            .pdf-unit-card { background: #f8fafd; border: 1px solid #D8E2EE; border-radius: 10px; padding: 10px; page-break-inside: avoid; }
-            .pdf-unit-name { font-size: 0.85rem; font-weight: 700; color: #0B1F3A; margin-bottom: 4px; }
-            .pdf-unit-detail { display: flex; align-items: center; gap: 4px; font-size: 0.65rem; color: #5A6E85; margin-bottom: 3px; }
-            .pdf-unit-detail span:first-child { min-width: 16px; }
-            .pdf-unit-badge { display: inline-block; padding: 2px 6px; border-radius: 5px; font-size: 0.55rem; font-weight: 600; margin-top: 4px; }
-            .pdf-unit-badge.urgente { background: #FDECEA; color: #E53935; }
-            .pdf-unit-badge.ambulatorial { background: #E8F8F3; color: #00A878; }
-            .pdf-unit-badge.maternidade { background: #F3E5F5; color: #6A1B9A; }
-            .pdf-unit-badge.especializado { background: #FFF8EC; color: #C07A00; }
-            .pdf-footer { background: #0B1F3A; color: white; padding: 12px 16px; display: flex; justify-content: space-between; font-size: 0.65rem; }
-            .pdf-footer-left { opacity: 0.7; }
-            .pdf-footer-right { text-align: right; }
-            @media print { body { background: white; } .pdf-container { box-shadow: none; } }
-        </style>
-    `;
-
-    let html = `
-        <div class="pdf-container">
-            <div class="pdf-header">
-                <div class="pdf-header-content">
-                    <div class="pdf-header-title">
-                        <h1>Saúde<span>BR</span> — Relatório de Unidades SUS</h1>
-                        <p>Dados em tempo real • OpenStreetMap • Apenas unidades públicas</p>
-                    </div>
-                    <div class="pdf-header-badge">
-                        <div class="total">${filteredUnits.length}</div>
-                        <div class="label">Total de Unidades</div>
-                        <div style="font-size: 0.55rem; margin-top: 2px;">${dataAtual}</div>
-                    </div>
-                </div>
+        return `
+            <div class="pdf-unit-card">
+                <div class="pdf-unit-name">${u.nome}</div>
+                <div class="pdf-unit-detail"><span>📍</span> <span>${endereco}${bairro}</span></div>
+                <div class="pdf-unit-detail"><span>📞</span> <span>${telefone}</span></div>
+                ${u.email ? `<div class="pdf-unit-detail"><span>📧</span> <span>${u.email}</span></div>` : ''}
+                <div class="pdf-unit-detail"><span>🏥</span> <span>${u.perfil}</span></div>
+                ${distancia}
+                <span class="pdf-unit-badge ${acolhimentoClass}">${acolhimentoTexto}</span>
+                ${cnes}
             </div>
-
-            <div class="pdf-stats-row">
-                <div class="pdf-stat-card primaria">
-                    <div class="pdf-stat-value">${primaria.length}</div>
-                    <div class="pdf-stat-label">Atenção Primária</div>
-                </div>
-                <div class="pdf-stat-card secundaria">
-                    <div class="pdf-stat-value">${secundaria.length}</div>
-                    <div class="pdf-stat-label">Atenção Secundária</div>
-                </div>
-                <div class="pdf-stat-card terciaria">
-                    <div class="pdf-stat-value">${terciaria.length}</div>
-                    <div class="pdf-stat-label">Atenção Terciária</div>
-                </div>
-                <div class="pdf-stat-card urgencia">
-                    <div class="pdf-stat-value">${acolhimentos.urgencia}</div>
-                    <div class="pdf-stat-label">Urgência/Emergência</div>
-                </div>
-            </div>
-
-            <div class="pdf-acolhimento-grid">
-                <div class="pdf-acolhimento-card">
-                    <div class="pdf-acolhimento-icon">🩺</div>
-                    <div class="pdf-acolhimento-info">
-                        <h4>Ambulatorial</h4>
-                        <p>${acolhimentos.ambulatorial}</p>
-                    </div>
-                </div>
-                <div class="pdf-acolhimento-card">
-                    <div class="pdf-acolhimento-icon">🚨</div>
-                    <div class="pdf-acolhimento-info">
-                        <h4>Urgência</h4>
-                        <p>${acolhimentos.urgencia}</p>
-                    </div>
-                </div>
-                <div class="pdf-acolhimento-card">
-                    <div class="pdf-acolhimento-icon">🤱</div>
-                    <div class="pdf-acolhimento-info">
-                        <h4>Maternidade</h4>
-                        <p>${acolhimentos.maternidade}</p>
-                    </div>
-                </div>
-                <div class="pdf-acolhimento-card">
-                    <div class="pdf-acolhimento-icon">🔬</div>
-                    <div class="pdf-acolhimento-info">
-                        <h4>Especializado</h4>
-                        <p>${acolhimentos.especializado}</p>
-                    </div>
-                </div>
-                <div class="pdf-acolhimento-card">
-                    <div class="pdf-acolhimento-icon">🚑</div>
-                    <div class="pdf-acolhimento-info">
-                        <h4>SAMU</h4>
-                        <p>${acolhimentos.samu}</p>
-                    </div>
-                </div>
-            </div>
-    `;
-
-    // Função para renderizar um grupo
-    const renderGrupo = (unidades, nivel, titulo, subtitulo, icone, corClasse) => {
-        if (unidades.length === 0) return '';
-        let grupo = `
-            <div class="pdf-nivel-section">
-                <div class="pdf-nivel-header ${corClasse}">
-                    <div class="pdf-nivel-icon">${icone}</div>
-                    <div class="pdf-nivel-title">
-                        <h3>${titulo}</h3>
-                        <p>${subtitulo}</p>
-                    </div>
-                    <div class="pdf-nivel-count">${unidades.length}</div>
-                </div>
-                <div class="pdf-units-grid">
         `;
-        unidades.forEach(u => {
-            const acolhimentoClass = u.acolhimento || 'ambulatorial';
-            const endereco = u.enderecoCompleto || u.endereco || '';
-            const telefone = u.telefoneFormatado || u.telefone || 'Não informado';
-            grupo += `
-                <div class="pdf-unit-card">
-                    <div class="pdf-unit-name">${u.nome}</div>
-                    <div class="pdf-unit-detail"><span>📍</span> <span>${endereco} ${u.bairro ? ' - ' + u.bairro : ''}</span></div>
-                    <div class="pdf-unit-detail"><span>📞</span> <span>${telefone}</span></div>
-                    ${u.email ? `<div class="pdf-unit-detail"><span>📧</span> <span>${u.email}</span></div>` : ''}
-                    <div class="pdf-unit-detail"><span>🏥</span> <span>${u.perfil}</span></div>
-                    ${u.distancia ? `<div class="pdf-unit-detail"><span>🧭</span> <span>${u.distancia.toFixed(1)} km</span></div>` : ''}
-                    <span class="pdf-unit-badge ${acolhimentoClass}">${getTextoAcolhimento(u.acolhimento)}</span>
-                    ${u.cnes ? `<div style="font-size:0.55rem; margin-top:3px;">CNES: ${u.cnes}</div>` : ''}
+    }).join('');
+
+    return `
+        <div class="pdf-page" style="width: 800px; background: white; font-family: 'Outfit', 'Fira Sans', sans-serif; padding: 10px; box-sizing: border-box;">
+            <div class="pdf-header" style="background: linear-gradient(135deg, #0B1F3A, #132D50); color: white; padding: 8px 12px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="font-size: 1.2rem; font-weight: 800; margin:0;">Saúde<span style="color: #00C896;">BR</span> — Relatório SUS</h1>
+                    <p style="font-size: 0.6rem; opacity:0.8;">Dados do OpenStreetMap • Apenas unidades públicas</p>
                 </div>
-            `;
-        });
-        grupo += `</div></div>`;
-        return grupo;
-    };
+                <div style="text-align: right;">
+                    <div style="font-size: 1.1rem; font-weight:800; color:#00C896;">${totalUnidades}</div>
+                    <div style="font-size:0.5rem; opacity:0.7;">Total de Unidades</div>
+                </div>
+            </div>
 
-    html += renderGrupo(primaria, 'primaria', 'Atenção Primária', 'UBS, Postos de Saúde, Centros de Saúde', '🏠', 'primaria');
-    html += renderGrupo(secundaria, 'secundaria', 'Atenção Secundária', 'Policlínicas, UPA, CAPS, Clínicas Especializadas', '🔬', 'secundaria');
-    html += renderGrupo(terciaria, 'terciaria', 'Atenção Terciária', 'Hospitais de Referência, Hospitais Especializados', '🏨', 'terciaria');
+            <div class="pdf-nivel-header" style="display: flex; align-items: center; gap: 6px; background: ${corClasse === 'primaria' ? 'linear-gradient(135deg, #00A878, #00C896)' : corClasse === 'secundaria' ? 'linear-gradient(135deg, #1565C0, #2196f3)' : 'linear-gradient(135deg, #E53935, #f44336)'}; color: white; padding: 6px 10px; border-radius: 6px; margin: 8px 0;">
+                <span style="font-size: 1.2rem;">${iconeNivel}</span>
+                <span style="flex:1; font-weight:700; font-size:0.8rem;">${tituloNivel}</span>
+                <span style="font-weight:800; font-size:1rem;">${units.length}</span>
+            </div>
 
-    html += `
-            <div class="pdf-footer">
-                <div class="pdf-footer-left">🔍 Relatório gerado pelo SaúdeBR Localizador</div>
-                <div class="pdf-footer-right">📅 ${dataAtual}<br><span style="font-size:0.5rem;">Dados do OpenStreetMap</span></div>
+            <div class="pdf-cards-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                ${cardsHTML}
+            </div>
+
+            <div class="pdf-footer" style="display: flex; justify-content: space-between; font-size: 0.55rem; color: #5A6E85; border-top: 1px solid #D8E2EE; padding-top: 4px; margin-top: 8px;">
+                <span>🔍 Gerado pelo SaúdeBR Localizador</span>
+                <span>Página ${paginaAtual} de ${totalPaginas} • ${dataAtual}</span>
             </div>
         </div>
     `;
+}
 
-    return pdfStyles + html;
+/**
+ * Estilos CSS otimizados para os cards do PDF (serão embutidos na página).
+ */
+const pdfStyles = `
+    <style>
+        .pdf-unit-card {
+            background: #f8fafd;
+            border: 1px solid #D8E2EE;
+            border-radius: 6px;
+            padding: 6px;
+            font-size: 0.65rem;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        .pdf-unit-name {
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #0B1F3A;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pdf-unit-detail {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.6rem;
+            color: #5A6E85;
+            margin-bottom: 2px;
+        }
+        .pdf-unit-detail span:first-child {
+            min-width: 14px;
+        }
+        .pdf-unit-badge {
+            display: inline-block;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 0.55rem;
+            font-weight: 600;
+            margin-top: 3px;
+        }
+        .pdf-unit-badge.urgente { background: #FDECEA; color: #E53935; }
+        .pdf-unit-badge.ambulatorial { background: #E8F8F3; color: #00A878; }
+        .pdf-unit-badge.maternidade { background: #F3E5F5; color: #6A1B9A; }
+        .pdf-unit-badge.especializado { background: #FFF8EC; color: #C07A00; }
+    </style>
+`;
+
+/**
+ * Gera o PDF completo com múltiplas páginas.
+ */
+async function gerarPDFCompleto() {
+    const dataAtual = new Date().toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+
+    // Agrupar unidades por nível
+    const primaria = filteredUnits.filter(u => u.nivel === 'primaria');
+    const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria');
+    const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria');
+
+    // Configuração dos grupos
+    const grupos = [
+        { units: primaria, titulo: 'Atenção Primária', icone: '🏠', cor: 'primaria' },
+        { units: secundaria, titulo: 'Atenção Secundária', icone: '🔬', cor: 'secundaria' },
+        { units: terciaria, titulo: 'Atenção Terciária', icone: '🏨', cor: 'terciaria' }
+    ].filter(g => g.units.length > 0);
+
+    // Estimar quantos cards cabem por página (altura aproximada de cada card: 90px)
+    const CARDS_POR_PAGINA = 8; // 2 colunas * 4 linhas = 8 cards por página (ajustável)
+    const paginasHTML = [];
+    let paginaGlobal = 1;
+
+    for (const grupo of grupos) {
+        const units = grupo.units;
+        for (let i = 0; i < units.length; i += CARDS_POR_PAGINA) {
+            const fatia = units.slice(i, i + CARDS_POR_PAGINA);
+            const html = gerarPaginaHTML(
+                fatia,
+                grupo.titulo,
+                grupo.icone,
+                grupo.cor,
+                paginaGlobal,
+                0, // será preenchido depois
+                filteredUnits.length,
+                dataAtual
+            );
+            paginasHTML.push({ html, grupo: grupo.titulo });
+            paginaGlobal++;
+        }
+    }
+
+    const totalPaginas = paginasHTML.length;
+
+    // Agora gerar o HTML final com o número correto de páginas
+    let htmlFinal = pdfStyles;
+    for (let i = 0; i < paginasHTML.length; i++) {
+        const item = paginasHTML[i];
+        // Substituir o placeholder do número da página (0) pelo número real
+        const htmlComNumero = item.html.replace(
+            'Página 0 de 0',
+            `Página ${i+1} de ${totalPaginas}`
+        );
+        htmlFinal += htmlComNumero;
+        if (i < paginasHTML.length - 1) {
+            // Adicionar marcador de quebra de página (será usado para separar no canvas)
+            htmlFinal += '<div style="page-break-before: always; height: 0;"></div>';
+        }
+    }
+
+    return htmlFinal;
 }
 
 async function visualizarPDF() {
@@ -2520,7 +2500,7 @@ async function visualizarPDF() {
     updateSearchProgress(10, 'Gerando visualização do PDF...', 'Preparando conteúdo');
 
     try {
-        const html = gerarPDFHTML_A5();
+        const html = await gerarPDFCompleto();
         document.getElementById('pdfModalBody').innerHTML = html;
         document.getElementById('pdfModal').classList.add('visible');
         showSearchProgress(false);
@@ -2539,60 +2519,74 @@ async function downloadPDF() {
     if (filteredUnits.length === 0) return;
 
     showSearchProgress(true);
-    updateSearchProgress(10, 'Gerando PDF...', 'Processando imagem');
+    updateSearchProgress(10, 'Gerando PDF...', 'Processando páginas');
 
     try {
         const { jsPDF } = window.jspdf;
-        
-        const element = document.createElement('div');
-        element.innerHTML = gerarPDFHTML_A5();
-        element.style.width = '1100px'; // Largura para A5 horizontal
-        element.style.padding = '15px';
-        element.style.background = 'white';
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        document.body.appendChild(element);
+        const htmlString = await gerarPDFCompleto();
 
-        updateSearchProgress(40, 'Renderizando...', 'Convertendo para imagem');
+        // Criar um container para todas as páginas
+        const container = document.createElement('div');
+        container.innerHTML = htmlString;
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '800px';
+        container.style.background = 'white';
+        document.body.appendChild(container);
 
-        const canvas = await html2canvas(element, {
-            scale: 1.5, // Reduzido para tornar o PDF mais leve
-            backgroundColor: '#ffffff',
-            logging: false,
-            allowTaint: true,
-            useCORS: true
-        });
+        // Separar as páginas (divisórias com page-break)
+        const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
 
-        document.body.removeChild(element);
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.9); // JPEG com qualidade 90% para reduzir tamanho
-        
-        // Configurar PDF em A5 horizontal (148mm x 210mm)
         const pdf = new jsPDF({
             orientation: 'landscape',
             unit: 'mm',
             format: 'a5'
         });
 
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-        const width = imgWidth * ratio;
-        const height = imgHeight * ratio;
+        for (let i = 0; i < paginas.length; i++) {
+            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1}...`, '');
 
-        const x = (pdfWidth - width) / 2;
-        const y = (pdfHeight - height) / 2;
+            const pageDiv = paginas[i];
+            // Garantir que a página tenha o tamanho correto
+            pageDiv.style.width = '800px';
+            pageDiv.style.height = 'auto';
+            pageDiv.style.margin = '0';
+            pageDiv.style.padding = '10px';
 
-        pdf.addImage(imgData, 'JPEG', x, y, width, height);
-        
+            const canvas = await html2canvas(pageDiv, {
+                scale: 1.5,
+                backgroundColor: '#ffffff',
+                logging: false,
+                allowTaint: true,
+                useCORS: true,
+                windowWidth: 800,
+                windowHeight: pageDiv.scrollHeight
+            });
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+            const width = imgWidth * ratio;
+            const height = imgHeight * ratio;
+            const x = (pdfWidth - width) / 2;
+            const y = (pdfHeight - height) / 2;
+
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', x, y, width, height);
+        }
+
+        document.body.removeChild(container);
+
         const fileName = `SaudeBR_Unidades_${new Date().toISOString().split('T')[0]}.pdf`;
         pdf.save(fileName);
 
         showSearchProgress(false);
         showNotification(`PDF baixado: ${fileName}`, 'success');
-        
+
     } catch (error) {
         console.error('Erro ao gerar PDF:', error);
         showNotification('Erro ao gerar PDF', 'error');
@@ -2611,51 +2605,64 @@ async function compartilharPDFWhatsApp() {
 
     try {
         const { jsPDF } = window.jspdf;
-        
-        const element = document.createElement('div');
-        element.innerHTML = gerarPDFHTML_A5();
-        element.style.width = '1100px';
-        element.style.padding = '15px';
-        element.style.background = 'white';
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        document.body.appendChild(element);
+        const htmlString = await gerarPDFCompleto();
 
-        updateSearchProgress(40, 'Renderizando...', 'Convertendo para imagem');
+        const container = document.createElement('div');
+        container.innerHTML = htmlString;
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '800px';
+        container.style.background = 'white';
+        document.body.appendChild(container);
 
-        const canvas = await html2canvas(element, {
-            scale: 1.5,
-            backgroundColor: '#ffffff',
-            logging: false,
-            allowTaint: true,
-            useCORS: true
-        });
+        const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
 
-        document.body.removeChild(element);
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.9);
         const pdf = new jsPDF({
             orientation: 'landscape',
             unit: 'mm',
             format: 'a5'
         });
 
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-        const width = imgWidth * ratio;
-        const height = imgHeight * ratio;
+        for (let i = 0; i < paginas.length; i++) {
+            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1}...`, '');
 
-        const x = (pdfWidth - width) / 2;
-        const y = (pdfHeight - height) / 2;
+            const pageDiv = paginas[i];
+            pageDiv.style.width = '800px';
+            pageDiv.style.height = 'auto';
+            pageDiv.style.margin = '0';
+            pageDiv.style.padding = '10px';
 
-        pdf.addImage(imgData, 'JPEG', x, y, width, height);
-        
+            const canvas = await html2canvas(pageDiv, {
+                scale: 1.5,
+                backgroundColor: '#ffffff',
+                logging: false,
+                allowTaint: true,
+                useCORS: true,
+                windowWidth: 800,
+                windowHeight: pageDiv.scrollHeight
+            });
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+            const width = imgWidth * ratio;
+            const height = imgHeight * ratio;
+            const x = (pdfWidth - width) / 2;
+            const y = (pdfHeight - height) / 2;
+
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', x, y, width, height);
+        }
+
+        document.body.removeChild(container);
+
         const pdfBlob = pdf.output('blob');
-        
-        // Tentar usar Web Share API para compartilhar o arquivo (suportado em alguns navegadores)
+
+        // Tentar compartilhar via Web Share API
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'relatorio.pdf', { type: 'application/pdf' })] })) {
             const file = new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' });
             await navigator.share({
@@ -2665,7 +2672,7 @@ async function compartilharPDFWhatsApp() {
             });
             showNotification('Compartilhado com sucesso!', 'success');
         } else {
-            // Fallback: download com instruções claras
+            // Fallback: download com instruções
             const pdfUrl = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
             link.href = pdfUrl;
@@ -2674,8 +2681,7 @@ async function compartilharPDFWhatsApp() {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(pdfUrl);
-            
-            // Exibir instruções em um alerta mais amigável
+
             alert('✅ PDF gerado com sucesso!\n\n' +
                   'Para compartilhar no WhatsApp:\n\n' +
                   '1️⃣ Clique em OK e aguarde o download\n' +
@@ -2687,7 +2693,7 @@ async function compartilharPDFWhatsApp() {
         }
 
         showSearchProgress(false);
-        
+
     } catch (error) {
         console.error('Erro ao gerar PDF para WhatsApp:', error);
         showNotification('Erro ao gerar PDF para WhatsApp', 'error');
