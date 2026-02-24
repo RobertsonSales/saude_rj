@@ -1008,7 +1008,7 @@
 </div>
 
 <footer class="footer">
-  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.3 (SUS exclusivo)
+  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.4 (SUS exclusivo)
 </footer>
 
 <script>
@@ -1319,8 +1319,7 @@ async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
         cnes: tags['ref:CNES'] || tags['ref:cnes'] || '',
         enderecoCompleto,
         telefoneFormatado: '',
-        mapsLink: lat && lon ? `https://www.google.com/maps?q=${lat},${lon}` : '',
-        cnesLink: tags['ref:CNES'] ? `https://cnes.datasus.gov.br/pages/estabelecimentos/ficha.jsp?pk=${tags['ref:CNES']}` : ''
+        mapsLink: lat && lon ? `https://www.google.com/maps?q=${lat},${lon}` : ''
     };
 }
 
@@ -1449,7 +1448,7 @@ async function reverseGeocode(lat, lon) {
     try {
         const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1&accept-language=pt-BR`;
         const response = await fetch(url, {
-            headers: { 'User-Agent': `SaudeBR-Localizador/4.3 (${CONFIG.NOMINATIM.EMAIL})` }
+            headers: { 'User-Agent': `SaudeBR-Localizador/4.4 (${CONFIG.NOMINATIM.EMAIL})` }
         });
         if (!response.ok) return null;
         const data = await response.json();
@@ -1529,7 +1528,7 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
         const nomeBusca = encodeURIComponent(`${nomeMunicipio}, ${uf}, Brasil`);
         const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br&polygon_geojson=1&addressdetails=1`;
         const response = await fetch(url, {
-            headers: { 'User-Agent': `SaudeBR-Localizador/4.3 (${CONFIG.NOMINATIM.EMAIL})` }
+            headers: { 'User-Agent': `SaudeBR-Localizador/4.4 (${CONFIG.NOMINATIM.EMAIL})` }
         });
         if (!response.ok) return null;
         const data = await response.json();
@@ -1707,7 +1706,7 @@ async function processReverseGeocodeQueue() {
         try {
             const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?format=json&lat=${unit.lat}&lon=${unit.lon}&zoom=18&addressdetails=1&accept-language=pt-BR`;
             const response = await fetch(url, {
-                headers: { 'User-Agent': `SaudeBR-Localizador/4.3 (${CONFIG.NOMINATIM.EMAIL})` }
+                headers: { 'User-Agent': `SaudeBR-Localizador/4.4 (${CONFIG.NOMINATIM.EMAIL})` }
             });
             if (response.ok) {
                 const data = await response.json();
@@ -1955,15 +1954,6 @@ function renderUnitCard(unit, accentColor, idx) {
             <button class="btn-icon maps" onclick="window.open('${unit.mapsLink}', '_blank')" title="Ver no Google Maps">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-                </svg>
-            </button>
-        `;
-    }
-    if (unit.cnesLink) {
-        actionsHTML += `
-            <button class="btn-icon search" onclick="window.open('${unit.cnesLink}', '_blank')" title="Ver no CNES">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                 </svg>
             </button>
         `;
@@ -2371,7 +2361,7 @@ async function compartilharPDFWhatsApp() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('SaúdeBR Localizador CNES v4.3 (SUS exclusivo) iniciado');
+    console.log('SaúdeBR Localizador CNES v4.4 (SUS exclusivo) iniciado');
 });
 
 document.querySelectorAll('.modal-overlay').forEach(modal => {
