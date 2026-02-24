@@ -11,7 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    /* (mesmo CSS original, mantido por brevidade) */
+    /* (CSS original, mantido integralmente) */
     :root {
       --navy: #0B1F3A;
       --navy-mid: #132D50;
@@ -1008,29 +1008,25 @@
 </div>
 
 <footer class="footer">
-  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.2 (SUS exclusivo)
+  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.3 (SUS exclusivo)
 </footer>
 
 <script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (CORRIGIDAS E REFORÇADAS)
+//  CONFIGURAÇÃO E CONSTANTES
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
         ENDPOINT: 'https://nominatim.openstreetmap.org',
-        EMAIL: 'contato@saudebr.gov.br' // Substitua por um email válido
+        EMAIL: 'contato@saudebr.gov.br'
     },
     IBGE: 'https://servicodados.ibge.gov.br/api/v1/localidades',
     OVERPASS: 'https://overpass-api.de/api/interpreter'
 };
 
-// Tipos de estabelecimentos a incluir (qualquer unidade de saúde)
 const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polyclinic|health|hospitals|medical|social_facility|nursing_home|birthing_center|healthcare';
-
-// Tipos a excluir (farmácias, laboratórios, etc.)
 const EXCLUIR_TIPOS = 'pharmacy|dentist|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary';
 
-// Estado da aplicação
 let allUnits = [];
 let filteredUnits = [];
 let currentGeoPosition = null;
@@ -1039,7 +1035,7 @@ let municipiosPorEstado = {};
 let buscaAtiva = false;
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FUNÇÕES AUXILIARES (mantidas)
+//  FUNÇÕES AUXILIARES
 // ════════════════════════════════════════════════════════════════════════════
 function norm(str) {
     if (!str) return '';
@@ -1047,7 +1043,7 @@ function norm(str) {
 }
 
 function calcularDistancia(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Raio da Terra em km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -1081,11 +1077,8 @@ async function consultarOverpass(query) {
 
 function showSearchProgress(visible) {
     const card = document.getElementById('searchProgressCard');
-    if (visible) {
-        card.classList.add('visible');
-    } else {
-        card.classList.remove('visible');
-    }
+    if (visible) card.classList.add('visible');
+    else card.classList.remove('visible');
 }
 
 function updateSearchProgress(percent, title, hint) {
@@ -1098,15 +1091,10 @@ function updateSearchProgress(percent, title, hint) {
 function showNotification(message, type = 'info') {
     const notif = document.createElement('div');
     notif.className = `notification ${type}`;
-    
     const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
     notif.innerHTML = `<span style="font-size: 1.2rem;">${icon}</span><span>${message}</span>`;
-    
     document.body.appendChild(notif);
-    
-    setTimeout(() => {
-        notif.remove();
-    }, 5000);
+    setTimeout(() => notif.remove(), 5000);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1114,7 +1102,6 @@ function showNotification(message, type = 'info') {
 // ════════════════════════════════════════════════════════════════════════════
 function calcularPontuacaoSUS(tags, nome) {
     let score = 0;
-
     const op = norm(tags.operator || '');
     const nomeNorm = norm(nome);
     const desc = norm(tags.description || '');
@@ -1123,17 +1110,17 @@ function calcularPontuacaoSUS(tags, nome) {
     const access = norm(tags.access || '');
     const fee = norm(tags.fee || '');
 
-    // 1. Critério absoluto: CNES válido (maior pontuação)
+    // 1. CNES válido (máxima pontuação)
     if (tags['ref:CNES'] && /^\d{7}$/.test(tags['ref:CNES'])) score += 100;
     if (tags['ref:cnes'] && /^\d{7}$/.test(tags['ref:cnes'])) score += 100;
 
     // 2. Tags explícitas de gestão pública
     if (operatorType === 'public' || operatorType === 'government') score += 60;
     if (ownership === 'public') score += 60;
-    if (access === 'yes' || access === 'public') score += 40; // acesso público
-    if (fee === 'no') score += 30; // gratuito
+    if (access === 'yes' || access === 'public') score += 40;
+    if (fee === 'no') score += 30;
 
-    // 3. Palavras‑chave fortes no operador ou nome
+    // 3. Palavras‑chave fortes no operador, nome ou descrição
     const fortes = [
         'ubs', 'posto de saude', 'unidade basica', 'centro de saude', 'caps', 'upa',
         'samu', 'hospital municipal', 'hospital estadual', 'hospital federal',
@@ -1143,7 +1130,7 @@ function calcularPontuacaoSUS(tags, nome) {
     for (let palavra of fortes) {
         if (op.includes(palavra) || nomeNorm.includes(palavra) || desc.includes(palavra)) {
             score += 25;
-            break; // evita múltiplas contagens da mesma unidade
+            break;
         }
     }
 
@@ -1159,28 +1146,21 @@ function calcularPontuacaoSUS(tags, nome) {
         }
     }
 
-    // 5. Filantrópicas (Santa Casa, etc.) – só pontuamos se houver CNES ou outra evidência forte
-    //    Se não houver evidência positiva, não incluímos. 
-    //    Aqui apenas não adicionamos pontos extras.
-
     return score;
 }
 
-// Função que decide se a unidade deve ser incluída (threshold ≥ 20)
 function isVinculadoSUS(tags, nome) {
-    const score = calcularPontuacaoSUS(tags, nome);
-    return score >= 20; // threshold ajustável
+    return calcularPontuacaoSUS(tags, nome) >= 20;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  NOVA FUNÇÃO PARA DETERMINAR A ESFERA DE GESTÃO (FEDERAL/ESTADUAL/MUNICIPAL)
+//  NOVA FUNÇÃO PARA DETERMINAR A ESFERA DE GESTÃO
 // ════════════════════════════════════════════════════════════════════════════
 function determinarGestao(tags, nome) {
     const op = norm(tags.operator || '');
     const nomeNorm = norm(nome);
     const operatorType = tags['operator:type'] || '';
 
-    // Prioridade: operador explícito
     if (op.includes('federal') || op.includes('ministerio') || op.includes('união') || 
         nomeNorm.includes('federal') || tags['government'] === 'federal') {
         return 'Federal';
@@ -1194,15 +1174,12 @@ function determinarGestao(tags, nome) {
         return 'Municipal';
     }
 
-    // Se tiver CNES, podemos inferir pela natureza do nome (alguns hospitais têm o nome com a esfera)
     if (tags['ref:CNES']) {
         if (nomeNorm.includes('federal')) return 'Federal';
         if (nomeNorm.includes('estadual')) return 'Estadual';
-        // Se não, assume municipal como padrão
         return 'Municipal';
     }
 
-    // Padrão
     return 'Municipal';
 }
 
@@ -1214,7 +1191,6 @@ function classificarNivel(tags, nome) {
     const n = norm(nome + (tags.description || ''));
     const speciality = tags['healthcare:speciality'] || '';
     
-    // ATENÇÃO PRIMÁRIA
     if (n.includes('ubs') || n.includes('posto de saude') || n.includes('unidade basica') ||
         n.includes('esf') || n.includes('saude da familia') || n.includes('psf') ||
         n.includes('centro de saude') || n.includes('cms') || healthcare === 'health_post' ||
@@ -1230,7 +1206,6 @@ function classificarNivel(tags, nome) {
         };
     }
     
-    // ATENÇÃO SECUNDÁRIA
     if (n.includes('upa') || n.includes('policlinica') || n.includes('policlínica') ||
         n.includes('pronto atendimento') || n.includes('pronto socorro') ||
         n.includes('caps') || n.includes('cri') || n.includes('centro de atencao') ||
@@ -1245,10 +1220,9 @@ function classificarNivel(tags, nome) {
         };
     }
     
-    // ATENÇÃO TERCIÁRIA (Hospitais)
     if (healthcare === 'hospital' || n.includes('hospital') || n.includes('hosp')) {
         let perfil = 'Hospital Geral';
-        let nivel = 'secundaria'; // default
+        let nivel = 'secundaria';
         
         if (n.includes('maternidade') || n.includes('matern')) {
             perfil = 'Hospital Maternidade';
@@ -1269,27 +1243,20 @@ function classificarNivel(tags, nome) {
             perfil = 'Hospital de Referência';
             nivel = 'terciaria';
         } else {
-            // Se for hospital geral, pode ser secundário ou terciário dependendo do porte
             if (n.includes('geral') || n.includes('regional') || n.includes('central')) {
                 nivel = 'secundaria';
             } else {
-                nivel = 'secundaria'; // por padrão, secundário
+                nivel = 'secundaria';
             }
         }
-        
         return { nivel, perfil };
     }
     
-    // Default
-    return {
-        nivel: 'primaria',
-        perfil: 'Unidade de Saúde'
-    };
+    return { nivel: 'primaria', perfil: 'Unidade de Saúde' };
 }
 
 function determinarAcolhimento(u) {
     const n = norm(u.nome + u.perfil);
-    
     if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia') || 
         n.includes('pronto socorro') || n.includes('pronto atendimento')) {
         return 'urgencia';
@@ -1304,7 +1271,6 @@ function determinarAcolhimento(u) {
     if (n.includes('samu')) {
         return 'samu';
     }
-    
     return 'ambulatorial';
 }
 
@@ -1319,30 +1285,19 @@ function getTextoAcolhimento(acolhimento) {
     return textos[acolhimento] || 'Atendimento Geral';
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  MONTAGEM DA UNIDADE (COM NOVAS FUNÇÕES)
-// ════════════════════════════════════════════════════════════════════════════
 async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
     if (!nome) return null;
     
-    // Verificar vínculo com SUS (usando scoring)
     if (!isVinculadoSUS(tags, nome)) return null;
     
     const classif = classificarNivel(tags, nome);
     const gestao = determinarGestao(tags, nome);
 
-    // Obter endereço completo
-    let enderecoCompleto = [tags['addr:street'], tags['addr:housenumber'], tags['addr:neighbourhood']].filter(Boolean).join(', ');
-    
-    // Telefone
-    let telefone = tags.phone || tags['contact:phone'] || '';
-    
-    // Email
-    let email = tags.email || tags['contact:email'] || '';
-    
-    // Website
-    let website = tags.website || tags['contact:website'] || '';
+    const enderecoCompleto = [tags['addr:street'], tags['addr:housenumber'], tags['addr:neighbourhood']].filter(Boolean).join(', ');
+    const telefone = tags.phone || tags['contact:phone'] || '';
+    const email = tags.email || tags['contact:email'] || '';
+    const website = tags.website || tags['contact:website'] || '';
     
     return {
         nome,
@@ -1370,7 +1325,7 @@ async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  GEOLOCALIZAÇÃO E BUSCA POR PROXIMIDADE (ADAPTADA)
+//  GEOLOCALIZAÇÃO E BUSCA POR PROXIMIDADE
 // ════════════════════════════════════════════════════════════════════════════
 async function usarGeolocalizacao() {
     if (!navigator.geolocation) {
@@ -1394,25 +1349,14 @@ async function usarGeolocalizacao() {
             updateSearchProgress(20, 'Localização obtida!', `Lat: ${currentGeoPosition.lat.toFixed(4)}, Lon: ${currentGeoPosition.lon.toFixed(4)}`);
 
             try {
-                // Reverse geocoding para descobrir município
                 const location = await reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon);
-                
-                if (!location || !location.cidade) {
-                    throw new Error('Não foi possível determinar sua localização');
-                }
-
+                if (!location || !location.cidade) throw new Error('Não foi possível determinar sua localização');
                 updateSearchProgress(30, 'Município detectado', location.cidade);
                 
-                // Buscar unidades próximas (raio informado)
                 const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
                 let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio);
-                
                 if (!buscaAtiva) return;
 
-                // Se o raio for pequeno e houver poucas unidades, sugere expandir?
-                // Não expandimos automaticamente, mas podemos oferecer um botão depois
-
-                // Calcular distâncias
                 units.forEach(u => {
                     if (u.lat && u.lon) {
                         u.distancia = calcularDistancia(
@@ -1423,19 +1367,13 @@ async function usarGeolocalizacao() {
                         );
                     }
                 });
-
-                // Ordenar por distância
                 units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
 
-                // Enriquecer dados
                 allUnits = await enrichUnitsData(units, location.cidade);
-                
                 if (!buscaAtiva) return;
-
                 applyLocalFilters();
 
                 updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades no raio de ${raio}km`);
-
                 setTimeout(() => {
                     showSearchProgress(false);
                     showNotification(`${allUnits.length} unidades encontradas próximas a você`, 'success');
@@ -1452,29 +1390,17 @@ async function usarGeolocalizacao() {
         (error) => {
             showSearchProgress(false);
             let msg = 'Erro ao obter localização';
-            
-            if (error.code === error.PERMISSION_DENIED) {
-                msg = 'Permissão de localização negada';
-            } else if (error.code === error.POSITION_UNAVAILABLE) {
-                msg = 'Localização indisponível';
-            } else if (error.code === error.TIMEOUT) {
-                msg = 'Tempo esgotado ao obter localização';
-            }
-            
+            if (error.code === error.PERMISSION_DENIED) msg = 'Permissão de localização negada';
+            else if (error.code === error.POSITION_UNAVAILABLE) msg = 'Localização indisponível';
+            else if (error.code === error.TIMEOUT) msg = 'Tempo esgotado ao obter localização';
             showNotification(msg, 'error');
         },
-        {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 }
 
 async function buscarUnidadesProximas(lat, lon, raioKm) {
     const raioMetros = raioKm * 1000;
-    
-    // Query ampliada para incluir mais tipos, excluindo os indesejados
     const query = `
 [out:json][timeout:45];
 (
@@ -1491,45 +1417,28 @@ out center tags;
     try {
         const dados = await consultarOverpass(query);
         const elementos = dados.elements || [];
-        
         if (!buscaAtiva) return [];
         
         updateSearchProgress(60, 'Processando resultados...', `${elementos.length} candidatos encontrados`);
 
         const unidades = [];
-        
         for (let i = 0; i < elementos.length; i++) {
             if (!buscaAtiva) return unidades;
-            
             const el = elementos[i];
             const tags = el.tags || {};
             const elLat = el.lat ?? el.center?.lat;
             const elLon = el.lon ?? el.center?.lon;
-            
             if (!elLat || !elLon) continue;
-
             const distancia = calcularDistancia(lat, lon, elLat, elLon);
             if (distancia > raioKm) continue;
-
-            const u = await montarUnidade(
-                tags, elLat, elLon,
-                el.id,
-                el.type === 'node' ? 'node' : 'way',
-                distancia
-            );
-            
-            if (u) {
-                unidades.push(u);
-            }
-
+            const u = await montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : 'way', distancia);
+            if (u) unidades.push(u);
             if (i % 10 === 0) {
                 const pct = 60 + Math.round((i + 1) / elementos.length * 25);
                 updateSearchProgress(pct, 'Processando...', `${unidades.length} unidades válidas encontradas`);
             }
         }
-
         return deduplicar(unidades);
-        
     } catch (error) {
         console.error('Erro no Overpass:', error);
         throw error;
@@ -1540,30 +1449,19 @@ async function reverseGeocode(lat, lon) {
     try {
         const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1&accept-language=pt-BR`;
         const response = await fetch(url, {
-            headers: {
-                'User-Agent': `SaudeBR-Localizador/4.2 (${CONFIG.NOMINATIM.EMAIL})`
-            }
+            headers: { 'User-Agent': `SaudeBR-Localizador/4.3 (${CONFIG.NOMINATIM.EMAIL})` }
         });
-        
         if (!response.ok) return null;
-        
         const data = await response.json();
-        
         if (data && data.address) {
             const cidade = data.address.city || data.address.town || data.address.municipality || data.address.county;
             const uf = data.address.state;
             const estadoSigla = data.address['ISO3166-2-lvl4']?.split('-')[1] || uf;
-            
-            return {
-                cidade,
-                uf: estadoSigla,
-                estado: uf
-            };
+            return { cidade, uf: estadoSigla, estado: uf };
         }
     } catch (error) {
         console.error('Erro no reverse geocoding:', error);
     }
-    
     return null;
 }
 
@@ -1573,7 +1471,6 @@ async function reverseGeocode(lat, lon) {
 async function buscarPorMunicipio() {
     const uf = document.getElementById('selectEstado').value;
     const codigoIBGE = document.getElementById('selectMunicipio').value;
-    
     if (!uf || !codigoIBGE) {
         showNotification('Selecione estado e município', 'error');
         return;
@@ -1587,18 +1484,14 @@ async function buscarPorMunicipio() {
     buscaAtiva = true;
 
     try {
-        // Obter dados do município (incluindo possível relação)
         const municipio = await getMunicipioData(uf, codigoIBGE, nomeMunicipio);
-        
         if (!municipio || !municipio.latitude || !municipio.longitude) {
             throw new Error('Não foi possível obter coordenadas do município');
         }
 
         updateSearchProgress(20, 'Localizando área do município...', `${municipio.nome} (${municipio.latitude.toFixed(4)}, ${municipio.longitude.toFixed(4)})`);
 
-        // Buscar unidades no município usando método melhorado
         const units = await buscarUnidadesNoMunicipioRefatorado(municipio, uf);
-        
         if (!buscaAtiva) return;
         
         if (units.length === 0) {
@@ -1609,16 +1502,11 @@ async function buscarPorMunicipio() {
         }
 
         updateSearchProgress(80, 'Processando unidades...', `${units.length} unidades encontradas`);
-
-        // Enriquecer dados
         allUnits = await enrichUnitsData(units, municipio.nome);
-        
         if (!buscaAtiva) return;
-
         applyLocalFilters();
 
         updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades encontradas em ${municipio.nome}`);
-
         setTimeout(() => {
             showSearchProgress(false);
             showNotification(`${allUnits.length} unidades encontradas em ${municipio.nome}`, 'success');
@@ -1632,29 +1520,19 @@ async function buscarPorMunicipio() {
 }
 
 async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
-    // Tentar obter do cache primeiro (se já tiver coordenadas)
     if (municipiosPorEstado[uf]) {
         const mun = municipiosPorEstado[uf].find(m => m.id === codigoIBGE);
-        if (mun && mun.latitude && mun.longitude) {
-            return mun;
-        }
+        if (mun && mun.latitude && mun.longitude) return mun;
     }
 
-    // Buscar coordenadas via Nominatim (e tentar obter relação)
     try {
         const nomeBusca = encodeURIComponent(`${nomeMunicipio}, ${uf}, Brasil`);
         const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br&polygon_geojson=1&addressdetails=1`;
-        
         const response = await fetch(url, {
-            headers: {
-                'User-Agent': `SaudeBR-Localizador/4.2 (${CONFIG.NOMINATIM.EMAIL})`
-            }
+            headers: { 'User-Agent': `SaudeBR-Localizador/4.3 (${CONFIG.NOMINATIM.EMAIL})` }
         });
-        
         if (!response.ok) return null;
-        
         const data = await response.json();
-        
         if (data.length > 0) {
             const mun = {
                 id: codigoIBGE,
@@ -1663,24 +1541,17 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
                 longitude: parseFloat(data[0].lon),
                 osmId: data[0].osm_id,
                 osmType: data[0].osm_type,
-                geojson: data[0].geojson // pode conter polígono
+                geojson: data[0].geojson
             };
-            
-            // Salvar no cache
             if (!municipiosPorEstado[uf]) municipiosPorEstado[uf] = [];
             const index = municipiosPorEstado[uf].findIndex(m => m.id === codigoIBGE);
-            if (index >= 0) {
-                municipiosPorEstado[uf][index] = mun;
-            } else {
-                municipiosPorEstado[uf].push(mun);
-            }
-            
+            if (index >= 0) municipiosPorEstado[uf][index] = mun;
+            else municipiosPorEstado[uf].push(mun);
             return mun;
         }
     } catch (error) {
         console.warn('Erro ao buscar coordenadas do município:', error);
     }
-
     return null;
 }
 
@@ -1688,7 +1559,7 @@ async function buscarUnidadesNoMunicipioRefatorado(municipio, uf) {
     let elementos = [];
     let metodoUsado = '';
 
-    // 1. Tentar usar a relação administrativa do OSM (mais precisa)
+    // 1. Relação administrativa
     if (municipio.osmId && municipio.osmType) {
         const areaId = municipio.osmType === 'relation' ? 3600000000 + municipio.osmId : null;
         if (areaId) {
@@ -1708,38 +1579,23 @@ out center tags;
                 elementos = dados.elements || [];
                 metodoUsado = 'relação administrativa';
                 if (elementos.length > 0) updateSearchProgress(50, `Usando ${metodoUsado}...`, `${elementos.length} candidatos`);
-            } catch (e) {
-                console.warn('Falha ao consultar por área:', e);
-            }
+            } catch (e) { console.warn('Falha ao consultar por área:', e); }
         }
     }
 
-    // 2. Fallback: bounding box em torno do centro do município
+    // 2. Bounding box
     if (elementos.length === 0) {
         metodoUsado = 'bounding box';
         updateSearchProgress(35, 'Usando bounding box...', 'calculando área aproximada');
-        
-        // Estimar tamanho do município (usando dados do Nominatim ou valor fixo)
-        // Se tivermos geojson, podemos calcular bounding box, senão usamos um raio fixo
-        let raio;
-        if (municipio.geojson && municipio.geojson.type === 'Polygon') {
-            // Calcular bounding box do polígono (simplificado)
-            // Por simplicidade, usaremos um raio grande (30 km) e depois filtraremos por distância ao centro
-            raio = 30;
-        } else {
-            // Sem informação, usar 20 km (para cidades médias)
-            raio = 20;
-        }
-
+        const raio = 20;
         const lat = municipio.latitude;
         const lon = municipio.longitude;
-        const dLat = raio / 111; // graus por km
+        const dLat = raio / 111;
         const dLon = raio / (111 * Math.cos(lat * Math.PI / 180));
         const sul = (lat - dLat).toFixed(6);
         const norte = (lat + dLat).toFixed(6);
         const oeste = (lon - dLon).toFixed(6);
         const leste = (lon + dLon).toFixed(6);
-
         const queryBbox = `
 [out:json][timeout:60];
 (
@@ -1750,78 +1606,59 @@ out center tags;
 );
 out center tags;
         `;
-        
         try {
             const dados = await consultarOverpass(queryBbox);
             elementos = dados.elements || [];
             if (elementos.length > 0) updateSearchProgress(50, `Usando ${metodoUsado}...`, `${elementos.length} candidatos`);
-        } catch (e) {
-            console.warn('Overpass bbox falhou:', e);
-        }
+        } catch (e) { console.warn('Overpass bbox falhou:', e); }
     }
 
-    // 3. Último recurso: busca textual por addr:city
+    // 3. Busca textual por addr:city
     if (elementos.length === 0) {
         metodoUsado = 'busca textual (addr:city)';
         updateSearchProgress(35, 'Usando busca textual...', 'pode ser lento');
-        
         const nomeBusca = municipio.nome;
+        const bboxBrasil = '-33.75,-73.99,5.27,-34.79';
         const queryTextual = `
 [out:json][timeout:60];
 (
-  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"]({{bbox}});
-  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"]({{bbox}});
-  node["amenity"~"^(${INCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"]({{bbox}});
-  way["amenity"~"^(${INCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"]({{bbox}});
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"](${bboxBrasil});
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"](${bboxBrasil});
+  node["amenity"~"^(${INCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"](${bboxBrasil});
+  way["amenity"~"^(${INCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"](${bboxBrasil});
 );
 out center tags;
         `;
-        // Nota: {{bbox}} será substituído pelo Overpass pelo bounding box global, mas podemos limitar
-        // Para evitar busca mundial, usamos um bbox grande para o Brasil
-        const bboxBrasil = '-33.75,-73.99,5.27,-34.79'; // sul, oeste, norte, leste
-        const queryComBbox = queryTextual.replace('{{bbox}}', bboxBrasil);
-        
         try {
-            const dados = await consultarOverpass(queryComBbox);
+            const dados = await consultarOverpass(queryTextual);
             elementos = dados.elements || [];
             if (elementos.length > 0) updateSearchProgress(50, `Usando ${metodoUsado}...`, `${elementos.length} candidatos`);
-        } catch (e) {
-            console.warn('Busca textual falhou:', e);
-        }
+        } catch (e) { console.warn('Busca textual falhou:', e); }
     }
 
-    if (elementos.length === 0) {
-        return [];
-    }
+    if (elementos.length === 0) return [];
 
     updateSearchProgress(60, 'Classificando unidades...', `${elementos.length} candidatos encontrados`);
 
     const unidades = [];
     const centroLat = municipio.latitude;
     const centroLon = municipio.longitude;
-    // Definir um raio máximo de aceitação (pode ser maior que o bounding box)
-    const raioMax = 30; // km
+    const raioMax = 30;
 
     for (let i = 0; i < elementos.length; i++) {
         if (!buscaAtiva) return unidades;
-        
         const el = elementos[i];
         const tags = el.tags || {};
         const lat = el.lat ?? el.center?.lat;
         const lon = el.lon ?? el.center?.lon;
-        
         if (!lat || !lon) continue;
-
-        // Se usamos bounding box, podemos ter elementos fora do município, então filtramos por distância
         const dist = calcularDistancia(centroLat, centroLon, lat, lon);
-        if (dist > raioMax) continue; // além do raio, provavelmente outro município
-
+        if (dist > raioMax) continue;
         const u = await montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
         if (u) {
             u.cidade = municipio.nome;
             unidades.push(u);
         }
-
         const pct = 60 + Math.round((i + 1) / elementos.length * 30);
         updateSearchProgress(pct, 'Processando...', `${unidades.length} unidades válidas encontradas`);
     }
@@ -1830,16 +1667,12 @@ out center tags;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  ENRIQUECIMENTO DE DADOS (MANTIDO)
+//  ENRIQUECIMENTO DE DADOS (reverse geocoding)
 // ════════════════════════════════════════════════════════════════════════════
 async function enrichUnitsData(units, cidadeRef) {
     for (const unit of units) {
         unit.cidade = unit.cidade || cidadeRef || '';
-        
-        if (!unit.enderecoCompleto && unit.lat && unit.lon) {
-            agendarReverseGeocoding(unit);
-        }
-        
+        if (!unit.enderecoCompleto && unit.lat && unit.lon) agendarReverseGeocoding(unit);
         if (unit.telefone) {
             const tel = unit.telefone.replace(/\D/g, '');
             if (tel.length >= 10) {
@@ -1874,9 +1707,7 @@ async function processReverseGeocodeQueue() {
         try {
             const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?format=json&lat=${unit.lat}&lon=${unit.lon}&zoom=18&addressdetails=1&accept-language=pt-BR`;
             const response = await fetch(url, {
-                headers: {
-                    'User-Agent': `SaudeBR-Localizador/4.2 (${CONFIG.NOMINATIM.EMAIL})`
-                }
+                headers: { 'User-Agent': `SaudeBR-Localizador/4.3 (${CONFIG.NOMINATIM.EMAIL})` }
             });
             if (response.ok) {
                 const data = await response.json();
@@ -1897,36 +1728,26 @@ async function processReverseGeocodeQueue() {
 let _atualizacaoAgendada = null;
 function _agendarAtualizacaoFiltros() {
     if (_atualizacaoAgendada) clearTimeout(_atualizacaoAgendada);
-    _atualizacaoAgendada = setTimeout(() => {
-        applyLocalFilters();
-    }, 2000);
+    _atualizacaoAgendada = setTimeout(() => applyLocalFilters(), 2000);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  INTERFACE - FILTROS (mantido)
+//  INTERFACE - FILTROS
 // ════════════════════════════════════════════════════════════════════════════
 function toggleFilter() {
     const body = document.getElementById('filterBody');
     const arrow = document.getElementById('filterArrow');
     const btn = document.getElementById('filterToggleBtn');
-    
     body.classList.toggle('open');
     arrow.classList.toggle('open');
-    
-    if (body.classList.contains('open')) {
-        btn.querySelector('span').textContent = 'Recolher';
-    } else {
-        btn.querySelector('span').textContent = 'Expandir';
-    }
+    btn.querySelector('span').textContent = body.classList.contains('open') ? 'Recolher' : 'Expandir';
 }
 
 async function carregarEstados() {
     const select = document.getElementById('selectEstado');
-    
     try {
         const response = await fetch(`${CONFIG.IBGE}/estados?orderBy=nome`);
         estados = await response.json();
-        
         estados.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(est => {
             const opt = document.createElement('option');
             opt.value = est.sigla;
@@ -1943,19 +1764,15 @@ async function onEstadoChange() {
     const select = document.getElementById('selectEstado');
     const selectMun = document.getElementById('selectMunicipio');
     const uf = select.value;
-    
     selectMun.innerHTML = '<option value="">Carregando municípios...</option>';
     selectMun.disabled = true;
-    
     if (!uf) {
         selectMun.innerHTML = '<option value="">— Selecione o estado primeiro —</option>';
         return;
     }
-    
     try {
         const response = await fetch(`${CONFIG.IBGE}/estados/${uf}/municipios?orderBy=nome`);
         const municipios = await response.json();
-        
         municipiosPorEstado[uf] = municipios.map(m => ({
             id: String(m.id),
             nome: m.nome,
@@ -1965,7 +1782,6 @@ async function onEstadoChange() {
             osmType: null,
             geojson: null
         }));
-        
         selectMun.innerHTML = '<option value="">— Selecione um município —</option>';
         municipiosPorEstado[uf].sort((a, b) => a.nome.localeCompare(b.nome)).forEach(mun => {
             const opt = document.createElement('option');
@@ -1973,7 +1789,6 @@ async function onEstadoChange() {
             opt.textContent = mun.nome;
             selectMun.appendChild(opt);
         });
-        
         selectMun.disabled = false;
     } catch (error) {
         console.error('Erro ao carregar municípios:', error);
@@ -1982,9 +1797,7 @@ async function onEstadoChange() {
     }
 }
 
-function onMunicipioChange() {
-    // Opcional
-}
+function onMunicipioChange() {}
 
 function limparFiltros() {
     document.getElementById('selectEstado').value = '';
@@ -1995,22 +1808,17 @@ function limparFiltros() {
     document.getElementById('selectNivel').value = '';
     document.getElementById('selectAcolhimento').value = '';
     document.getElementById('selectGestao').value = '';
-    
     allUnits = [];
     filteredUnits = [];
     renderResults();
     showNotification('Filtros limpos', 'success');
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  FILTROS LOCAIS (mantido)
-// ════════════════════════════════════════════════════════════════════════════
 function applyLocalFilters() {
     const bairro = document.getElementById('inputBairro').value.toLowerCase().trim();
     const nivel = document.getElementById('selectNivel').value;
     const acolhimento = document.getElementById('selectAcolhimento').value;
     const gestao = document.getElementById('selectGestao').value;
-    
     filteredUnits = allUnits.filter(u => {
         if (bairro && u.bairro && !u.bairro.toLowerCase().includes(bairro)) return false;
         if (nivel && u.nivel !== nivel) return false;
@@ -2018,18 +1826,15 @@ function applyLocalFilters() {
         if (gestao && u.gestao !== gestao) return false;
         return true;
     });
-    
     renderResults();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  RENDERIZAÇÃO DE RESULTADOS (mantido, apenas adiciona selo CNES se disponível)
+//  RENDERIZAÇÃO DE RESULTADOS (COM AS NOVAS ALTERAÇÕES)
 // ════════════════════════════════════════════════════════════════════════════
 function renderResults() {
     updateDashboard();
-    
     const container = document.getElementById('resultsSection');
-    
     if (filteredUnits.length === 0) {
         container.innerHTML = `
             <div class="status-box">
@@ -2040,13 +1845,11 @@ function renderResults() {
         `;
         return;
     }
-    
     const groups = {
         'primaria': filteredUnits.filter(u => u.nivel === 'primaria'),
         'secundaria': filteredUnits.filter(u => u.nivel === 'secundaria'),
         'terciaria': filteredUnits.filter(u => u.nivel === 'terciaria')
     };
-    
     let html = `
         <div class="results-header">
             <div>
@@ -2071,32 +1874,26 @@ function renderResults() {
             </div>
         </div>
     `;
-    
     const groupConfigs = [
         { key: 'primaria', label: 'Atenção Primária', color: '#00A878', icon: '🏠' },
         { key: 'secundaria', label: 'Atenção Secundária', color: '#1565C0', icon: '🔬' },
         { key: 'terciaria', label: 'Atenção Terciária', color: '#E53935', icon: '🏨' }
     ];
-    
     groupConfigs.forEach(cfg => {
         if (groups[cfg.key] && groups[cfg.key].length > 0) {
             html += renderGroup(cfg, groups[cfg.key]);
         }
     });
-    
     container.innerHTML = html;
 }
 
 function renderGroup(config, units) {
     const groupId = `group-${config.key}`;
-    
-    let html = `
+    return `
         <div class="group-section">
             <div class="group-header" onclick="toggleGroup('${groupId}')">
                 <div class="group-header-left">
-                    <span class="group-pill" style="background: ${config.color}22; color: ${config.color};">
-                        ${config.icon}
-                    </span>
+                    <span class="group-pill" style="background: ${config.color}22; color: ${config.color};">${config.icon}</span>
                     <div>
                         <div class="group-name">${config.label}</div>
                         <div class="group-meta">${units.length} unidade${units.length !== 1 ? 's' : ''} encontrada${units.length !== 1 ? 's' : ''}</div>
@@ -2116,8 +1913,6 @@ function renderGroup(config, units) {
             </div>
         </div>
     `;
-    
-    return html;
 }
 
 function renderUnitCard(unit, accentColor, idx) {
@@ -2128,11 +1923,9 @@ function renderUnitCard(unit, accentColor, idx) {
     }[unit.gestao] || 'municipal';
     
     let tagsHTML = '';
-    
     if (unit.gestao) {
         tagsHTML += `<span class="unit-tag unit-tag-${gestaoClass}">${unit.gestao}</span>`;
     }
-    
     const acolhimentoClass = {
         'ambulatorial': 'ambulatorial',
         'urgencia': 'urgencia',
@@ -2140,20 +1933,23 @@ function renderUnitCard(unit, accentColor, idx) {
         'especializado': 'especializado',
         'samu': 'urgencia'
     }[unit.acolhimento] || 'ambulatorial';
-    
     tagsHTML += `<span class="unit-tag unit-tag-${acolhimentoClass}">${getTextoAcolhimento(unit.acolhimento)}</span>`;
-    
     if (unit.distancia !== null && unit.distancia !== undefined) {
         tagsHTML += `<span class="unit-tag unit-distance">${unit.distancia.toFixed(1)} km</span>`;
     }
-    
-    // Selo CNES se disponível
     if (unit.cnes) {
         tagsHTML += `<span class="unit-tag" style="background: #0B1F3A; color: white;">CNES ${unit.cnes}</span>`;
     }
-    
+
+    // Ajuste do nome para UPAs com bairro
+    let nomeExibido = unit.nome;
+    if (unit.perfil === 'UPA' && unit.bairro) {
+        if (!norm(unit.nome).includes(norm(unit.bairro))) {
+            nomeExibido = `${unit.nome} (${unit.bairro})`;
+        }
+    }
+
     let actionsHTML = '';
-    
     if (unit.mapsLink) {
         actionsHTML += `
             <button class="btn-icon maps" onclick="window.open('${unit.mapsLink}', '_blank')" title="Ver no Google Maps">
@@ -2163,7 +1959,6 @@ function renderUnitCard(unit, accentColor, idx) {
             </button>
         `;
     }
-    
     if (unit.cnesLink) {
         actionsHTML += `
             <button class="btn-icon search" onclick="window.open('${unit.cnesLink}', '_blank')" title="Ver no CNES">
@@ -2173,7 +1968,18 @@ function renderUnitCard(unit, accentColor, idx) {
             </button>
         `;
     }
-    
+
+    // Botão "Mais informações" (website ou Google Search)
+    const searchQuery = encodeURIComponent(`${unit.nome} ${unit.cidade} ${unit.bairro || ''} saúde`.trim());
+    const infoUrl = unit.website || `https://www.google.com/search?q=${searchQuery}`;
+    actionsHTML += `
+        <button class="btn-icon search" onclick="window.open('${infoUrl}', '_blank')" title="Mais informações">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+        </button>
+    `;
+
     if (unit.telefone) {
         const telClean = unit.telefone.replace(/\D/g, '');
         const texto = encodeURIComponent(`*${unit.nome}*\n📍 ${unit.enderecoCompleto || unit.endereco || ''}\n📞 ${unit.telefoneFormatado || unit.telefone}\n🏥 ${unit.perfil}\n🔗 ${unit.website || ''}`);
@@ -2186,17 +1992,6 @@ function renderUnitCard(unit, accentColor, idx) {
             </button>
         `;
     }
-    
-    if (unit.website) {
-        actionsHTML += `
-            <button class="btn-icon search" onclick="window.open('${unit.website}', '_blank')" title="Website">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-                </svg>
-            </button>
-        `;
-    }
-    
     if (unit.email) {
         actionsHTML += `
             <button class="btn-icon" onclick="window.location.href='mailto:${unit.email}'" title="Enviar e-mail">
@@ -2206,15 +2001,14 @@ function renderUnitCard(unit, accentColor, idx) {
             </button>
         `;
     }
-    
+
     return `
         <div class="unit-card" data-unit-idx="${idx}">
             <div class="unit-card-accent" style="background: ${accentColor};"></div>
             <div class="unit-card-inner">
                 <div class="unit-card-header">
-                    <h3 class="unit-name">${unit.nome}</h3>
+                    <h3 class="unit-name">${nomeExibido}</h3>
                 </div>
-                
                 ${unit.perfil ? `
                     <div class="unit-info-row">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -2223,7 +2017,6 @@ function renderUnitCard(unit, accentColor, idx) {
                         <span>${unit.perfil}</span>
                     </div>
                 ` : ''}
-                
                 ${unit.enderecoCompleto || unit.endereco ? `
                     <div class="unit-info-row">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -2232,7 +2025,6 @@ function renderUnitCard(unit, accentColor, idx) {
                         <span>${unit.enderecoCompleto || unit.endereco} ${unit.bairro ? ' - ' + unit.bairro : ''}</span>
                     </div>
                 ` : ''}
-                
                 ${unit.telefoneFormatado ? `
                     <div class="unit-info-row">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -2241,7 +2033,6 @@ function renderUnitCard(unit, accentColor, idx) {
                         <span>${unit.telefoneFormatado}</span>
                     </div>
                 ` : ''}
-                
                 ${unit.email ? `
                     <div class="unit-info-row">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -2250,18 +2041,9 @@ function renderUnitCard(unit, accentColor, idx) {
                         <span>${unit.email}</span>
                     </div>
                 ` : ''}
-                
                 ${unit.cnes && !tagsHTML.includes('CNES') ? `<div class="unit-cnes">CNES: ${unit.cnes}</div>` : ''}
-                
-                <div class="unit-tags">
-                    ${tagsHTML}
-                </div>
-                
-                ${actionsHTML ? `
-                    <div class="unit-actions">
-                        ${actionsHTML}
-                    </div>
-                ` : ''}
+                <div class="unit-tags">${tagsHTML}</div>
+                ${actionsHTML ? `<div class="unit-actions">${actionsHTML}</div>` : ''}
             </div>
         </div>
     `;
@@ -2276,16 +2058,13 @@ function toggleGroup(groupId) {
 
 function updateDashboard() {
     document.getElementById('statTotal').textContent = filteredUnits.length;
-    
     const primaria = filteredUnits.filter(u => u.nivel === 'primaria').length;
     const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria').length;
     const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria').length;
-    
     const urgencia = filteredUnits.filter(u => u.acolhimento === 'urgencia').length;
     const maternidade = filteredUnits.filter(u => u.acolhimento === 'maternidade').length;
     const especializado = filteredUnits.filter(u => u.acolhimento === 'especializado').length;
     const ambulatorial = filteredUnits.filter(u => u.acolhimento === 'ambulatorial').length;
-    
     document.getElementById('statPrimaria').textContent = primaria;
     document.getElementById('statSecundaria').textContent = secundaria;
     document.getElementById('statTerciaria').textContent = terciaria;
@@ -2303,7 +2082,6 @@ function exportToExcel() {
         showNotification('Nenhuma unidade para exportar', 'error');
         return;
     }
-    
     const data = filteredUnits.map(u => ({
         'Nome': u.nome,
         'Perfil': u.perfil,
@@ -2321,14 +2099,11 @@ function exportToExcel() {
         'Longitude': u.lon || '',
         'Website': u.website || ''
     }));
-    
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Unidades de Saúde');
-    
     const fileName = `SaudeBR_Unidades_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
-    
     showNotification(`Arquivo Excel exportado: ${fileName}`, 'success');
 }
 
@@ -2344,7 +2119,6 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
         const acolhimentoTexto = getTextoAcolhimento(u.acolhimento);
         const distancia = u.distancia ? `<div class="pdf-unit-detail"><span>🧭</span> <span>${u.distancia.toFixed(1)} km</span></div>` : '';
         const cnes = u.cnes ? `<div style="font-size:0.55rem; margin-top:2px;">CNES: ${u.cnes}</div>` : '';
-
         return `
             <div class="pdf-unit-card">
                 <div class="pdf-unit-name">${u.nome}</div>
@@ -2371,17 +2145,12 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
                     <div style="font-size:0.5rem; opacity:0.7;">Total de Unidades</div>
                 </div>
             </div>
-
             <div class="pdf-nivel-header" style="display: flex; align-items: center; gap: 6px; background: ${corClasse === 'primaria' ? 'linear-gradient(135deg, #00A878, #00C896)' : corClasse === 'secundaria' ? 'linear-gradient(135deg, #1565C0, #2196f3)' : 'linear-gradient(135deg, #E53935, #f44336)'}; color: white; padding: 6px 10px; border-radius: 6px; margin: 8px 0;">
                 <span style="font-size: 1.2rem;">${iconeNivel}</span>
                 <span style="flex:1; font-weight:700; font-size:0.8rem;">${tituloNivel}</span>
                 <span style="font-weight:800; font-size:1rem;">${units.length}</span>
             </div>
-
-            <div class="pdf-cards-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                ${cardsHTML}
-            </div>
-
+            <div class="pdf-cards-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">${cardsHTML}</div>
             <div class="pdf-footer" style="display: flex; justify-content: space-between; font-size: 0.55rem; color: #5A6E85; border-top: 1px solid #D8E2EE; padding-top: 4px; margin-top: 8px;">
                 <span>🔍 Gerado pelo SaúdeBR Localizador</span>
                 <span>Página ${paginaAtual} de ${totalPaginas} • ${dataAtual}</span>
@@ -2418,9 +2187,7 @@ const pdfStyles = `
             color: #5A6E85;
             margin-bottom: 2px;
         }
-        .pdf-unit-detail span:first-child {
-            min-width: 14px;
-        }
+        .pdf-unit-detail span:first-child { min-width: 14px; }
         .pdf-unit-badge {
             display: inline-block;
             padding: 2px 5px;
@@ -2437,69 +2204,41 @@ const pdfStyles = `
 `;
 
 async function gerarPDFCompleto() {
-    const dataAtual = new Date().toLocaleString('pt-BR', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-    });
-
+    const dataAtual = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const primaria = filteredUnits.filter(u => u.nivel === 'primaria');
     const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria');
     const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria');
-
     const grupos = [
         { units: primaria, titulo: 'Atenção Primária', icone: '🏠', cor: 'primaria' },
         { units: secundaria, titulo: 'Atenção Secundária', icone: '🔬', cor: 'secundaria' },
         { units: terciaria, titulo: 'Atenção Terciária', icone: '🏨', cor: 'terciaria' }
     ].filter(g => g.units.length > 0);
-
     const CARDS_POR_PAGINA = 8;
     const paginasHTML = [];
     let paginaGlobal = 1;
-
     for (const grupo of grupos) {
         const units = grupo.units;
         for (let i = 0; i < units.length; i += CARDS_POR_PAGINA) {
             const fatia = units.slice(i, i + CARDS_POR_PAGINA);
-            const html = gerarPaginaHTML(
-                fatia,
-                grupo.titulo,
-                grupo.icone,
-                grupo.cor,
-                paginaGlobal,
-                0,
-                filteredUnits.length,
-                dataAtual
-            );
-            paginasHTML.push({ html, grupo: grupo.titulo });
+            paginasHTML.push(gerarPaginaHTML(fatia, grupo.titulo, grupo.icone, grupo.cor, paginaGlobal, 0, filteredUnits.length, dataAtual));
             paginaGlobal++;
         }
     }
-
     const totalPaginas = paginasHTML.length;
     let htmlFinal = pdfStyles;
     for (let i = 0; i < paginasHTML.length; i++) {
         const item = paginasHTML[i];
-        const htmlComNumero = item.html.replace(
-            'Página 0 de 0',
-            `Página ${i+1} de ${totalPaginas}`
-        );
+        const htmlComNumero = item.replace('Página 0 de 0', `Página ${i+1} de ${totalPaginas}`);
         htmlFinal += htmlComNumero;
-        if (i < paginasHTML.length - 1) {
-            htmlFinal += '<div style="page-break-before: always; height: 0;"></div>';
-        }
+        if (i < paginasHTML.length - 1) htmlFinal += '<div style="page-break-before: always; height: 0;"></div>';
     }
     return htmlFinal;
 }
 
 async function visualizarPDF() {
-    if (filteredUnits.length === 0) {
-        showNotification('Nenhuma unidade para gerar PDF', 'error');
-        return;
-    }
-
+    if (filteredUnits.length === 0) { showNotification('Nenhuma unidade para gerar PDF', 'error'); return; }
     showSearchProgress(true);
     updateSearchProgress(10, 'Gerando visualização do PDF...', 'Preparando conteúdo');
-
     try {
         const html = await gerarPDFCompleto();
         document.getElementById('pdfModalBody').innerHTML = html;
@@ -2512,20 +2251,15 @@ async function visualizarPDF() {
     }
 }
 
-function closePDFModal() {
-    document.getElementById('pdfModal').classList.remove('visible');
-}
+function closePDFModal() { document.getElementById('pdfModal').classList.remove('visible'); }
 
 async function downloadPDF() {
     if (filteredUnits.length === 0) return;
-
     showSearchProgress(true);
     updateSearchProgress(10, 'Gerando PDF...', 'Processando páginas');
-
     try {
         const { jsPDF } = window.jspdf;
         const htmlString = await gerarPDFCompleto();
-
         const container = document.createElement('div');
         container.innerHTML = htmlString;
         container.style.position = 'absolute';
@@ -2534,34 +2268,16 @@ async function downloadPDF() {
         container.style.width = '800px';
         container.style.background = 'white';
         document.body.appendChild(container);
-
         const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
-
-        const pdf = new jsPDF({
-            orientation: 'landscape',
-            unit: 'mm',
-            format: 'a5'
-        });
-
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
         for (let i = 0; i < paginas.length; i++) {
             updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1}...`, '');
-
             const pageDiv = paginas[i];
             pageDiv.style.width = '800px';
             pageDiv.style.height = 'auto';
             pageDiv.style.margin = '0';
             pageDiv.style.padding = '10px';
-
-            const canvas = await html2canvas(pageDiv, {
-                scale: 1.5,
-                backgroundColor: '#ffffff',
-                logging: false,
-                allowTaint: true,
-                useCORS: true,
-                windowWidth: 800,
-                windowHeight: pageDiv.scrollHeight
-            });
-
+            const canvas = await html2canvas(pageDiv, { scale: 1.5, backgroundColor: '#ffffff', logging: false, allowTaint: true, useCORS: true, windowWidth: 800, windowHeight: pageDiv.scrollHeight });
             const imgData = canvas.toDataURL('image/jpeg', 0.9);
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -2572,19 +2288,14 @@ async function downloadPDF() {
             const height = imgHeight * ratio;
             const x = (pdfWidth - width) / 2;
             const y = (pdfHeight - height) / 2;
-
             if (i > 0) pdf.addPage();
             pdf.addImage(imgData, 'JPEG', x, y, width, height);
         }
-
         document.body.removeChild(container);
-
         const fileName = `SaudeBR_Unidades_${new Date().toISOString().split('T')[0]}.pdf`;
         pdf.save(fileName);
-
         showSearchProgress(false);
         showNotification(`PDF baixado: ${fileName}`, 'success');
-
     } catch (error) {
         console.error('Erro ao gerar PDF:', error);
         showNotification('Erro ao gerar PDF', 'error');
@@ -2593,18 +2304,12 @@ async function downloadPDF() {
 }
 
 async function compartilharPDFWhatsApp() {
-    if (filteredUnits.length === 0) {
-        showNotification('Nenhuma unidade para compartilhar', 'error');
-        return;
-    }
-
+    if (filteredUnits.length === 0) { showNotification('Nenhuma unidade para compartilhar', 'error'); return; }
     showSearchProgress(true);
     updateSearchProgress(10, 'Preparando PDF para WhatsApp...', 'Aguarde');
-
     try {
         const { jsPDF } = window.jspdf;
         const htmlString = await gerarPDFCompleto();
-
         const container = document.createElement('div');
         container.innerHTML = htmlString;
         container.style.position = 'absolute';
@@ -2613,34 +2318,16 @@ async function compartilharPDFWhatsApp() {
         container.style.width = '800px';
         container.style.background = 'white';
         document.body.appendChild(container);
-
         const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
-
-        const pdf = new jsPDF({
-            orientation: 'landscape',
-            unit: 'mm',
-            format: 'a5'
-        });
-
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
         for (let i = 0; i < paginas.length; i++) {
             updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1}...`, '');
-
             const pageDiv = paginas[i];
             pageDiv.style.width = '800px';
             pageDiv.style.height = 'auto';
             pageDiv.style.margin = '0';
             pageDiv.style.padding = '10px';
-
-            const canvas = await html2canvas(pageDiv, {
-                scale: 1.5,
-                backgroundColor: '#ffffff',
-                logging: false,
-                allowTaint: true,
-                useCORS: true,
-                windowWidth: 800,
-                windowHeight: pageDiv.scrollHeight
-            });
-
+            const canvas = await html2canvas(pageDiv, { scale: 1.5, backgroundColor: '#ffffff', logging: false, allowTaint: true, useCORS: true, windowWidth: 800, windowHeight: pageDiv.scrollHeight });
             const imgData = canvas.toDataURL('image/jpeg', 0.9);
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -2651,22 +2338,14 @@ async function compartilharPDFWhatsApp() {
             const height = imgHeight * ratio;
             const x = (pdfWidth - width) / 2;
             const y = (pdfHeight - height) / 2;
-
             if (i > 0) pdf.addPage();
             pdf.addImage(imgData, 'JPEG', x, y, width, height);
         }
-
         document.body.removeChild(container);
-
         const pdfBlob = pdf.output('blob');
-
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'relatorio.pdf', { type: 'application/pdf' })] })) {
             const file = new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' });
-            await navigator.share({
-                title: 'Relatório de Unidades de Saúde',
-                text: 'Confira as unidades de saúde próximas.',
-                files: [file]
-            });
+            await navigator.share({ title: 'Relatório de Unidades de Saúde', text: 'Confira as unidades de saúde próximas.', files: [file] });
             showNotification('Compartilhado com sucesso!', 'success');
         } else {
             const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -2677,19 +2356,9 @@ async function compartilharPDFWhatsApp() {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(pdfUrl);
-
-            alert('✅ PDF gerado com sucesso!\n\n' +
-                  'Para compartilhar no WhatsApp:\n\n' +
-                  '1️⃣ Clique em OK e aguarde o download\n' +
-                  '2️⃣ Abra o WhatsApp\n' +
-                  '3️⃣ Selecione a conversa desejada\n' +
-                  '4️⃣ Clique no ícone 📎 (anexar)\n' +
-                  '5️⃣ Escolha "Documento"\n' +
-                  '6️⃣ Selecione o arquivo baixado');
+            alert('✅ PDF gerado com sucesso!\n\nPara compartilhar no WhatsApp:\n1️⃣ Clique em OK e aguarde o download\n2️⃣ Abra o WhatsApp\n3️⃣ Selecione a conversa desejada\n4️⃣ Clique no ícone 📎 (anexar)\n5️⃣ Escolha "Documento"\n6️⃣ Selecione o arquivo baixado');
         }
-
         showSearchProgress(false);
-
     } catch (error) {
         console.error('Erro ao gerar PDF para WhatsApp:', error);
         showNotification('Erro ao gerar PDF para WhatsApp', 'error');
@@ -2702,14 +2371,12 @@ async function compartilharPDFWhatsApp() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('SaúdeBR Localizador CNES v4.2 (SUS exclusivo) iniciado');
+    console.log('SaúdeBR Localizador CNES v4.3 (SUS exclusivo) iniciado');
 });
 
 document.querySelectorAll('.modal-overlay').forEach(modal => {
     modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('visible');
-        }
+        if (e.target === modal) modal.classList.remove('visible');
     });
 });
 </script>
