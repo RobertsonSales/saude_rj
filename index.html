@@ -792,7 +792,7 @@
       </svg>
     </div>
     <div class="header-titles">
-      <h1>Saúde<span> - BR</span> &mdash; Localizador Unid. de Saúde</h1>
+      <h1>Saúde<span> -BR</span> &mdash; Localizador Unid. de Saúde</h1>
       <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
     <span class="header-badge">🟢 Online</span>
@@ -1286,6 +1286,48 @@ function getTextoAcolhimento(acolhimento) {
     return textos[acolhimento] || 'Atendimento Geral';
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+//  NOVA FUNÇÃO PARA FORMATAR TELEFONE BRASILEIRO (SEM CÓDIGO DO PAÍS)
+// ════════════════════════════════════════════════════════════════════════════
+function formatarTelefoneBR(telefone) {
+    if (!telefone) return '';
+    let numeros = telefone.replace(/\D/g, '');
+    // Remove código do país 55 se presente no início
+    if (numeros.startsWith('55') && numeros.length >= 12) { // 55 + 2 DDD + 8/9 = 12/13
+        numeros = numeros.substring(2);
+    }
+    if (numeros.length < 10) return telefone; // não tem DDD + número mínimo
+
+    const ddd = numeros.substring(0, 2);
+    let numeroLocal = numeros.substring(2);
+
+    // Formata de acordo com a quantidade de dígitos
+    if (numeroLocal.length === 8) {
+        numeroLocal = numeroLocal.replace(/(\d{4})(\d{4})/, '$1-$2');
+    } else if (numeroLocal.length === 9) {
+        numeroLocal = numeroLocal.replace(/(\d{5})(\d{4})/, '$1-$2');
+    } else {
+        // Se não for 8 ou 9, retorna o original sem formatação especial
+        return telefone;
+    }
+
+    return `(${ddd}) ${numeroLocal}`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  FUNÇÃO PARA OBTER NÚMERO INTERNACIONAL (55 + DDD + número) PARA WHATSAPP
+// ════════════════════════════════════════════════════════════════════════════
+function obterNumeroWhatsApp(telefone) {
+    if (!telefone) return '';
+    let numeros = telefone.replace(/\D/g, '');
+    // Se já começar com 55, mantém; senão adiciona
+    if (!numeros.startsWith('55')) {
+        numeros = '55' + numeros;
+    }
+    // Remove qualquer coisa além de dígitos (já foi feito)
+    return numeros;
+}
+
 async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
     if (!nome) return null;
@@ -1319,7 +1361,7 @@ async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
         gestao,
         cnes: tags['ref:CNES'] || tags['ref:cnes'] || '',
         enderecoCompleto,
-        telefoneFormatado: '',
+        telefoneFormatado: formatarTelefoneBR(telefone),
         mapsLink: lat && lon ? `https://www.google.com/maps?q=${lat},${lon}` : ''
     };
 }
@@ -1667,23 +1709,16 @@ out center tags;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  ENRIQUECIMENTO DE DADOS (reverse geocoding)
+//  ENRIQUECIMENTO DE DADOS (reverse geocoding) - agora já usa formatarTelefoneBR
 // ════════════════════════════════════════════════════════════════════════════
 async function enrichUnitsData(units, cidadeRef) {
     for (const unit of units) {
         unit.cidade = unit.cidade || cidadeRef || '';
-        if (!unit.enderecoCompleto && unit.lat && unit.lon) agendarReverseGeocoding(unit);
-        if (unit.telefone) {
-            const tel = unit.telefone.replace(/\D/g, '');
-            if (tel.length >= 10) {
-                const ddd = tel.substring(0, 2);
-                const parte1 = tel.substring(2, tel.length - 4);
-                const parte2 = tel.substring(tel.length - 4);
-                unit.telefoneFormatado = `(${ddd}) ${parte1}-${parte2}`;
-            } else {
-                unit.telefoneFormatado = unit.telefone;
-            }
+        // O telefoneFormatado já foi definido em montarUnidade, mas pode ser recalculado se necessário
+        if (!unit.telefoneFormatado) {
+            unit.telefoneFormatado = formatarTelefoneBR(unit.telefone);
         }
+        if (!unit.enderecoCompleto && unit.lat && unit.lon) agendarReverseGeocoding(unit);
     }
     return units;
 }
@@ -1973,6 +2008,7 @@ function renderUnitCard(unit, accentColor, idx) {
 
     if (unit.telefone) {
         const telClean = unit.telefone.replace(/\D/g, '');
+        const numeroWhats = obterNumeroWhatsApp(unit.telefone);
         // Botão de ligação
         actionsHTML += `
             <button class="btn-icon phone" onclick="window.location.href='tel:${telClean}'" title="Ligar">
@@ -1983,7 +2019,7 @@ function renderUnitCard(unit, accentColor, idx) {
         `;
         // Botão WhatsApp
         const texto = encodeURIComponent(`*${unit.nome}*\n📍 ${unit.enderecoCompleto || unit.endereco || ''}\n📞 ${unit.telefoneFormatado || unit.telefone}\n🏥 ${unit.perfil}\n🔗 ${unit.website || ''}`);
-        const whatsappLink = `https://wa.me/55${telClean}?text=${texto}`;
+        const whatsappLink = `https://wa.me/${numeroWhats}?text=${texto}`;
         actionsHTML += `
             <button class="btn-icon whatsapp" onclick="window.open('${whatsappLink}', '_blank')" title="Contato WhatsApp">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
