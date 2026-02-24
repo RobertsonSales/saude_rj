@@ -11,6 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
+    /* (mesmo CSS original, mantido por brevidade) */
     :root {
       --navy: #0B1F3A;
       --navy-mid: #132D50;
@@ -533,7 +534,6 @@
     .unit-tag-federal { background: #E8F0FE; color: var(--blue); }
     .unit-tag-estadual { background: #FFF8EC; color: #9C6E00; }
     .unit-tag-municipal { background: var(--teal-pale); color: #006B4F; }
-    .unit-tag-privado { background: var(--gray-200); color: var(--gray-700); }
     .unit-distance { background: var(--blue-pale); color: var(--blue); }
     .unit-actions {
       display: flex;
@@ -781,7 +781,7 @@
 </head>
 <body>
 
-<!-- ═══ HEADER ═══ -->
+<!-- ═══ HEADER (inalterado) ═══ -->
 <header>
   <div class="header-inner">
     <div class="logo-mark">
@@ -801,7 +801,7 @@
 <!-- ═══ MAIN ═══ -->
 <div class="main-wrapper">
 
-  <!-- ─── FILTROS ─── -->
+  <!-- ─── FILTROS (inalterado) ─── -->
   <div class="filter-section">
     <div class="filter-header" onclick="toggleFilter()">
       <div class="filter-header-left">
@@ -1008,7 +1008,7 @@
 </div>
 
 <footer class="footer">
-  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.1
+  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.2 (SUS exclusivo)
 </footer>
 
 <script>
@@ -1030,33 +1030,6 @@ const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polycli
 // Tipos a excluir (farmácias, laboratórios, etc.)
 const EXCLUIR_TIPOS = 'pharmacy|dentist|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary';
 
-// Palavras que indicam vínculo com o SUS (reforçado com termos de gestão pública)
-const SUS_KEYWORDS = [
-    'sus', 'público', 'pública', 'municipal', 'estadual', 'federal', 
-    'ubs', 'posto de saúde', 'unidade básica', 'centro de saúde',
-    'hospital municipal', 'hospital estadual', 'hospital federal',
-    'upa', 'policlínica municipal', 'cms', 'caps', 'samu', 'unidade de saúde',
-    'secretaria municipal', 'secretaria de saúde', 'rede pública', 'saúde pública',
-    'emergência', 'pronto-socorro', 'pronto atendimento', 'hospital público',
-    'centro de atenção', 'centro de especialidades', 'policlínica',
-    'hospital geral', 'hospital regional', 'hospital universitário',
-    'instituto', 'referência', 'complexo hospitalar', 'hospital de base',
-    'hospital das clínicas', 'hospital escola', 'hospital dia',
-    'maternidade', 'hospital da mulher', 'hospital infantil',
-    // Gestão pública explícita
-    'prefeitura', 'governo do estado', 'governo federal', 'ministério da saúde',
-    'secretaria estadual', 'secretaria municipal', 'autarquia', 'fundação pública'
-];
-
-// Palavras que indicam unidades privadas a serem excluídas (ampliado)
-const PRIVATE_KEYWORDS = [
-    'particular', 'privado', 'privada', 'rede privada', 
-    'clínica particular', 'laboratório particular', 'empresa privada',
-    'saúde suplementar', 'convênio', 'plano de saúde', 'unimed',
-    'hospital privado', 'hospital particular', 'hospital beneficente',
-    'santa casa' // (algumas santas casas são privadas filantrópicas, mas vamos excluir por segurança, a menos que tenham ref:CNES)
-];
-
 // Estado da aplicação
 let allUnits = [];
 let filteredUnits = [];
@@ -1066,7 +1039,7 @@ let municipiosPorEstado = {};
 let buscaAtiva = false;
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FUNÇÕES AUXILIARES
+//  FUNÇÕES AUXILIARES (mantidas)
 // ════════════════════════════════════════════════════════════════════════════
 function norm(str) {
     if (!str) return '';
@@ -1087,7 +1060,6 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
 function deduplicar(unidades) {
     const unicos = new Map();
     unidades.forEach(u => {
-        // Usar nome normalizado + coordenadas arredondadas para evitar duplicatas próximas
         const chave = norm(u.nome) + u.lat.toFixed(4) + u.lon.toFixed(4);
         if (!unicos.has(chave)) unicos.set(chave, u);
     });
@@ -1138,48 +1110,105 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CLASSIFICAÇÃO REFORÇADA - VÍNCULO ABSOLUTO COM O SUS
+//  NOVA FUNÇÃO DE PONTUAÇÃO PARA VÍNCULO SUS (SCORING)
 // ════════════════════════════════════════════════════════════════════════════
-function isVinculadoSUS(tags, nome) {
-    const operador = norm(tags.operator || '');
-    const descricao = norm(tags.description || '');
+function calcularPontuacaoSUS(tags, nome) {
+    let score = 0;
+
+    const op = norm(tags.operator || '');
     const nomeNorm = norm(nome);
-    const acesso = norm(tags.access || '');
-    const ownership = norm(tags.ownership || '');
-    
-    // Se explicitamente privado, excluir imediatamente
-    if (acesso === 'private' || ownership === 'private') return false;
-    
-    // Verificar palavras que indicam vínculo SUS (incluindo operador público)
-    for (const keyword of SUS_KEYWORDS) {
-        if (operador.includes(keyword) || nomeNorm.includes(keyword) || descricao.includes(keyword) || ownership.includes(keyword)) {
-            return true;
+    const desc = norm(tags.description || '');
+    const operatorType = tags['operator:type'] || '';
+    const ownership = tags.ownership || '';
+    const access = norm(tags.access || '');
+    const fee = norm(tags.fee || '');
+
+    // 1. Critério absoluto: CNES válido (maior pontuação)
+    if (tags['ref:CNES'] && /^\d{7}$/.test(tags['ref:CNES'])) score += 100;
+    if (tags['ref:cnes'] && /^\d{7}$/.test(tags['ref:cnes'])) score += 100;
+
+    // 2. Tags explícitas de gestão pública
+    if (operatorType === 'public' || operatorType === 'government') score += 60;
+    if (ownership === 'public') score += 60;
+    if (access === 'yes' || access === 'public') score += 40; // acesso público
+    if (fee === 'no') score += 30; // gratuito
+
+    // 3. Palavras‑chave fortes no operador ou nome
+    const fortes = [
+        'ubs', 'posto de saude', 'unidade basica', 'centro de saude', 'caps', 'upa',
+        'samu', 'hospital municipal', 'hospital estadual', 'hospital federal',
+        'secretaria municipal', 'secretaria de saude', 'prefeitura', 'governo',
+        'ministerio da saude', 'fundacao publica', 'autarquia', 'cnes'
+    ];
+    for (let palavra of fortes) {
+        if (op.includes(palavra) || nomeNorm.includes(palavra) || desc.includes(palavra)) {
+            score += 25;
+            break; // evita múltiplas contagens da mesma unidade
         }
     }
-    
-    // Verificar palavras que indicam privado (excluir)
-    for (const keyword of PRIVATE_KEYWORDS) {
-        if (operador.includes(keyword) || nomeNorm.includes(keyword) || ownership.includes(keyword)) {
-            return false;
+
+    // 4. Indicadores de caráter privado (pontuação negativa)
+    const privado = [
+        'particular', 'privado', 'unimed', 'plano de saude', 'convênio',
+        'empresa privada', 'clinica particular', 'hospital privado'
+    ];
+    for (let palavra of privado) {
+        if (op.includes(palavra) || nomeNorm.includes(palavra) || (tags.brand && norm(tags.brand).includes(palavra))) {
+            score -= 50;
+            break;
         }
     }
-    
-    // Se tem CNES, provavelmente é SUS (mesmo que o nome não deixe explícito)
-    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
-    
-    // Incluir estabelecimentos públicos por padrão, baseado em tipos
-    const amenity = tags.amenity || '';
-    const healthcare = tags.healthcare || '';
-    const tiposPublicos = ['hospital', 'clinic', 'health_post', 'health_centre', 'doctors', 'social_facility', 'nursing_home', 'birthing_center'];
-    
-    if (tiposPublicos.includes(amenity) || tiposPublicos.includes(healthcare)) {
-        // Se não há indício de privado, incluir (considera-se público)
-        return true;
-    }
-    
-    return false;
+
+    // 5. Filantrópicas (Santa Casa, etc.) – só pontuamos se houver CNES ou outra evidência forte
+    //    Se não houver evidência positiva, não incluímos. 
+    //    Aqui apenas não adicionamos pontos extras.
+
+    return score;
 }
 
+// Função que decide se a unidade deve ser incluída (threshold ≥ 20)
+function isVinculadoSUS(tags, nome) {
+    const score = calcularPontuacaoSUS(tags, nome);
+    return score >= 20; // threshold ajustável
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  NOVA FUNÇÃO PARA DETERMINAR A ESFERA DE GESTÃO (FEDERAL/ESTADUAL/MUNICIPAL)
+// ════════════════════════════════════════════════════════════════════════════
+function determinarGestao(tags, nome) {
+    const op = norm(tags.operator || '');
+    const nomeNorm = norm(nome);
+    const operatorType = tags['operator:type'] || '';
+
+    // Prioridade: operador explícito
+    if (op.includes('federal') || op.includes('ministerio') || op.includes('união') || 
+        nomeNorm.includes('federal') || tags['government'] === 'federal') {
+        return 'Federal';
+    }
+    if (op.includes('estadual') || op.includes('governo do estado') || 
+        nomeNorm.includes('estadual') || tags['government'] === 'state') {
+        return 'Estadual';
+    }
+    if (op.includes('municipal') || op.includes('prefeitura') || 
+        nomeNorm.includes('municipal') || tags['government'] === 'municipal') {
+        return 'Municipal';
+    }
+
+    // Se tiver CNES, podemos inferir pela natureza do nome (alguns hospitais têm o nome com a esfera)
+    if (tags['ref:CNES']) {
+        if (nomeNorm.includes('federal')) return 'Federal';
+        if (nomeNorm.includes('estadual')) return 'Estadual';
+        // Se não, assume municipal como padrão
+        return 'Municipal';
+    }
+
+    // Padrão
+    return 'Municipal';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  CLASSIFICAÇÃO DE NÍVEL E PERFIL (REFINADA)
+// ════════════════════════════════════════════════════════════════════════════
 function classificarNivel(tags, nome) {
     const healthcare = tags.healthcare || tags.amenity;
     const n = norm(nome + (tags.description || ''));
@@ -1218,7 +1247,6 @@ function classificarNivel(tags, nome) {
     
     // ATENÇÃO TERCIÁRIA (Hospitais)
     if (healthcare === 'hospital' || n.includes('hospital') || n.includes('hosp')) {
-        // Classificar por especialidade
         let perfil = 'Hospital Geral';
         let nivel = 'secundaria'; // default
         
@@ -1291,27 +1319,18 @@ function getTextoAcolhimento(acolhimento) {
     return textos[acolhimento] || 'Atendimento Geral';
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+//  MONTAGEM DA UNIDADE (COM NOVAS FUNÇÕES)
+// ════════════════════════════════════════════════════════════════════════════
 async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
     if (!nome) return null;
     
-    // Verificar vínculo com SUS
+    // Verificar vínculo com SUS (usando scoring)
     if (!isVinculadoSUS(tags, nome)) return null;
     
     const classif = classificarNivel(tags, nome);
-    
-    // Determinar gestão (federal, estadual, municipal) – refinado
-    const operador = (tags.operator || '').toLowerCase();
-    let gestao = 'Municipal'; // padrão
-    if (operador.includes('federal') || operador.includes('ministério') || operador.includes('união')) gestao = 'Federal';
-    else if (operador.includes('estadual') || operador.includes('governo do estado')) gestao = 'Estadual';
-    else if (operador.includes('municipal') || operador.includes('prefeitura')) gestao = 'Municipal';
-    // Se não houver operador, mas tiver CNES, tentar inferir pelo nome
-    else if (tags['ref:CNES'] || tags['ref:cnes']) {
-        if (nome.includes('Federal')) gestao = 'Federal';
-        else if (nome.includes('Estadual')) gestao = 'Estadual';
-        else gestao = 'Municipal';
-    }
+    const gestao = determinarGestao(tags, nome);
 
     // Obter endereço completo
     let enderecoCompleto = [tags['addr:street'], tags['addr:housenumber'], tags['addr:neighbourhood']].filter(Boolean).join(', ');
@@ -1351,7 +1370,7 @@ async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  GEOLOCALIZAÇÃO E BUSCA POR PROXIMIDADE
+//  GEOLOCALIZAÇÃO E BUSCA POR PROXIMIDADE (ADAPTADA)
 // ════════════════════════════════════════════════════════════════════════════
 async function usarGeolocalizacao() {
     if (!navigator.geolocation) {
@@ -1384,13 +1403,14 @@ async function usarGeolocalizacao() {
 
                 updateSearchProgress(30, 'Município detectado', location.cidade);
                 
-                // Buscar unidades próximas
+                // Buscar unidades próximas (raio informado)
                 const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
-                const units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio);
+                let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio);
                 
                 if (!buscaAtiva) return;
 
-                updateSearchProgress(85, 'Processando unidades...', `${units.length} unidades encontradas`);
+                // Se o raio for pequeno e houver poucas unidades, sugere expandir?
+                // Não expandimos automaticamente, mas podemos oferecer um botão depois
 
                 // Calcular distâncias
                 units.forEach(u => {
@@ -1521,7 +1541,7 @@ async function reverseGeocode(lat, lon) {
         const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1&accept-language=pt-BR`;
         const response = await fetch(url, {
             headers: {
-                'User-Agent': `SaudeBR-Localizador/4.1 (${CONFIG.NOMINATIM.EMAIL})`
+                'User-Agent': `SaudeBR-Localizador/4.2 (${CONFIG.NOMINATIM.EMAIL})`
             }
         });
         
@@ -1548,7 +1568,7 @@ async function reverseGeocode(lat, lon) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  BUSCA POR MUNICÍPIO
+//  BUSCA POR MUNICÍPIO (REFATORADA)
 // ════════════════════════════════════════════════════════════════════════════
 async function buscarPorMunicipio() {
     const uf = document.getElementById('selectEstado').value;
@@ -1567,8 +1587,8 @@ async function buscarPorMunicipio() {
     buscaAtiva = true;
 
     try {
-        // Obter dados do município
-        const municipio = await getMunicipioData(uf, codigoIBGE);
+        // Obter dados do município (incluindo possível relação)
+        const municipio = await getMunicipioData(uf, codigoIBGE, nomeMunicipio);
         
         if (!municipio || !municipio.latitude || !municipio.longitude) {
             throw new Error('Não foi possível obter coordenadas do município');
@@ -1576,8 +1596,8 @@ async function buscarPorMunicipio() {
 
         updateSearchProgress(20, 'Localizando área do município...', `${municipio.nome} (${municipio.latitude.toFixed(4)}, ${municipio.longitude.toFixed(4)})`);
 
-        // Buscar unidades no município
-        const units = await buscarUnidadesNoMunicipio(municipio);
+        // Buscar unidades no município usando método melhorado
+        const units = await buscarUnidadesNoMunicipioRefatorado(municipio, uf);
         
         if (!buscaAtiva) return;
         
@@ -1611,8 +1631,8 @@ async function buscarPorMunicipio() {
     }
 }
 
-async function getMunicipioData(uf, codigoIBGE) {
-    // Tentar obter do cache primeiro
+async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
+    // Tentar obter do cache primeiro (se já tiver coordenadas)
     if (municipiosPorEstado[uf]) {
         const mun = municipiosPorEstado[uf].find(m => m.id === codigoIBGE);
         if (mun && mun.latitude && mun.longitude) {
@@ -1620,20 +1640,14 @@ async function getMunicipioData(uf, codigoIBGE) {
         }
     }
 
-    // Buscar coordenadas via Nominatim
-    const nomeMunicipio = document.getElementById('selectMunicipio').options[
-        document.getElementById('selectMunicipio').selectedIndex
-    ]?.text;
-
-    if (!nomeMunicipio) return null;
-
+    // Buscar coordenadas via Nominatim (e tentar obter relação)
     try {
         const nomeBusca = encodeURIComponent(`${nomeMunicipio}, ${uf}, Brasil`);
-        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br`;
+        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br&polygon_geojson=1&addressdetails=1`;
         
         const response = await fetch(url, {
             headers: {
-                'User-Agent': `SaudeBR-Localizador/4.1 (${CONFIG.NOMINATIM.EMAIL})`
+                'User-Agent': `SaudeBR-Localizador/4.2 (${CONFIG.NOMINATIM.EMAIL})`
             }
         });
         
@@ -1646,16 +1660,11 @@ async function getMunicipioData(uf, codigoIBGE) {
                 id: codigoIBGE,
                 nome: nomeMunicipio,
                 latitude: parseFloat(data[0].lat),
-                longitude: parseFloat(data[0].lon)
+                longitude: parseFloat(data[0].lon),
+                osmId: data[0].osm_id,
+                osmType: data[0].osm_type,
+                geojson: data[0].geojson // pode conter polígono
             };
-            
-            // Estimar área pelo bounding box
-            if (data[0].boundingbox) {
-                const bb = data[0].boundingbox.map(Number);
-                const dLat = Math.abs(bb[1] - bb[0]);
-                const dLon = Math.abs(bb[3] - bb[2]);
-                mun.area_km2 = dLat * 111 * dLon * 111 * Math.cos(mun.latitude * Math.PI / 180);
-            }
             
             // Salvar no cache
             if (!municipiosPorEstado[uf]) municipiosPorEstado[uf] = [];
@@ -1675,56 +1684,109 @@ async function getMunicipioData(uf, codigoIBGE) {
     return null;
 }
 
-async function buscarUnidadesNoMunicipio(municipio) {
-    // Primeiro tenta por área administrativa
-    const nomesAlternativos = [municipio.nome, municipio.nome.replace(/^(São|Santo|Santa) /, 'S. ')];
-    
+async function buscarUnidadesNoMunicipioRefatorado(municipio, uf) {
     let elementos = [];
-    
-    for (const nomeAlt of nomesAlternativos) {
-        const query = `[out:json][timeout:60];
-area["name"="${nomeAlt}"]["admin_level"~"^(7|8|9)$"]["boundary"="administrative"]->.mun;
+    let metodoUsado = '';
+
+    // 1. Tentar usar a relação administrativa do OSM (mais precisa)
+    if (municipio.osmId && municipio.osmType) {
+        const areaId = municipio.osmType === 'relation' ? 3600000000 + municipio.osmId : null;
+        if (areaId) {
+            const queryArea = `
+[out:json][timeout:60];
+area(${areaId})->.searchArea;
 (
-  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](area.mun);
-  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](area.mun);
-  node["amenity"~"^(${INCLUIR_TIPOS})$"]["name"](area.mun);
-  way["amenity"~"^(${INCLUIR_TIPOS})$"]["name"](area.mun);
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](area.searchArea);
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](area.searchArea);
+  node["amenity"~"^(${INCLUIR_TIPOS})$"]["name"](area.searchArea);
+  way["amenity"~"^(${INCLUIR_TIPOS})$"]["name"](area.searchArea);
 );
-out center tags;`;
-        
-        try {
-            const dados = await consultarOverpass(query);
-            elementos = dados.elements || [];
-            if (elementos.length > 0) break;
-        } catch (e) {
-            console.warn('Overpass área falhou:', e);
+out center tags;
+            `;
+            try {
+                const dados = await consultarOverpass(queryArea);
+                elementos = dados.elements || [];
+                metodoUsado = 'relação administrativa';
+                if (elementos.length > 0) updateSearchProgress(50, `Usando ${metodoUsado}...`, `${elementos.length} candidatos`);
+            } catch (e) {
+                console.warn('Falha ao consultar por área:', e);
+            }
         }
     }
 
-    // Se não encontrou por área, tenta por bounding box
+    // 2. Fallback: bounding box em torno do centro do município
     if (elementos.length === 0) {
-        updateSearchProgress(35, 'Expandindo busca por coordenadas...', 'Usando bounding box');
+        metodoUsado = 'bounding box';
+        updateSearchProgress(35, 'Usando bounding box...', 'calculando área aproximada');
         
-        const raio = 0.25;
-        const sul = (municipio.latitude - raio).toFixed(6);
-        const norte = (municipio.latitude + raio).toFixed(6);
-        const oeste = (municipio.longitude - raio).toFixed(6);
-        const leste = (municipio.longitude + raio).toFixed(6);
+        // Estimar tamanho do município (usando dados do Nominatim ou valor fixo)
+        // Se tivermos geojson, podemos calcular bounding box, senão usamos um raio fixo
+        let raio;
+        if (municipio.geojson && municipio.geojson.type === 'Polygon') {
+            // Calcular bounding box do polígono (simplificado)
+            // Por simplicidade, usaremos um raio grande (30 km) e depois filtraremos por distância ao centro
+            raio = 30;
+        } else {
+            // Sem informação, usar 20 km (para cidades médias)
+            raio = 20;
+        }
 
-        const query = `[out:json][timeout:60];
+        const lat = municipio.latitude;
+        const lon = municipio.longitude;
+        const dLat = raio / 111; // graus por km
+        const dLon = raio / (111 * Math.cos(lat * Math.PI / 180));
+        const sul = (lat - dLat).toFixed(6);
+        const norte = (lat + dLat).toFixed(6);
+        const oeste = (lon - dLon).toFixed(6);
+        const leste = (lon + dLon).toFixed(6);
+
+        const queryBbox = `
+[out:json][timeout:60];
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${sul},${oeste},${norte},${leste});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${sul},${oeste},${norte},${leste});
   node["amenity"~"^(${INCLUIR_TIPOS})$"]["name"](${sul},${oeste},${norte},${leste});
   way["amenity"~"^(${INCLUIR_TIPOS})$"]["name"](${sul},${oeste},${norte},${leste});
 );
-out center tags;`;
+out center tags;
+        `;
         
         try {
-            const dados = await consultarOverpass(query);
+            const dados = await consultarOverpass(queryBbox);
             elementos = dados.elements || [];
+            if (elementos.length > 0) updateSearchProgress(50, `Usando ${metodoUsado}...`, `${elementos.length} candidatos`);
         } catch (e) {
             console.warn('Overpass bbox falhou:', e);
+        }
+    }
+
+    // 3. Último recurso: busca textual por addr:city
+    if (elementos.length === 0) {
+        metodoUsado = 'busca textual (addr:city)';
+        updateSearchProgress(35, 'Usando busca textual...', 'pode ser lento');
+        
+        const nomeBusca = municipio.nome;
+        const queryTextual = `
+[out:json][timeout:60];
+(
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"]({{bbox}});
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"]({{bbox}});
+  node["amenity"~"^(${INCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"]({{bbox}});
+  way["amenity"~"^(${INCLUIR_TIPOS})$"]["addr:city"="${nomeBusca}"]({{bbox}});
+);
+out center tags;
+        `;
+        // Nota: {{bbox}} será substituído pelo Overpass pelo bounding box global, mas podemos limitar
+        // Para evitar busca mundial, usamos um bbox grande para o Brasil
+        const bboxBrasil = '-33.75,-73.99,5.27,-34.79'; // sul, oeste, norte, leste
+        const queryComBbox = queryTextual.replace('{{bbox}}', bboxBrasil);
+        
+        try {
+            const dados = await consultarOverpass(queryComBbox);
+            elementos = dados.elements || [];
+            if (elementos.length > 0) updateSearchProgress(50, `Usando ${metodoUsado}...`, `${elementos.length} candidatos`);
+        } catch (e) {
+            console.warn('Busca textual falhou:', e);
         }
     }
 
@@ -1732,10 +1794,13 @@ out center tags;`;
         return [];
     }
 
-    updateSearchProgress(50, 'Classificando unidades...', `${elementos.length} candidatos encontrados`);
+    updateSearchProgress(60, 'Classificando unidades...', `${elementos.length} candidatos encontrados`);
 
-    const raioKm = Math.max(15, municipio.area_km2 ? Math.sqrt(municipio.area_km2 / Math.PI) * 1.3 : 15);
     const unidades = [];
+    const centroLat = municipio.latitude;
+    const centroLon = municipio.longitude;
+    // Definir um raio máximo de aceitação (pode ser maior que o bounding box)
+    const raioMax = 30; // km
 
     for (let i = 0; i < elementos.length; i++) {
         if (!buscaAtiva) return unidades;
@@ -1747,17 +1812,17 @@ out center tags;`;
         
         if (!lat || !lon) continue;
 
-        const dist = calcularDistancia(municipio.latitude, municipio.longitude, lat, lon);
+        // Se usamos bounding box, podemos ter elementos fora do município, então filtramos por distância
+        const dist = calcularDistancia(centroLat, centroLon, lat, lon);
+        if (dist > raioMax) continue; // além do raio, provavelmente outro município
 
-        if (dist <= raioKm + 5) {
-            const u = await montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
-            if (u) {
-                u.cidade = municipio.nome;
-                unidades.push(u);
-            }
+        const u = await montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
+        if (u) {
+            u.cidade = municipio.nome;
+            unidades.push(u);
         }
 
-        const pct = 50 + Math.round((i + 1) / elementos.length * 30);
+        const pct = 60 + Math.round((i + 1) / elementos.length * 30);
         updateSearchProgress(pct, 'Processando...', `${unidades.length} unidades válidas encontradas`);
     }
 
@@ -1765,19 +1830,16 @@ out center tags;`;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  ENRIQUECIMENTO DE DADOS (COM REVERSE GEOCODING)
+//  ENRIQUECIMENTO DE DADOS (MANTIDO)
 // ════════════════════════════════════════════════════════════════════════════
 async function enrichUnitsData(units, cidadeRef) {
-    // Primeiro, definir cidade e iniciar reverse geocoding para bairro
     for (const unit of units) {
         unit.cidade = unit.cidade || cidadeRef || '';
         
-        // Se não tiver endereço completo, tentar reverse geocoding
         if (!unit.enderecoCompleto && unit.lat && unit.lon) {
             agendarReverseGeocoding(unit);
         }
         
-        // Formatar telefone
         if (unit.telefone) {
             const tel = unit.telefone.replace(/\D/g, '');
             if (tel.length >= 10) {
@@ -1790,11 +1852,9 @@ async function enrichUnitsData(units, cidadeRef) {
             }
         }
     }
-
     return units;
 }
 
-// Fila para reverse geocoding (evitar sobrecarga)
 const reverseGeocodeQueue = [];
 let reverseGeocodeRunning = false;
 
@@ -1815,7 +1875,7 @@ async function processReverseGeocodeQueue() {
             const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?format=json&lat=${unit.lat}&lon=${unit.lon}&zoom=18&addressdetails=1&accept-language=pt-BR`;
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': `SaudeBR-Localizador/4.1 (${CONFIG.NOMINATIM.EMAIL})`
+                    'User-Agent': `SaudeBR-Localizador/4.2 (${CONFIG.NOMINATIM.EMAIL})`
                 }
             });
             if (response.ok) {
@@ -1824,37 +1884,26 @@ async function processReverseGeocodeQueue() {
                 unit.bairro = addr.neighbourhood || addr.suburb || addr.quarter || addr.hamlet || '';
                 unit.endereco = [addr.road, addr.house_number].filter(Boolean).join(', ') || unit.endereco;
                 unit.cidade = addr.city || addr.town || addr.municipality || unit.cidade;
-                // Atualizar card se já estiver renderizado
-                atualizarCard(unit);
+                _agendarAtualizacaoFiltros();
             }
         } catch (e) {
             console.warn('Reverse geocoding falhou para unidade:', unit.nome);
         }
-
-        // Aguardar 1 segundo entre requisições para respeitar política de uso
         await sleep(1000);
     }
-
     reverseGeocodeRunning = false;
-}
-
-function atualizarCard(unit) {
-    // Encontrar o card pelo índice (não implementado diretamente, mas pode ser feito)
-    // Como é complexo, vamos apenas re-renderizar os resultados após um tempo
-    _agendarAtualizacaoFiltros();
 }
 
 let _atualizacaoAgendada = null;
 function _agendarAtualizacaoFiltros() {
     if (_atualizacaoAgendada) clearTimeout(_atualizacaoAgendada);
     _atualizacaoAgendada = setTimeout(() => {
-        // Reaplicar filtros para atualizar cards
         applyLocalFilters();
     }, 2000);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  INTERFACE - FILTROS
+//  INTERFACE - FILTROS (mantido)
 // ════════════════════════════════════════════════════════════════════════════
 function toggleFilter() {
     const body = document.getElementById('filterBody');
@@ -1912,7 +1961,9 @@ async function onEstadoChange() {
             nome: m.nome,
             latitude: null,
             longitude: null,
-            area_km2: null
+            osmId: null,
+            osmType: null,
+            geojson: null
         }));
         
         selectMun.innerHTML = '<option value="">— Selecione um município —</option>';
@@ -1952,7 +2003,7 @@ function limparFiltros() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FILTROS LOCAIS
+//  FILTROS LOCAIS (mantido)
 // ════════════════════════════════════════════════════════════════════════════
 function applyLocalFilters() {
     const bairro = document.getElementById('inputBairro').value.toLowerCase().trim();
@@ -1961,26 +2012,10 @@ function applyLocalFilters() {
     const gestao = document.getElementById('selectGestao').value;
     
     filteredUnits = allUnits.filter(u => {
-        // Filtro de bairro
-        if (bairro && u.bairro && !u.bairro.toLowerCase().includes(bairro)) {
-            return false;
-        }
-        
-        // Filtro de nível
-        if (nivel && u.nivel !== nivel) {
-            return false;
-        }
-        
-        // Filtro de acolhimento
-        if (acolhimento && u.acolhimento !== acolhimento) {
-            return false;
-        }
-        
-        // Filtro de gestão
-        if (gestao && u.gestao !== gestao) {
-            return false;
-        }
-        
+        if (bairro && u.bairro && !u.bairro.toLowerCase().includes(bairro)) return false;
+        if (nivel && u.nivel !== nivel) return false;
+        if (acolhimento && u.acolhimento !== acolhimento) return false;
+        if (gestao && u.gestao !== gestao) return false;
         return true;
     });
     
@@ -1988,7 +2023,7 @@ function applyLocalFilters() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  RENDERIZAÇÃO DE RESULTADOS
+//  RENDERIZAÇÃO DE RESULTADOS (mantido, apenas adiciona selo CNES se disponível)
 // ════════════════════════════════════════════════════════════════════════════
 function renderResults() {
     updateDashboard();
@@ -2006,7 +2041,6 @@ function renderResults() {
         return;
     }
     
-    // Agrupar por nível
     const groups = {
         'primaria': filteredUnits.filter(u => u.nivel === 'primaria'),
         'secundaria': filteredUnits.filter(u => u.nivel === 'secundaria'),
@@ -2038,7 +2072,6 @@ function renderResults() {
         </div>
     `;
     
-    // Renderizar grupos
     const groupConfigs = [
         { key: 'primaria', label: 'Atenção Primária', color: '#00A878', icon: '🏠' },
         { key: 'secundaria', label: 'Atenção Secundária', color: '#1565C0', icon: '🔬' },
@@ -2096,12 +2129,10 @@ function renderUnitCard(unit, accentColor, idx) {
     
     let tagsHTML = '';
     
-    // Tag de gestão
     if (unit.gestao) {
         tagsHTML += `<span class="unit-tag unit-tag-${gestaoClass}">${unit.gestao}</span>`;
     }
     
-    // Tag de acolhimento
     const acolhimentoClass = {
         'ambulatorial': 'ambulatorial',
         'urgencia': 'urgencia',
@@ -2112,15 +2143,17 @@ function renderUnitCard(unit, accentColor, idx) {
     
     tagsHTML += `<span class="unit-tag unit-tag-${acolhimentoClass}">${getTextoAcolhimento(unit.acolhimento)}</span>`;
     
-    // Tag de distância
     if (unit.distancia !== null && unit.distancia !== undefined) {
         tagsHTML += `<span class="unit-tag unit-distance">${unit.distancia.toFixed(1)} km</span>`;
     }
     
-    // Botões de ação
+    // Selo CNES se disponível
+    if (unit.cnes) {
+        tagsHTML += `<span class="unit-tag" style="background: #0B1F3A; color: white;">CNES ${unit.cnes}</span>`;
+    }
+    
     let actionsHTML = '';
     
-    // Google Maps
     if (unit.mapsLink) {
         actionsHTML += `
             <button class="btn-icon maps" onclick="window.open('${unit.mapsLink}', '_blank')" title="Ver no Google Maps">
@@ -2131,7 +2164,6 @@ function renderUnitCard(unit, accentColor, idx) {
         `;
     }
     
-    // Link CNES
     if (unit.cnesLink) {
         actionsHTML += `
             <button class="btn-icon search" onclick="window.open('${unit.cnesLink}', '_blank')" title="Ver no CNES">
@@ -2142,7 +2174,6 @@ function renderUnitCard(unit, accentColor, idx) {
         `;
     }
     
-    // WhatsApp
     if (unit.telefone) {
         const telClean = unit.telefone.replace(/\D/g, '');
         const texto = encodeURIComponent(`*${unit.nome}*\n📍 ${unit.enderecoCompleto || unit.endereco || ''}\n📞 ${unit.telefoneFormatado || unit.telefone}\n🏥 ${unit.perfil}\n🔗 ${unit.website || ''}`);
@@ -2156,10 +2187,9 @@ function renderUnitCard(unit, accentColor, idx) {
         `;
     }
     
-    // Website / Google Search
     if (unit.website) {
         actionsHTML += `
-            <button class="btn-icon search" onclick="window.open('${unit.website}', '_blank')" title="Buscar no Google">
+            <button class="btn-icon search" onclick="window.open('${unit.website}', '_blank')" title="Website">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                 </svg>
@@ -2167,7 +2197,6 @@ function renderUnitCard(unit, accentColor, idx) {
         `;
     }
     
-    // Email
     if (unit.email) {
         actionsHTML += `
             <button class="btn-icon" onclick="window.location.href='mailto:${unit.email}'" title="Enviar e-mail">
@@ -2222,7 +2251,7 @@ function renderUnitCard(unit, accentColor, idx) {
                     </div>
                 ` : ''}
                 
-                ${unit.cnes ? `<div class="unit-cnes">CNES: ${unit.cnes}</div>` : ''}
+                ${unit.cnes && !tagsHTML.includes('CNES') ? `<div class="unit-cnes">CNES: ${unit.cnes}</div>` : ''}
                 
                 <div class="unit-tags">
                     ${tagsHTML}
@@ -2241,7 +2270,6 @@ function renderUnitCard(unit, accentColor, idx) {
 function toggleGroup(groupId) {
     const body = document.getElementById(groupId);
     const arrow = document.getElementById(`${groupId}-arrow`);
-    
     body.classList.toggle('open');
     arrow.classList.toggle('open');
 }
@@ -2268,7 +2296,7 @@ function updateDashboard() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  EXPORTAÇÃO - EXCEL
+//  EXPORTAÇÃO - EXCEL (mantido)
 // ════════════════════════════════════════════════════════════════════════════
 function exportToExcel() {
     if (filteredUnits.length === 0) {
@@ -2305,21 +2333,8 @@ function exportToExcel() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PDF - FORMATO A5 HORIZONTAL (CORRIGIDO COM PAGINAÇÃO E CARDS COMPACTOS)
+//  PDF (mantido da versão anterior)
 // ════════════════════════════════════════════════════════════════════════════
-
-/**
- * Gera o HTML de uma única página do PDF, contendo um cabeçalho e uma grade de cards.
- * @param {Array} units - Lista de unidades a serem exibidas nesta página.
- * @param {string} tituloNivel - Título do nível (ex: "Atenção Primária").
- * @param {string} iconeNivel - Ícone do nível.
- * @param {string} corClasse - Classe CSS para cor (primaria, secundaria, terciaria).
- * @param {number} paginaAtual - Número da página atual.
- * @param {number} totalPaginas - Total de páginas.
- * @param {number} totalUnidades - Total geral de unidades.
- * @param {string} dataAtual - Data de geração.
- * @returns {string} HTML da página.
- */
 function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual, totalPaginas, totalUnidades, dataAtual) {
     const cardsHTML = units.map(u => {
         const endereco = u.enderecoCompleto || u.endereco || '';
@@ -2375,9 +2390,6 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
     `;
 }
 
-/**
- * Estilos CSS otimizados para os cards do PDF (serão embutidos na página).
- */
 const pdfStyles = `
     <style>
         .pdf-unit-card {
@@ -2424,29 +2436,23 @@ const pdfStyles = `
     </style>
 `;
 
-/**
- * Gera o PDF completo com múltiplas páginas.
- */
 async function gerarPDFCompleto() {
     const dataAtual = new Date().toLocaleString('pt-BR', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
     });
 
-    // Agrupar unidades por nível
     const primaria = filteredUnits.filter(u => u.nivel === 'primaria');
     const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria');
     const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria');
 
-    // Configuração dos grupos
     const grupos = [
         { units: primaria, titulo: 'Atenção Primária', icone: '🏠', cor: 'primaria' },
         { units: secundaria, titulo: 'Atenção Secundária', icone: '🔬', cor: 'secundaria' },
         { units: terciaria, titulo: 'Atenção Terciária', icone: '🏨', cor: 'terciaria' }
     ].filter(g => g.units.length > 0);
 
-    // Estimar quantos cards cabem por página (altura aproximada de cada card: 90px)
-    const CARDS_POR_PAGINA = 8; // 2 colunas * 4 linhas = 8 cards por página (ajustável)
+    const CARDS_POR_PAGINA = 8;
     const paginasHTML = [];
     let paginaGlobal = 1;
 
@@ -2460,7 +2466,7 @@ async function gerarPDFCompleto() {
                 grupo.icone,
                 grupo.cor,
                 paginaGlobal,
-                0, // será preenchido depois
+                0,
                 filteredUnits.length,
                 dataAtual
             );
@@ -2470,23 +2476,18 @@ async function gerarPDFCompleto() {
     }
 
     const totalPaginas = paginasHTML.length;
-
-    // Agora gerar o HTML final com o número correto de páginas
     let htmlFinal = pdfStyles;
     for (let i = 0; i < paginasHTML.length; i++) {
         const item = paginasHTML[i];
-        // Substituir o placeholder do número da página (0) pelo número real
         const htmlComNumero = item.html.replace(
             'Página 0 de 0',
             `Página ${i+1} de ${totalPaginas}`
         );
         htmlFinal += htmlComNumero;
         if (i < paginasHTML.length - 1) {
-            // Adicionar marcador de quebra de página (será usado para separar no canvas)
             htmlFinal += '<div style="page-break-before: always; height: 0;"></div>';
         }
     }
-
     return htmlFinal;
 }
 
@@ -2525,7 +2526,6 @@ async function downloadPDF() {
         const { jsPDF } = window.jspdf;
         const htmlString = await gerarPDFCompleto();
 
-        // Criar um container para todas as páginas
         const container = document.createElement('div');
         container.innerHTML = htmlString;
         container.style.position = 'absolute';
@@ -2535,7 +2535,6 @@ async function downloadPDF() {
         container.style.background = 'white';
         document.body.appendChild(container);
 
-        // Separar as páginas (divisórias com page-break)
         const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
 
         const pdf = new jsPDF({
@@ -2548,7 +2547,6 @@ async function downloadPDF() {
             updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1}...`, '');
 
             const pageDiv = paginas[i];
-            // Garantir que a página tenha o tamanho correto
             pageDiv.style.width = '800px';
             pageDiv.style.height = 'auto';
             pageDiv.style.margin = '0';
@@ -2662,7 +2660,6 @@ async function compartilharPDFWhatsApp() {
 
         const pdfBlob = pdf.output('blob');
 
-        // Tentar compartilhar via Web Share API
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'relatorio.pdf', { type: 'application/pdf' })] })) {
             const file = new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' });
             await navigator.share({
@@ -2672,7 +2669,6 @@ async function compartilharPDFWhatsApp() {
             });
             showNotification('Compartilhado com sucesso!', 'success');
         } else {
-            // Fallback: download com instruções
             const pdfUrl = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
             link.href = pdfUrl;
@@ -2706,10 +2702,9 @@ async function compartilharPDFWhatsApp() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('SaúdeBR Localizador CNES v4.1 (corrigido) iniciado');
+    console.log('SaúdeBR Localizador CNES v4.2 (SUS exclusivo) iniciado');
 });
 
-// Fechar modais ao clicar fora
 document.querySelectorAll('.modal-overlay').forEach(modal => {
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
