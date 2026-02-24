@@ -553,6 +553,7 @@
     .unit-actions .btn-icon.whatsapp:hover { border-color: #25D366; color: #25D366; background: #E8FBF0; }
     .unit-actions .btn-icon.maps:hover { border-color: #EA4335; color: #EA4335; background: #FDECEA; }
     .unit-actions .btn-icon.search:hover { border-color: #4285F4; color: #4285F4; background: #E8F0FE; }
+    .unit-actions .btn-icon.phone:hover { border-color: #0B1F3A; color: #0B1F3A; background: #EDF1F7; }
 
     /* ─── LOADING / EMPTY / ERROR ─── */
     .status-box {
@@ -1008,7 +1009,7 @@
 </div>
 
 <footer class="footer">
-  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.4 (SUS exclusivo)
+  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; SaúdeBR Localizador v4.5 (SUS exclusivo)
 </footer>
 
 <script>
@@ -1448,7 +1449,7 @@ async function reverseGeocode(lat, lon) {
     try {
         const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1&accept-language=pt-BR`;
         const response = await fetch(url, {
-            headers: { 'User-Agent': `SaudeBR-Localizador/4.4 (${CONFIG.NOMINATIM.EMAIL})` }
+            headers: { 'User-Agent': `SaudeBR-Localizador/4.5 (${CONFIG.NOMINATIM.EMAIL})` }
         });
         if (!response.ok) return null;
         const data = await response.json();
@@ -1528,7 +1529,7 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
         const nomeBusca = encodeURIComponent(`${nomeMunicipio}, ${uf}, Brasil`);
         const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br&polygon_geojson=1&addressdetails=1`;
         const response = await fetch(url, {
-            headers: { 'User-Agent': `SaudeBR-Localizador/4.4 (${CONFIG.NOMINATIM.EMAIL})` }
+            headers: { 'User-Agent': `SaudeBR-Localizador/4.5 (${CONFIG.NOMINATIM.EMAIL})` }
         });
         if (!response.ok) return null;
         const data = await response.json();
@@ -1706,7 +1707,7 @@ async function processReverseGeocodeQueue() {
         try {
             const url = `${CONFIG.NOMINATIM.ENDPOINT}/reverse?format=json&lat=${unit.lat}&lon=${unit.lon}&zoom=18&addressdetails=1&accept-language=pt-BR`;
             const response = await fetch(url, {
-                headers: { 'User-Agent': `SaudeBR-Localizador/4.4 (${CONFIG.NOMINATIM.EMAIL})` }
+                headers: { 'User-Agent': `SaudeBR-Localizador/4.5 (${CONFIG.NOMINATIM.EMAIL})` }
             });
             if (response.ok) {
                 const data = await response.json();
@@ -1972,6 +1973,15 @@ function renderUnitCard(unit, accentColor, idx) {
 
     if (unit.telefone) {
         const telClean = unit.telefone.replace(/\D/g, '');
+        // Botão de ligação
+        actionsHTML += `
+            <button class="btn-icon phone" onclick="window.location.href='tel:${telClean}'" title="Ligar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+            </button>
+        `;
+        // Botão WhatsApp
         const texto = encodeURIComponent(`*${unit.nome}*\n📍 ${unit.enderecoCompleto || unit.endereco || ''}\n📞 ${unit.telefoneFormatado || unit.telefone}\n🏥 ${unit.perfil}\n🔗 ${unit.website || ''}`);
         const whatsappLink = `https://wa.me/55${telClean}?text=${texto}`;
         actionsHTML += `
@@ -2361,7 +2371,7 @@ async function compartilharPDFWhatsApp() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('SaúdeBR Localizador CNES v4.4 (SUS exclusivo) iniciado');
+    console.log('SaúdeBR Localizador CNES v4.5 (SUS exclusivo) iniciado');
 });
 
 document.querySelectorAll('.modal-overlay').forEach(modal => {
