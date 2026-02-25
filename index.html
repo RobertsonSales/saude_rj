@@ -11,7 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    /* (CSS original, mantido integralmente) */
+    /* (CSS original, mantido integralmente com acréscimos no final) */
     :root {
       --navy: #0B1F3A;
       --navy-mid: #132D50;
@@ -725,6 +725,15 @@
       display: flex;
       gap: 10px;
       justify-content: flex-end;
+      flex-wrap: wrap; /* ← corrige overflow */
+    }
+    .btn-whatsapp {
+      background: linear-gradient(135deg, #25D366, #128C7E);
+      color: white;
+    }
+    .btn-whatsapp:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(37,211,102,0.4);
     }
 
     /* ─── NOTIFICATION ─── */
@@ -1209,7 +1218,10 @@ function classificarNivel(tags, nome) {
         };
     }
 
-    // --- ATENÇÃO SECUNDÁRIA ---
+    // --- ATENÇÃO SECUNDÁRIA (incluindo CER) ---
+    if (n.includes('cer') || n.includes('coordenação de emergência regional') || n.includes('coordenacao de emergencia regional')) {
+        return { nivel: 'secundaria', perfil: 'CER' };
+    }
     if (n.includes('upa') || n.includes('pronto atendimento') || n.includes('pronto socorro') ||
         n.includes('ame') || n.includes('ambulatorio medico de especialidades') ||
         n.includes('centro de especialidades odontologicas') || n.includes('ceo') ||
@@ -1259,8 +1271,12 @@ function classificarNivel(tags, nome) {
     return { nivel: 'primaria', perfil: 'Unidade de Saúde' };
 }
 
-function determinarAcolhimento(u) {
-    const n = norm(u.nome + u.perfil);
+// ════════════════════════════════════════════════════════════════════════════
+//  DETERMINAR ACOLHIMENTO (AJUSTADO PARA HOSPITAIS)
+// ════════════════════════════════════════════════════════════════════════════
+function determinarAcolhimento(unit) {
+    const n = norm(unit.nome + unit.perfil);
+    // Termos específicos
     if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia') || 
         n.includes('pronto socorro') || n.includes('pronto atendimento')) {
         return 'urgencia';
@@ -1274,6 +1290,10 @@ function determinarAcolhimento(u) {
     }
     if (n.includes('samu')) {
         return 'samu';
+    }
+    // Para hospitais terciários, padrão é urgência
+    if (unit.nivel === 'terciaria' && unit.perfil.toLowerCase().includes('hospital')) {
+        return 'urgencia';
     }
     return 'ambulatorial';
 }
@@ -1290,27 +1310,25 @@ function getTextoAcolhimento(acolhimento) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  NOVA FUNÇÃO PARA FORMATAR TELEFONE BRASILEIRO (SEM CÓDIGO DO PAÍS)
+//  FORMATAR TELEFONE BRASILEIRO (SEM CÓDIGO DO PAÍS)
 // ════════════════════════════════════════════════════════════════════════════
 function formatarTelefoneBR(telefone) {
     if (!telefone) return '';
     let numeros = telefone.replace(/\D/g, '');
     // Remove código do país 55 se presente no início
-    if (numeros.startsWith('55') && numeros.length >= 12) { // 55 + 2 DDD + 8/9 = 12/13
+    if (numeros.startsWith('55') && numeros.length >= 12) {
         numeros = numeros.substring(2);
     }
-    if (numeros.length < 10) return telefone; // não tem DDD + número mínimo
+    if (numeros.length < 10) return telefone;
 
     const ddd = numeros.substring(0, 2);
     let numeroLocal = numeros.substring(2);
 
-    // Formata de acordo com a quantidade de dígitos
     if (numeroLocal.length === 8) {
         numeroLocal = numeroLocal.replace(/(\d{4})(\d{4})/, '$1-$2');
     } else if (numeroLocal.length === 9) {
         numeroLocal = numeroLocal.replace(/(\d{5})(\d{4})/, '$1-$2');
     } else {
-        // Se não for 8 ou 9, retorna o original sem formatação especial
         return telefone;
     }
 
@@ -1323,7 +1341,6 @@ function formatarTelefoneBR(telefone) {
 function limparNumeroParaLigacao(telefone) {
     if (!telefone) return '';
     let numeros = telefone.replace(/\D/g, '');
-    // Remove código 55 do início se existir
     if (numeros.startsWith('55')) {
         numeros = numeros.substring(2);
     }
@@ -1334,16 +1351,22 @@ function limparNumeroParaLigacao(telefone) {
 //  FUNÇÃO PARA GERAR LINK DE COMPARTILHAMENTO WHATSAPP (SEM NÚMERO)
 // ════════════════════════════════════════════════════════════════════════════
 function gerarLinkCompartilhamentoWhatsApp(unit) {
+    const mapsLink = unit.mapsLink || `https://www.google.com/maps?q=${unit.lat},${unit.lon}`;
+    const searchLink = unit.website || `https://www.google.com/search?q=${encodeURIComponent(unit.nome + ' ' + (unit.cidade || '') + ' ' + (unit.uf || ''))}`;
     const texto = 
         `*${unit.nome}*\n` +
         `📍 ${unit.enderecoCompleto || unit.endereco || ''} ${unit.bairro ? ' - ' + unit.bairro : ''}\n` +
         `📞 ${unit.telefoneFormatado || unit.telefone || 'Não informado'}\n` +
         `🏥 ${unit.perfil}\n` +
-        `🔗 ${unit.website || 'Informação não disponível'}`;
+        `🗺️ Ver no mapa: ${mapsLink}\n` +
+        `🔗 Mais informações: ${searchLink}`;
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
 }
 
-async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
+// ════════════════════════════════════════════════════════════════════════════
+//  MONTAR UNIDADE (AGORA RECEBE UF)
+// ════════════════════════════════════════════════════════════════════════════
+async function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
     if (!nome) return null;
     
@@ -1356,10 +1379,11 @@ async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
     const telefone = tags.phone || tags['contact:phone'] || '';
     const email = tags.email || tags['contact:email'] || '';
     const website = tags.website || tags['contact:website'] || '';
-    
-    return {
+
+    const unit = {
         nome,
         cidade: '',
+        uf: uf || '',
         bairro: tags['addr:neighbourhood'] || tags['addr:suburb'] || '',
         perfil: classif.perfil,
         nivel: classif.nivel,
@@ -1372,13 +1396,14 @@ async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
         osmType,
         website,
         distancia,
-        acolhimento: determinarAcolhimento({ nome, perfil: classif.perfil }),
         gestao,
         cnes: tags['ref:CNES'] || tags['ref:cnes'] || '',
         enderecoCompleto,
         telefoneFormatado: formatarTelefoneBR(telefone),
         mapsLink: lat && lon ? `https://www.google.com/maps?q=${lat},${lon}` : ''
     };
+    unit.acolhimento = determinarAcolhimento(unit);
+    return unit;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1411,7 +1436,7 @@ async function usarGeolocalizacao() {
                 updateSearchProgress(30, 'Município detectado', location.cidade);
                 
                 const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
-                let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio);
+                let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio, location.uf);
                 if (!buscaAtiva) return;
 
                 units.forEach(u => {
@@ -1426,7 +1451,7 @@ async function usarGeolocalizacao() {
                 });
                 units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
 
-                allUnits = await enrichUnitsData(units, location.cidade);
+                allUnits = await enrichUnitsData(units, location.cidade, location.uf);
                 if (!buscaAtiva) return;
                 applyLocalFilters();
 
@@ -1456,7 +1481,7 @@ async function usarGeolocalizacao() {
     );
 }
 
-async function buscarUnidadesProximas(lat, lon, raioKm) {
+async function buscarUnidadesProximas(lat, lon, raioKm, uf) {
     const raioMetros = raioKm * 1000;
     const query = `
 [out:json][timeout:45];
@@ -1488,7 +1513,7 @@ out center tags;
             if (!elLat || !elLon) continue;
             const distancia = calcularDistancia(lat, lon, elLat, elLon);
             if (distancia > raioKm) continue;
-            const u = await montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : 'way', distancia);
+            const u = await montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : 'way', uf, distancia);
             if (u) unidades.push(u);
             if (i % 10 === 0) {
                 const pct = 60 + Math.round((i + 1) / elementos.length * 25);
@@ -1559,7 +1584,7 @@ async function buscarPorMunicipio() {
         }
 
         updateSearchProgress(80, 'Processando unidades...', `${units.length} unidades encontradas`);
-        allUnits = await enrichUnitsData(units, municipio.nome);
+        allUnits = await enrichUnitsData(units, municipio.nome, uf);
         if (!buscaAtiva) return;
         applyLocalFilters();
 
@@ -1711,7 +1736,7 @@ out center tags;
         if (!lat || !lon) continue;
         const dist = calcularDistancia(centroLat, centroLon, lat, lon);
         if (dist > raioMax) continue;
-        const u = await montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way');
+        const u = await montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way', uf);
         if (u) {
             u.cidade = municipio.nome;
             unidades.push(u);
@@ -1726,10 +1751,10 @@ out center tags;
 // ════════════════════════════════════════════════════════════════════════════
 //  ENRIQUECIMENTO DE DADOS (reverse geocoding) - agora já usa formatarTelefoneBR
 // ════════════════════════════════════════════════════════════════════════════
-async function enrichUnitsData(units, cidadeRef) {
+async function enrichUnitsData(units, cidadeRef, ufRef) {
     for (const unit of units) {
         unit.cidade = unit.cidade || cidadeRef || '';
-        // O telefoneFormatado já foi definido em montarUnidade, mas pode ser recalculado se necessário
+        unit.uf = unit.uf || ufRef || '';
         if (!unit.telefoneFormatado) {
             unit.telefoneFormatado = formatarTelefoneBR(unit.telefone);
         }
@@ -1765,6 +1790,13 @@ async function processReverseGeocodeQueue() {
                 unit.bairro = addr.neighbourhood || addr.suburb || addr.quarter || addr.hamlet || '';
                 unit.endereco = [addr.road, addr.house_number].filter(Boolean).join(', ') || unit.endereco;
                 unit.cidade = addr.city || addr.town || addr.municipality || unit.cidade;
+                if (addr.state) {
+                    // Tenta obter UF a partir do nome do estado ou ISO
+                    const estado = addr.state;
+                    const iso = addr['ISO3166-2-lvl4'];
+                    if (iso) unit.uf = iso.split('-')[1] || estado;
+                    else unit.uf = estado;
+                }
                 _agendarAtualizacaoFiltros();
             }
         } catch (e) {
@@ -2022,9 +2054,7 @@ function renderUnitCard(unit, accentColor, idx) {
     `;
 
     if (unit.telefone) {
-        // Número limpo para ligação (apenas DDD + número)
         const telLigacao = limparNumeroParaLigacao(unit.telefone);
-        // Botão de ligação
         actionsHTML += `
             <button class="btn-icon phone" onclick="window.location.href='tel:${telLigacao}'" title="Ligar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -2032,16 +2062,16 @@ function renderUnitCard(unit, accentColor, idx) {
                 </svg>
             </button>
         `;
-        // Botão WhatsApp (compartilhamento)
-        const whatsappLink = gerarLinkCompartilhamentoWhatsApp(unit);
-        actionsHTML += `
-            <button class="btn-icon whatsapp" onclick="window.open('${whatsappLink}', '_blank')" title="Compartilhar no WhatsApp">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                </svg>
-            </button>
-        `;
     }
+    // Botão WhatsApp (sempre visível)
+    const whatsappLink = gerarLinkCompartilhamentoWhatsApp(unit);
+    actionsHTML += `
+        <button class="btn-icon whatsapp" onclick="window.open('${whatsappLink}', '_blank')" title="Compartilhar no WhatsApp">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+        </button>
+    `;
     if (unit.email) {
         actionsHTML += `
             <button class="btn-icon" onclick="window.location.href='mailto:${unit.email}'" title="Enviar e-mail">
@@ -2065,6 +2095,15 @@ function renderUnitCard(unit, accentColor, idx) {
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
                         </svg>
                         <span>${unit.perfil}</span>
+                    </div>
+                ` : ''}
+                <!-- Linha com cidade e UF -->
+                ${unit.cidade && unit.uf ? `
+                    <div class="unit-info-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        <span>${unit.cidade} - ${unit.uf}</span>
                     </div>
                 ` : ''}
                 ${unit.enderecoCompleto || unit.endereco ? `
@@ -2138,6 +2177,7 @@ function exportToExcel() {
         'Nível de Atenção': u.nivel === 'primaria' ? 'Primária' : u.nivel === 'secundaria' ? 'Secundária' : 'Terciária',
         'Tipo de Acolhimento': getTextoAcolhimento(u.acolhimento),
         'Cidade': u.cidade,
+        'UF': u.uf,
         'Bairro': u.bairro || '',
         'Endereço': u.endereco || '',
         'Telefone': u.telefoneFormatado || u.telefone || '',
@@ -2321,7 +2361,7 @@ async function downloadPDF() {
         const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
         for (let i = 0; i < paginas.length; i++) {
-            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1}...`, '');
+            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1} de ${paginas.length}...`, 'Aguarde, pode levar alguns segundos');
             const pageDiv = paginas[i];
             pageDiv.style.width = '800px';
             pageDiv.style.height = 'auto';
@@ -2371,7 +2411,7 @@ async function compartilharPDFWhatsApp() {
         const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
         for (let i = 0; i < paginas.length; i++) {
-            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1}...`, '');
+            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1} de ${paginas.length}...`, 'Aguarde, pode levar alguns segundos');
             const pageDiv = paginas[i];
             pageDiv.style.width = '800px';
             pageDiv.style.height = 'auto';
