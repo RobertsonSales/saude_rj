@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saúde-BR (+) Localizador de Unidades de Saúde Pública</title>
+  <title>Saúde-BR(+) Seu Localizador de Unidades de Saúde Pública</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -11,7 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    /* CSS original (mantido integralmente) */
+    /* (CSS original, mantido integralmente) */
     :root {
       --navy: #0B1F3A;
       --navy-mid: #132D50;
@@ -725,7 +725,7 @@
       display: flex;
       gap: 10px;
       justify-content: flex-end;
-      flex-wrap: wrap; /* ← corrige overflow */
+      flex-wrap: wrap;
     }
     .btn-whatsapp {
       background: linear-gradient(135deg, #25D366, #128C7E);
@@ -1034,7 +1034,7 @@ const CONFIG = {
     OVERPASS: 'https://overpass-api.de/api/interpreter'
 };
 
-// Lista expandida de tipos de saúde (inclui todos os possíveis)
+// Lista expandida de tipos de saúde
 const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polyclinic|health|hospitals|medical|social_facility|nursing_home|birthing_center|healthcare|centre|ambulatory|health_center|health_station|maternity|urgent_care|emergency_ward|community_health_worker|phc|primary_healthcare';
 const EXCLUIR_TIPOS = 'pharmacy|dentist|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary';
 
@@ -1044,7 +1044,7 @@ let currentGeoPosition = null;
 let estados = [];
 let municipiosPorEstado = {};
 let buscaAtiva = false;
-let reverseGeocodeCache = new Map(); // cache para evitar chamadas repetidas
+let reverseGeocodeCache = new Map();
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FUNÇÕES AUXILIARES
@@ -1110,40 +1110,51 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  NOVA FUNÇÃO DE VÍNCULO SUS (PONTUAÇÃO COM LIMIAR)
+//  VÍNCULO SUS (PONTUAÇÃO REFATORADA)
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
-    let score = 0;
-    const op = norm(tags.operator || '');
+    // 1. CNES é prova definitiva
+    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
+
     const nomeNorm = norm(nome);
-    const desc = norm(tags.description || '');
+    const op = norm(tags.operator || '');
     const brand = norm(tags.brand || '');
 
-    // 1. CNES é prova máxima (100 pontos)
-    if (tags['ref:CNES'] || tags['ref:cnes']) score += 100;
+    // 2. Verificar palavras privadas (exclusão imediata)
+    const palavrasPrivadas = ['particular', 'privado', 'unimed', 'plano de saude', 'convênio', 'empresa privada', 'clinica particular', 'hospital privado'];
+    for (let palavra of palavrasPrivadas) {
+        if (op.includes(palavra) || nomeNorm.includes(palavra) || brand.includes(palavra)) {
+            return false;
+        }
+    }
 
-    // 2. Operador público ou governo
+    // 3. Pontuação
+    let score = 0;
+    const desc = norm(tags.description || '');
+
+    // Operador público
     const palavrasOperadorPublico = ['public', 'government', 'municipal', 'estadual', 'federal', 'prefeitura', 'secretaria', 'ministerio', 'autarquia', 'fundacao'];
     for (let palavra of palavrasOperadorPublico) {
         if (op.includes(palavra)) score += 50;
     }
 
-    // 3. Tipo de operador
+    // Tipo de operador
     const operatorType = tags['operator:type'] || '';
     if (operatorType === 'public' || operatorType === 'government') score += 60;
 
-    // 4. Propriedade pública
+    // Propriedade pública
     if (tags.ownership === 'public') score += 50;
 
-    // 5. Acesso público ou sem restrição
+    // Acesso público
     if (tags.access === 'yes' || tags.access === 'public') score += 20;
 
-    // 6. Palavras‑chave fortes no nome ou descrição
+    // Palavras‑chave fortes no nome ou descrição
     const palavrasFortes = [
         'ubs', 'posto de saude', 'unidade basica', 'centro de saude', 'caps', 'upa',
         'samu', 'hospital municipal', 'hospital estadual', 'hospital federal',
         'clinica da familia', 'esf', 'psf', 'cafs', 'cer', 'ceo', 'policlinica',
-        'maternidade', 'santa casa', 'instituto', 'oncologico', 'cardiologia'
+        'maternidade', 'santa casa', 'instituto', 'oncologico', 'cardiologia',
+        'cms', 'centro municipal de saude', 'hospital geral', 'hospital universitario'
     ];
     for (let palavra of palavrasFortes) {
         if (nomeNorm.includes(palavra) || desc.includes(palavra)) {
@@ -1152,19 +1163,6 @@ function isVinculadoSUS(tags, nome) {
         }
     }
 
-    // 7. Penalidade por palavras privadas
-    const palavrasPrivadas = [
-        'particular', 'privado', 'unimed', 'plano de saude', 'convênio',
-        'empresa privada', 'clinica particular', 'hospital privado'
-    ];
-    for (let palavra of palavrasPrivadas) {
-        if (op.includes(palavra) || nomeNorm.includes(palavra) || brand.includes(palavra)) {
-            score -= 100; // elimina
-            break;
-        }
-    }
-
-    // Limiar: 30 pontos (CNES já dá 100, então garante)
     return score >= 30;
 }
 
@@ -1190,9 +1188,6 @@ function determinarGestao(tags, nome) {
         return 'Municipal';
     }
 
-    // Fallback: se tem CNES, assume municipal (mais comum)
-    if (tags['ref:CNES']) return 'Municipal';
-
     return 'Municipal';
 }
 
@@ -1210,6 +1205,7 @@ function classificarNivel(tags, nome) {
         n.includes('caps') || n.includes('centro de atencao psicossocial') ||
         n.includes('clinica da familia') || n.includes('cafs') ||
         n.includes('centro de saude') || n.includes('centro municipal de saude') ||
+        n.includes('cms') ||
         (healthcare === 'health_post') ||
         (healthcare === 'health_centre' && !n.includes('policlinica') && !n.includes('upa'))) {
         return {
@@ -1218,11 +1214,12 @@ function classificarNivel(tags, nome) {
                     n.includes('caps') ? 'CAPS' :
                     n.includes('clinica da familia') ? 'Clínica da Família' :
                     n.includes('esf') ? 'ESF' :
+                    n.includes('cms') ? 'Centro Municipal de Saúde' :
                     n.includes('posto') ? 'Posto de Saúde' : 'Unidade Básica de Saúde'
         };
     }
 
-    // --- ATENÇÃO SECUNDÁRIA (incluindo CER, CEO, UPA, etc.) ---
+    // --- ATENÇÃO SECUNDÁRIA ---
     if (n.includes('upa') || n.includes('pronto atendimento') || n.includes('pronto socorro') ||
         n.includes('ame') || n.includes('ambulatorio medico de especialidades') ||
         n.includes('centro de especialidades odontologicas') || n.includes('ceo') ||
@@ -1269,7 +1266,6 @@ function classificarNivel(tags, nome) {
         return { nivel: 'terciaria', perfil };
     }
 
-    // Fallback: se não classificado, coloca como primária genérica
     return { nivel: 'primaria', perfil: 'Unidade de Saúde' };
 }
 
@@ -1310,7 +1306,7 @@ function getTextoAcolhimento(acolhimento) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FORMATAR TELEFONE BRASILEIRO (mantido)
+//  FORMATAR TELEFONE (mantido)
 // ════════════════════════════════════════════════════════════════════════════
 function formatarTelefoneBR(telefone) {
     if (!telefone) return '';
@@ -1357,7 +1353,7 @@ function gerarLinkCompartilhamentoWhatsApp(unit) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  MONTAR UNIDADE (AGORA RECEBE UF E CIDADE OPCIONAL)
+//  MONTAR UNIDADE
 // ════════════════════════════════════════════════════════════════════════════
 async function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade = null, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
@@ -1400,7 +1396,7 @@ async function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade =
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  GEOLOCALIZAÇÃO (mantida, mas pode ser otimizada)
+//  GEOLOCALIZAÇÃO (CORRIGIDA)
 // ════════════════════════════════════════════════════════════════════════════
 async function usarGeolocalizacao() {
     if (!navigator.geolocation) {
@@ -1423,44 +1419,47 @@ async function usarGeolocalizacao() {
 
             updateSearchProgress(20, 'Localização obtida!', `Lat: ${currentGeoPosition.lat.toFixed(4)}, Lon: ${currentGeoPosition.lon.toFixed(4)}`);
 
+            // Tenta obter a cidade (não crítico)
+            let location = null;
             try {
-                const location = await reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon);
-                if (!location || !location.cidade) throw new Error('Não foi possível determinar sua localização');
-                updateSearchProgress(30, 'Município detectado', location.cidade);
-                
-                const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
-                let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio, location.uf, location.cidade);
-                if (!buscaAtiva) return;
-
-                units.forEach(u => {
-                    if (u.lat && u.lon) {
-                        u.distancia = calcularDistancia(
-                            currentGeoPosition.lat,
-                            currentGeoPosition.lon,
-                            u.lat,
-                            u.lon
-                        );
-                    }
-                });
-                units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
-
-                allUnits = units; // já enriquecidas
-                if (!buscaAtiva) return;
-                applyLocalFilters();
-
-                updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades no raio de ${raio}km`);
-                setTimeout(() => {
-                    showSearchProgress(false);
-                    showNotification(`${allUnits.length} unidades encontradas próximas a você`, 'success');
-                    document.getElementById('geoStatus').textContent = 
-                        `📍 Sua localização: ${location.cidade} • ${allUnits.length} unidades no raio de ${raio}km`;
-                }, 800);
-
-            } catch (error) {
-                console.error('Erro na busca por proximidade:', error);
-                showSearchProgress(false);
-                showNotification('Erro: ' + error.message, 'error');
+                location = await reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon);
+            } catch (e) {
+                console.warn('Reverse geocode falhou, continuando sem cidade');
             }
+
+            const cidade = location?.cidade || 'sua localização';
+            const uf = location?.uf || '';
+
+            updateSearchProgress(30, 'Município detectado', cidade);
+
+            const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
+            let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio, uf, cidade);
+            if (!buscaAtiva) return;
+
+            units.forEach(u => {
+                if (u.lat && u.lon) {
+                    u.distancia = calcularDistancia(
+                        currentGeoPosition.lat,
+                        currentGeoPosition.lon,
+                        u.lat,
+                        u.lon
+                    );
+                }
+            });
+            units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
+
+            allUnits = units;
+            if (!buscaAtiva) return;
+            applyLocalFilters();
+
+            updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades no raio de ${raio}km`);
+            setTimeout(() => {
+                showSearchProgress(false);
+                showNotification(`${allUnits.length} unidades encontradas próximas a você`, 'success');
+                document.getElementById('geoStatus').textContent = 
+                    `📍 Sua localização: ${cidade} • ${allUnits.length} unidades no raio de ${raio}km`;
+            }, 800);
+
         },
         (error) => {
             showSearchProgress(false);
@@ -1545,7 +1544,7 @@ async function reverseGeocode(lat, lon) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  BUSCA POR MUNICÍPIO (REFATORADA COM FILTRO POR CIDADE)
+//  BUSCA POR MUNICÍPIO (REFATORADA COM FILTRO POR CIDADE CONDICIONAL)
 // ════════════════════════════════════════════════════════════════════════════
 async function buscarPorMunicipio() {
     const uf = document.getElementById('selectEstado').value;
@@ -1570,7 +1569,7 @@ async function buscarPorMunicipio() {
 
         updateSearchProgress(20, 'Localizando área do município...', `${municipio.nome} (${municipio.latitude.toFixed(4)}, ${municipio.longitude.toFixed(4)})`);
 
-        const units = await buscarUnidadesNoMunicipioComFiltro(municipio, uf);
+        const units = await buscarUnidadesNoMunicipio(municipio, uf);
         if (!buscaAtiva) return;
         
         if (units.length === 0) {
@@ -1633,9 +1632,9 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
     return null;
 }
 
-async function buscarUnidadesNoMunicipioComFiltro(municipio, uf) {
+async function buscarUnidadesNoMunicipio(municipio, uf) {
     let elementos = [];
-    let metodoUsado = '';
+    let usandoArea = false;
 
     // 1. Tentar usar relação administrativa
     if (municipio.osmId && municipio.osmType === 'relation') {
@@ -1654,14 +1653,13 @@ out center tags;
         try {
             const dados = await consultarOverpass(queryArea);
             elementos = dados.elements || [];
-            metodoUsado = 'relação administrativa';
-            if (elementos.length > 0) updateSearchProgress(50, `Usando ${metodoUsado}...`, `${elementos.length} candidatos`);
+            usandoArea = elementos.length > 0;
+            if (usandoArea) updateSearchProgress(50, 'Usando relação administrativa...', `${elementos.length} candidatos`);
         } catch (e) { console.warn('Falha ao consultar por área:', e); }
     }
 
     // 2. Fallback: bounding box ampla
     if (elementos.length === 0) {
-        metodoUsado = 'bounding box';
         updateSearchProgress(35, 'Usando bounding box...', 'calculando área aproximada');
         const raio = 30; // km
         const lat = municipio.latitude;
@@ -1685,7 +1683,7 @@ out center tags;
         try {
             const dados = await consultarOverpass(queryBbox);
             elementos = dados.elements || [];
-            if (elementos.length > 0) updateSearchProgress(50, `Usando ${metodoUsado}...`, `${elementos.length} candidatos`);
+            if (elementos.length > 0) updateSearchProgress(50, 'Usando bounding box...', `${elementos.length} candidatos`);
         } catch (e) { console.warn('Overpass bbox falhou:', e); }
     }
 
@@ -1693,7 +1691,6 @@ out center tags;
 
     updateSearchProgress(60, 'Classificando unidades...', `${elementos.length} candidatos encontrados`);
 
-    // Processar em lotes para não travar a UI
     const unidades = [];
     const batchSize = 20;
     for (let i = 0; i < elementos.length; i += batchSize) {
@@ -1704,24 +1701,18 @@ out center tags;
             const lon = el.lon ?? el.center?.lon;
             if (!lat || !lon) return null;
 
-            // Verificar se a unidade já tem cidade na tag
-            let cidade = tags['addr:city'];
-            let ufLocal = uf;
-
-            // Se não tiver, fazer reverse geocode (mas só se necessário)
-            if (!cidade) {
-                const rev = await reverseGeocode(lat, lon);
-                if (rev) {
-                    cidade = rev.cidade;
-                    ufLocal = rev.uf;
+            // Se não estamos usando área, precisamos verificar a cidade
+            if (!usandoArea) {
+                let cidade = tags['addr:city'];
+                if (!cidade) {
+                    const rev = await reverseGeocode(lat, lon);
+                    if (rev) cidade = rev.cidade;
                 }
+                // Se a cidade não corresponder, descarta
+                if (!cidade || norm(cidade) !== norm(municipio.nome)) return null;
             }
 
-            // Filtrar apenas se a cidade corresponder ao município alvo (ignorar case e acentos)
-            if (cidade && norm(cidade) === norm(municipio.nome)) {
-                return await montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way', ufLocal, cidade);
-            }
-            return null;
+            return await montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way', uf, municipio.nome);
         });
 
         const results = await Promise.all(promises);
@@ -1776,7 +1767,6 @@ async function onEstadoChange() {
         grupoMun.style.display = 'none';
         selectMun.disabled = true;
         selectMun.innerHTML = '<option value="">— Selecione o estado primeiro —</option>';
-        // Esconder os demais
         document.getElementById('grupoBairro').style.display = 'none';
         document.getElementById('grupoNivel').style.display = 'none';
         document.getElementById('grupoAcolhimento').style.display = 'none';
@@ -1818,13 +1808,11 @@ async function onEstadoChange() {
 function onMunicipioChange() {
     const selectMun = document.getElementById('selectMunicipio');
     if (selectMun.value) {
-        // Mostra os demais filtros
         document.getElementById('grupoBairro').style.display = 'block';
         document.getElementById('grupoNivel').style.display = 'block';
         document.getElementById('grupoAcolhimento').style.display = 'block';
         document.getElementById('grupoGestao').style.display = 'block';
     } else {
-        // Esconde se desmarcar
         document.getElementById('grupoBairro').style.display = 'none';
         document.getElementById('grupoNivel').style.display = 'none';
         document.getElementById('grupoAcolhimento').style.display = 'none';
@@ -1867,7 +1855,7 @@ function applyLocalFilters() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  RENDERIZAÇÃO (mantida igual)
+//  RENDERIZAÇÃO (mantida)
 // ════════════════════════════════════════════════════════════════════════════
 function renderResults() {
     updateDashboard();
@@ -2115,7 +2103,7 @@ function updateDashboard() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  EXPORTAÇÃO EXCEL
+//  EXPORTAÇÃO EXCEL (mantida)
 // ════════════════════════════════════════════════════════════════════════════
 function exportToExcel() {
     if (filteredUnits.length === 0) {
@@ -2149,7 +2137,7 @@ function exportToExcel() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PDF (mantido da versão anterior)
+//  PDF (mantido)
 // ════════════════════════════════════════════════════════════════════════════
 function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual, totalPaginas, totalUnidades, dataAtual) {
     const cardsHTML = units.map(u => {
@@ -2385,7 +2373,6 @@ async function compartilharPDFWhatsApp() {
         document.body.removeChild(container);
         const pdfBlob = pdf.output('blob');
         updateSearchProgress(95, 'Pronto!', 'Preparando compartilhamento...');
-        // Tenta compartilhar via Web Share API
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' })] })) {
             const file = new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' });
             await navigator.share({
@@ -2395,7 +2382,6 @@ async function compartilharPDFWhatsApp() {
             });
             showNotification('Compartilhado com sucesso!', 'success');
         } else {
-            // Fallback: download
             const pdfUrl = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
             link.href = pdfUrl;
