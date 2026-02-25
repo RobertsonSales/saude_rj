@@ -1185,74 +1185,77 @@ function determinarGestao(tags, nome) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CLASSIFICAÇÃO DE NÍVEL E PERFIL (REFINADA)
+//  CLASSIFICAÇÃO DE NÍVEL E PERFIL (REFINADA CONFORME SOLICITAÇÃO)
 // ════════════════════════════════════════════════════════════════════════════
 function classificarNivel(tags, nome) {
-    const healthcare = tags.healthcare || tags.amenity;
     const n = norm(nome + (tags.description || ''));
+    const healthcare = tags.healthcare || tags.amenity;
     const speciality = tags['healthcare:speciality'] || '';
-    
+
+    // --- ATENÇÃO PRIMÁRIA ---
     if (n.includes('ubs') || n.includes('posto de saude') || n.includes('unidade basica') ||
         n.includes('esf') || n.includes('saude da familia') || n.includes('psf') ||
-        n.includes('centro de saude') || n.includes('cms') || healthcare === 'health_post' ||
-        healthcare === 'health_centre' || n.includes('ambulatorio') || healthcare === 'clinic' ||
-        n.includes('centro de saúde') || n.includes('policlinica')) {
+        n.includes('caps') || n.includes('centro de atencao psicossocial') ||
+        n.includes('clinica da familia') || n.includes('cafs') ||
+        (healthcare === 'health_post') ||
+        (healthcare === 'health_centre' && !n.includes('policlinica') && !n.includes('upa'))) {
         return {
             nivel: 'primaria',
-            perfil: n.includes('ubs') ? 'UBS' : 
+            perfil: n.includes('ubs') ? 'UBS' :
                     n.includes('posto') ? 'Posto de Saúde' :
                     n.includes('esf') ? 'ESF' :
                     n.includes('caps') ? 'CAPS' :
-                    n.includes('ambulatorio') ? 'Ambulatório' : 'Centro de Saúde'
+                    n.includes('clinica da familia') ? 'Clínica da Família' : 'Unidade Básica de Saúde'
         };
     }
-    
-    if (n.includes('upa') || n.includes('policlinica') || n.includes('policlínica') ||
-        n.includes('pronto atendimento') || n.includes('pronto socorro') ||
-        n.includes('caps') || n.includes('cri') || n.includes('centro de atencao') ||
-        healthcare === 'clinic' || n.includes('clinica especializada') || 
-        n.includes('centro de especialidades') || speciality.includes('speciality')) {
+
+    // --- ATENÇÃO SECUNDÁRIA ---
+    if (n.includes('upa') || n.includes('pronto atendimento') || n.includes('pronto socorro') ||
+        n.includes('ame') || n.includes('ambulatorio medico de especialidades') ||
+        n.includes('centro de especialidades odontologicas') || n.includes('ceo') ||
+        n.includes('unidade mista') || n.includes('policlinica') || n.includes('policlínica') ||
+        (healthcare === 'clinic' && (n.includes('especialidades') || n.includes('referencia'))) ||
+        (speciality && speciality.includes('speciality'))) {
         return {
             nivel: 'secundaria',
             perfil: n.includes('upa') ? 'UPA' :
+                    n.includes('ame') ? 'AME' :
+                    n.includes('ceo') ? 'CEO' :
                     n.includes('policlinica') ? 'Policlínica' :
-                    n.includes('pronto') ? 'Pronto Atendimento' :
-                    n.includes('caps') ? 'CAPS' : 'Clínica Especializada'
+                    n.includes('unidade mista') ? 'Unidade Mista' : 'Unidade de Média Complexidade'
         };
     }
-    
-    if (healthcare === 'hospital' || n.includes('hospital') || n.includes('hosp')) {
+
+    // --- ATENÇÃO TERCIÁRIA ---
+    if (healthcare === 'hospital' || n.includes('hospital') || n.includes('hosp') ||
+        n.includes('santa casa') || n.includes('universitario') || n.includes('ensino') ||
+        n.includes('maternidade') || n.includes('matern') ||
+        n.includes('oncologico') || n.includes('cancer') || n.includes('cardiologia') ||
+        n.includes('reabilitacao') || n.includes('centro de reabilitacao') ||
+        n.includes('referencia') || n.includes('geral')) {
+
         let perfil = 'Hospital Geral';
-        let nivel = 'secundaria';
-        
         if (n.includes('maternidade') || n.includes('matern')) {
-            perfil = 'Hospital Maternidade';
-            nivel = 'terciaria';
-        } else if (n.includes('infantil') || n.includes('crianca') || n.includes('pediatrico')) {
-            perfil = 'Hospital Infantil';
-            nivel = 'terciaria';
-        } else if (n.includes('oncologia') || n.includes('cancer') || n.includes('inca')) {
+            perfil = 'Maternidade';
+        } else if (n.includes('oncologico') || n.includes('cancer') || n.includes('inca')) {
             perfil = 'Hospital Oncológico';
-            nivel = 'terciaria';
-        } else if (n.includes('psiquiatria') || n.includes('mental')) {
-            perfil = 'Hospital Psiquiátrico';
-            nivel = 'terciaria';
-        } else if (n.includes('ortopedia') || n.includes('trauma') || n.includes('cardiologia')) {
-            perfil = 'Hospital Especializado';
-            nivel = 'terciaria';
-        } else if (n.includes('universitario') || n.includes('referencia') || n.includes('federal')) {
-            perfil = 'Hospital de Referência';
-            nivel = 'terciaria';
+        } else if (n.includes('cardiologia') || n.includes('cardiovascular')) {
+            perfil = 'Hospital Cardiológico';
+        } else if (n.includes('reabilitacao') || n.includes('reabilitação')) {
+            perfil = 'Centro de Reabilitação';
+        } else if (n.includes('universitario') || n.includes('ensino')) {
+            perfil = 'Hospital Universitário';
+        } else if (n.includes('santa casa')) {
+            perfil = 'Santa Casa';
+        } else if (n.includes('geral')) {
+            perfil = 'Hospital Geral';
         } else {
-            if (n.includes('geral') || n.includes('regional') || n.includes('central')) {
-                nivel = 'secundaria';
-            } else {
-                nivel = 'secundaria';
-            }
+            perfil = 'Hospital';
         }
-        return { nivel, perfil };
+        return { nivel: 'terciaria', perfil };
     }
-    
+
+    // Fallback: se não classificado, coloca como primária genérica
     return { nivel: 'primaria', perfil: 'Unidade de Saúde' };
 }
 
@@ -1315,17 +1318,29 @@ function formatarTelefoneBR(telefone) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FUNÇÃO PARA OBTER NÚMERO INTERNACIONAL (55 + DDD + número) PARA WHATSAPP
+//  FUNÇÃO PARA OBTER NÚMERO APENAS COM DDD (SEM 55) PARA LIGAÇÃO
 // ════════════════════════════════════════════════════════════════════════════
-function obterNumeroWhatsApp(telefone) {
+function limparNumeroParaLigacao(telefone) {
     if (!telefone) return '';
     let numeros = telefone.replace(/\D/g, '');
-    // Se já começar com 55, mantém; senão adiciona
-    if (!numeros.startsWith('55')) {
-        numeros = '55' + numeros;
+    // Remove código 55 do início se existir
+    if (numeros.startsWith('55')) {
+        numeros = numeros.substring(2);
     }
-    // Remove qualquer coisa além de dígitos (já foi feito)
     return numeros;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  FUNÇÃO PARA GERAR LINK DE COMPARTILHAMENTO WHATSAPP (SEM NÚMERO)
+// ════════════════════════════════════════════════════════════════════════════
+function gerarLinkCompartilhamentoWhatsApp(unit) {
+    const texto = 
+        `*${unit.nome}*\n` +
+        `📍 ${unit.enderecoCompleto || unit.endereco || ''} ${unit.bairro ? ' - ' + unit.bairro : ''}\n` +
+        `📞 ${unit.telefoneFormatado || unit.telefone || 'Não informado'}\n` +
+        `🏥 ${unit.perfil}\n` +
+        `🔗 ${unit.website || 'Informação não disponível'}`;
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
 }
 
 async function montarUnidade(tags, lat, lon, osmId, osmType, distancia = null) {
@@ -2007,21 +2022,20 @@ function renderUnitCard(unit, accentColor, idx) {
     `;
 
     if (unit.telefone) {
-        const telClean = unit.telefone.replace(/\D/g, '');
-        const numeroWhats = obterNumeroWhatsApp(unit.telefone);
+        // Número limpo para ligação (apenas DDD + número)
+        const telLigacao = limparNumeroParaLigacao(unit.telefone);
         // Botão de ligação
         actionsHTML += `
-            <button class="btn-icon phone" onclick="window.location.href='tel:${telClean}'" title="Ligar">
+            <button class="btn-icon phone" onclick="window.location.href='tel:${telLigacao}'" title="Ligar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
                 </svg>
             </button>
         `;
-        // Botão WhatsApp
-        const texto = encodeURIComponent(`*${unit.nome}*\n📍 ${unit.enderecoCompleto || unit.endereco || ''}\n📞 ${unit.telefoneFormatado || unit.telefone}\n🏥 ${unit.perfil}\n🔗 ${unit.website || ''}`);
-        const whatsappLink = `https://wa.me/${numeroWhats}?text=${texto}`;
+        // Botão WhatsApp (compartilhamento)
+        const whatsappLink = gerarLinkCompartilhamentoWhatsApp(unit);
         actionsHTML += `
-            <button class="btn-icon whatsapp" onclick="window.open('${whatsappLink}', '_blank')" title="Contato WhatsApp">
+            <button class="btn-icon whatsapp" onclick="window.open('${whatsappLink}', '_blank')" title="Compartilhar no WhatsApp">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
                 </svg>
