@@ -994,7 +994,7 @@
       <h3 class="modal-title">📄 Visualização do Relatório PDF</h3>
       <button class="modal-close" onclick="closePDFModal()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          <line x1="18" y1="6" x2="6" y2="12"/><line x1="6" y1="6" x2="18" y2="12"/>
         </svg>
       </button>
     </div>
@@ -1023,7 +1023,7 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES
+//  CONFIGURAÇÃO E CONSTANTES (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1047,7 +1047,7 @@ let buscaAtiva = false;
 let reverseGeocodeCache = new Map();
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FUNÇÕES AUXILIARES
+//  FUNÇÕES AUXILIARES (mantidas iguais)
 // ════════════════════════════════════════════════════════════════════════════
 function norm(str) {
     if (!str) return '';
@@ -1110,7 +1110,7 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS (PONTUAÇÃO REFATORADA)
+//  VÍNCULO SUS (PONTUAÇÃO REFATORADA) — mantido igual
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
     // 1. CNES é prova definitiva
@@ -1167,7 +1167,7 @@ function isVinculadoSUS(tags, nome) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DETERMINAR ESFERA DE GESTÃO
+//  DETERMINAR ESFERA DE GESTÃO (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
 function determinarGestao(tags, nome) {
     const op = norm(tags.operator || '');
@@ -1192,12 +1192,12 @@ function determinarGestao(tags, nome) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CLASSIFICAÇÃO DE NÍVEL E PERFIL — HIERARQUIA SUS (TOTALMENTE REESCRITA)
-//  Primário → Secundário → Terciário  (ordem crescente de complexidade)
+//  CLASSIFICAÇÃO DE NÍVEL E PERFIL — CORRIGIDA CONFORME SOLICITAÇÃO
+//  Primário → Secundário → Terciário (ordem crescente de complexidade)
 //  Terciário é avaliado PRIMEIRO para garantir prioridade clínica correta.
 // ════════════════════════════════════════════════════════════════════════════
 function classificarNivel(tags, nome) {
-    const n    = norm(nome + ' ' + (tags.description || ''));
+    const n = norm(nome + ' ' + (tags.description || ''));
     const nomeN = norm(nome);
     const healthcare = (tags.healthcare || tags.amenity || '').toLowerCase();
 
@@ -1274,7 +1274,7 @@ function classificarNivel(tags, nome) {
     //  SAMU, Pronto-Atendimento independente.
     // ═══════════════════════════════════════════════════════════
 
-    // UPA — Unidade de Pronto Atendimento (verificação precisa via início de nome)
+    // UPA — Unidade de Pronto Atendimento
     const ehUPA = nomeN.startsWith('upa ') || nomeN === 'upa' || nomeN.endsWith(' upa') ||
                    n.includes('unidade de pronto atendimento') ||
                    n.includes('unidade pronto atendimento')    ||
@@ -1294,7 +1294,7 @@ function classificarNivel(tags, nome) {
     // Policlínica
     const ehPoliclinica = n.includes('policlinica') || healthcare === 'polyclinic';
 
-    // CER — Coordenação de Emergência Regional (verificação por sigla com limite de palavra)
+    // CER — Coordenação Regional de Emergência
     const ehCER = (nomeN.startsWith('cer ') || nomeN === 'cer' || nomeN.endsWith(' cer')) ||
                    n.includes('coordenacao regional de emergencia') ||
                    n.includes('coordenacao de emergencia regional');
@@ -1330,7 +1330,7 @@ function classificarNivel(tags, nome) {
     // ═══════════════════════════════════════════════════════════
     //  NÍVEL PRIMÁRIO — Atenção Básica
     //  UBS, Postos de Saúde, Clínicas da Família, ESF/PSF,
-    //  CAPS / CAPS-AD, Centros de Saúde.
+    //  CAPS / CAPS-AD, Centros de Saúde, CMS.
     // ═══════════════════════════════════════════════════════════
 
     const ehUBS         = nomeN.startsWith('ubs') || n.includes('unidade basica de saude') || n.includes('unidade basica');
@@ -1366,7 +1366,7 @@ function classificarNivel(tags, nome) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DETERMINAR ACOLHIMENTO (AJUSTADO)
+//  DETERMINAR ACOLHIMENTO (AJUSTADO) — mantido igual
 // ════════════════════════════════════════════════════════════════════════════
 function determinarAcolhimento(unit) {
     const n = norm(unit.nome + ' ' + unit.perfil);
@@ -1412,7 +1412,7 @@ function getTextoAcolhimento(acolhimento) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FORMATAR TELEFONE
+//  FORMATAR TELEFONE (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
 function formatarTelefoneBR(telefone) {
     if (!telefone) return '';
@@ -1441,7 +1441,7 @@ function limparNumeroParaLigacao(telefone) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  LINK WHATSAPP
+//  LINK WHATSAPP (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
 function gerarLinkCompartilhamentoWhatsApp(unit) {
     const mapsLink = unit.mapsLink || `https://www.google.com/maps?q=${unit.lat},${unit.lon}`;
@@ -1459,7 +1459,7 @@ function gerarLinkCompartilhamentoWhatsApp(unit) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  MONTAR UNIDADE
+//  MONTAR UNIDADE (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
 async function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade = null, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
@@ -1502,7 +1502,7 @@ async function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade =
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  GEOLOCALIZAÇÃO (CORRIGIDA)
+//  GEOLOCALIZAÇÃO (CORRIGIDA) — mantido igual
 // ════════════════════════════════════════════════════════════════════════════
 async function usarGeolocalizacao() {
     if (!navigator.geolocation) {
@@ -1650,7 +1650,7 @@ async function reverseGeocode(lat, lon) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  BUSCA POR MUNICÍPIO (REFATORADA COM FILTRO POR CIDADE CONDICIONAL)
+//  BUSCA POR MUNICÍPIO (REFATORADA COM FILTRO POR CIDADE CONDICIONAL) — mantido igual
 // ════════════════════════════════════════════════════════════════════════════
 async function buscarPorMunicipio() {
     const uf = document.getElementById('selectEstado').value;
@@ -1835,7 +1835,7 @@ out center tags;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  INTERFACE - FILTROS SEQUENCIAIS
+//  INTERFACE - FILTROS SEQUENCIAIS (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
 function toggleFilter() {
     const body = document.getElementById('filterBody');
@@ -1981,7 +1981,7 @@ function applyLocalFilters() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  RENDERIZAÇÃO (mantida)
+//  RENDERIZAÇÃO (mantida igual)
 // ════════════════════════════════════════════════════════════════════════════
 function renderResults() {
     updateDashboard();
@@ -2237,7 +2237,7 @@ function updateDashboard() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  EXPORTAÇÃO EXCEL (mantida)
+//  EXPORTAÇÃO EXCEL (mantida igual)
 // ════════════════════════════════════════════════════════════════════════════
 function exportToExcel() {
     if (filteredUnits.length === 0) {
@@ -2271,7 +2271,7 @@ function exportToExcel() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PDF (com cidade/UF nos cards)
+//  PDF (com cidade/UF nos cards) — mantido igual
 // ════════════════════════════════════════════════════════════════════════════
 function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual, totalPaginas, totalUnidades, dataAtual) {
     const cardsHTML = units.map(u => {
