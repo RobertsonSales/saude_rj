@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saúde-BR — Localizador de Unidades de Saúde Pública</title>
+  <title>Saúde-BR (+) Localizador de Unidades de Saúde Pública</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1108,6 +1108,30 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+//  FUNÇÃO CORRIGIDA DE FORMATAÇÃO DE TELEFONE (remove 55 e formata com DDD)
+// ════════════════════════════════════════════════════════════════════════════
+function formatarTelefoneBR(telefone) {
+    if (!telefone) return '';
+    // Remove tudo que não for dígito
+    let numeros = telefone.replace(/\D/g, '');
+    // Se começar com 55 e o total de dígitos for 12 ou 13, remove o código do país
+    if (numeros.startsWith('55') && (numeros.length === 12 || numeros.length === 13)) {
+        numeros = numeros.substring(2);
+    }
+    // Agora deve ter 10 ou 11 dígitos (DDD + número)
+    if (numeros.length === 10) {
+        // Fixo: (XX) XXXX-XXXX
+        return `(${numeros.substring(0,2)}) ${numeros.substring(2,6)}-${numeros.substring(6)}`;
+    } else if (numeros.length === 11) {
+        // Celular: (XX) XXXXX-XXXX
+        return `(${numeros.substring(0,2)}) ${numeros.substring(2,7)}-${numeros.substring(7)}`;
+    } else {
+        // Se não tiver formato esperado, retorna o número original (pode ser 0800, etc)
+        return telefone;
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  NOVA FUNÇÃO DE PONTUAÇÃO PARA VÍNCULO SUS (SCORING)
 // ════════════════════════════════════════════════════════════════════════════
 function calcularPontuacaoSUS(tags, nome) {
@@ -1307,34 +1331,6 @@ function getTextoAcolhimento(acolhimento) {
         'samu': 'SAMU'
     };
     return textos[acolhimento] || 'Atendimento Geral';
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  FORMATAR TELEFONE BRASILEIRO (SEM CÓDIGO DO PAÍS)
-//  Versão melhorada: remove 55 apenas se for código do país e formata como (DDD) número
-// ════════════════════════════════════════════════════════════════════════════
-function formatarTelefoneBR(telefone) {
-    if (!telefone) return '';
-    // Remove tudo que não for dígito
-    let numeros = telefone.replace(/\D/g, '');
-    // Se começar com 55, pode ser código do país
-    if (numeros.startsWith('55')) {
-        // Verifica se após remover 55 temos 10 ou 11 dígitos (válido para Brasil)
-        if (numeros.length === 12 || numeros.length === 13) {
-            numeros = numeros.substring(2);
-        }
-    }
-    // Agora deve ter 10 ou 11 dígitos (DDD + número)
-    if (numeros.length === 10) {
-        // Fixo: (XX) XXXX-XXXX
-        return `(${numeros.substring(0,2)}) ${numeros.substring(2,6)}-${numeros.substring(6)}`;
-    } else if (numeros.length === 11) {
-        // Celular: (XX) 9XXXX-XXXX
-        return `(${numeros.substring(0,2)}) ${numeros.substring(2,7)}-${numeros.substring(7)}`;
-    } else {
-        // Se não tem formato esperado, retorna original (pode ser 0800, etc)
-        return telefone;
-    }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2203,7 +2199,7 @@ function exportToExcel() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PDF (mantido da versão anterior)
+//  PDF (mantido da versão anterior, com adição de cidade/UF nos cards)
 // ════════════════════════════════════════════════════════════════════════════
 function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual, totalPaginas, totalUnidades, dataAtual) {
     const cardsHTML = units.map(u => {
@@ -2214,10 +2210,13 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
         const acolhimentoTexto = getTextoAcolhimento(u.acolhimento);
         const distancia = u.distancia ? `<div class="pdf-unit-detail"><span>🧭</span> <span>${u.distancia.toFixed(1)} km</span></div>` : '';
         const cnes = u.cnes ? `<div style="font-size:0.55rem; margin-top:2px;">CNES: ${u.cnes}</div>` : '';
+        // Adiciona linha de cidade/UF
+        const cidadeUf = u.cidade && u.uf ? `<div class="pdf-unit-detail"><span>🏙️</span> <span>${u.cidade} - ${u.uf}</span></div>` : '';
         return `
             <div class="pdf-unit-card">
                 <div class="pdf-unit-name">${u.nome}</div>
                 <div class="pdf-unit-detail"><span>📍</span> <span>${endereco}${bairro}</span></div>
+                ${cidadeUf}
                 <div class="pdf-unit-detail"><span>📞</span> <span>${telefone}</span></div>
                 ${u.email ? `<div class="pdf-unit-detail"><span>📧</span> <span>${u.email}</span></div>` : ''}
                 <div class="pdf-unit-detail"><span>🏥</span> <span>${u.perfil}</span></div>
@@ -2247,7 +2246,7 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
             </div>
             <div class="pdf-cards-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">${cardsHTML}</div>
             <div class="pdf-footer" style="display: flex; justify-content: space-between; font-size: 0.55rem; color: #5A6E85; border-top: 1px solid #D8E2EE; padding-top: 4px; margin-top: 8px;">
-                <span>🔍 Gerado pelo Saúde-BR Localizador</span>
+                <span>🔍 Gerado pelo Saúde-BR Localizador de Unidades de Saúde</span>
                 <span>Página ${paginaAtual} de ${totalPaginas} • ${dataAtual}</span>
             </div>
         </div>
