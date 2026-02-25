@@ -1349,13 +1349,17 @@ function limparNumeroParaLigacao(telefone) {
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FUNÇÃO PARA GERAR LINK DE COMPARTILHAMENTO WHATSAPP (SEM NÚMERO)
+//  Agora inclui estado e município e usa Google Search como link principal
 // ════════════════════════════════════════════════════════════════════════════
 function gerarLinkCompartilhamentoWhatsApp(unit) {
     const mapsLink = unit.mapsLink || `https://www.google.com/maps?q=${unit.lat},${unit.lon}`;
-    const searchLink = unit.website || `https://www.google.com/search?q=${encodeURIComponent(unit.nome + ' ' + (unit.cidade || '') + ' ' + (unit.uf || ''))}`;
+    // Link de pesquisa Google (sempre funciona)
+    const searchQuery = encodeURIComponent(`${unit.nome} ${unit.cidade || ''} ${unit.uf || ''} saúde`);
+    const searchLink = `https://www.google.com/search?q=${searchQuery}`;
     const texto = 
         `*${unit.nome}*\n` +
         `📍 ${unit.enderecoCompleto || unit.endereco || ''} ${unit.bairro ? ' - ' + unit.bairro : ''}\n` +
+        `🏙️ ${unit.cidade || ''} - ${unit.uf || ''}\n` +
         `📞 ${unit.telefoneFormatado || unit.telefone || 'Não informado'}\n` +
         `🏥 ${unit.perfil}\n` +
         `🗺️ Ver no mapa: ${mapsLink}\n` +
@@ -1791,7 +1795,6 @@ async function processReverseGeocodeQueue() {
                 unit.endereco = [addr.road, addr.house_number].filter(Boolean).join(', ') || unit.endereco;
                 unit.cidade = addr.city || addr.town || addr.municipality || unit.cidade;
                 if (addr.state) {
-                    // Tenta obter UF a partir do nome do estado ou ISO
                     const estado = addr.state;
                     const iso = addr['ISO3166-2-lvl4'];
                     if (iso) unit.uf = iso.split('-')[1] || estado;
@@ -2042,9 +2045,9 @@ function renderUnitCard(unit, accentColor, idx) {
         `;
     }
 
-    // Botão "Mais informações" (website ou Google Search)
-    const searchQuery = encodeURIComponent(`${unit.nome} ${unit.cidade} ${unit.bairro || ''} saúde`.trim());
-    const infoUrl = unit.website || `https://www.google.com/search?q=${searchQuery}`;
+    // Botão "Mais informações" (sempre Google Search)
+    const searchQuery = encodeURIComponent(`${unit.nome} ${unit.cidade || ''} ${unit.uf || ''} saúde`);
+    const infoUrl = `https://www.google.com/search?q=${searchQuery}`;
     actionsHTML += `
         <button class="btn-icon search" onclick="window.open('${infoUrl}', '_blank')" title="Mais informações">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -2396,7 +2399,7 @@ async function downloadPDF() {
 async function compartilharPDFWhatsApp() {
     if (filteredUnits.length === 0) { showNotification('Nenhuma unidade para compartilhar', 'error'); return; }
     showSearchProgress(true);
-    updateSearchProgress(10, 'Preparando PDF para WhatsApp...', 'Aguarde');
+    updateSearchProgress(10, 'Preparando PDF para WhatsApp...', 'Gerando páginas...');
     try {
         const { jsPDF } = window.jspdf;
         const htmlString = await gerarPDFCompleto();
@@ -2411,7 +2414,7 @@ async function compartilharPDFWhatsApp() {
         const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
         for (let i = 0; i < paginas.length; i++) {
-            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1} de ${paginas.length}...`, 'Aguarde, pode levar alguns segundos');
+            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1} de ${paginas.length}...`, 'Convertendo imagem...');
             const pageDiv = paginas[i];
             pageDiv.style.width = '800px';
             pageDiv.style.height = 'auto';
@@ -2433,11 +2436,18 @@ async function compartilharPDFWhatsApp() {
         }
         document.body.removeChild(container);
         const pdfBlob = pdf.output('blob');
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'relatorio.pdf', { type: 'application/pdf' })] })) {
+        updateSearchProgress(95, 'Pronto!', 'Preparando compartilhamento...');
+        // Tenta compartilhar via Web Share API
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' })] })) {
             const file = new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' });
-            await navigator.share({ title: 'Relatório de Unidades de Saúde', text: 'Confira as unidades de saúde próximas.', files: [file] });
+            await navigator.share({
+                title: 'Relatório de Unidades de Saúde',
+                text: 'Confira as unidades de saúde próximas.',
+                files: [file]
+            });
             showNotification('Compartilhado com sucesso!', 'success');
         } else {
+            // Fallback: download
             const pdfUrl = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
             link.href = pdfUrl;
@@ -2449,6 +2459,7 @@ async function compartilharPDFWhatsApp() {
             alert('✅ PDF gerado com sucesso!\n\nPara compartilhar no WhatsApp:\n1️⃣ Clique em OK e aguarde o download\n2️⃣ Abra o WhatsApp\n3️⃣ Selecione a conversa desejada\n4️⃣ Clique no ícone 📎 (anexar)\n5️⃣ Escolha "Documento"\n6️⃣ Selecione o arquivo baixado');
         }
         showSearchProgress(false);
+        showNotification('PDF pronto para compartilhamento!', 'success');
     } catch (error) {
         console.error('Erro ao gerar PDF para WhatsApp:', error);
         showNotification('Erro ao gerar PDF para WhatsApp', 'error');
