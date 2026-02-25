@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saúde-BR(+) Seu Localizador de Unidades de Saúde Pública</title>
+  <title>Saúde-BR (+) Localizador de Unidades de Saúde Pública</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -11,7 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    /* (CSS original, mantido integralmente) */
+    /* CSS original (mantido integralmente) */
     :root {
       --navy: #0B1F3A;
       --navy-mid: #132D50;
@@ -1023,7 +1023,7 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (ATUALIZADAS)
+//  CONFIGURAÇÃO E CONSTANTES
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1167,7 +1167,7 @@ function isVinculadoSUS(tags, nome) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DETERMINAR ESFERA DE GESTÃO (MELHORADA)
+//  DETERMINAR ESFERA DE GESTÃO
 // ════════════════════════════════════════════════════════════════════════════
 function determinarGestao(tags, nome) {
     const op = norm(tags.operator || '');
@@ -1192,31 +1192,41 @@ function determinarGestao(tags, nome) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CLASSIFICAÇÃO DE NÍVEL E PERFIL (REFINADA)
+//  CLASSIFICAÇÃO DE NÍVEL E PERFIL (REFINADA - TERCIÁRIA PRIORITÁRIA)
 // ════════════════════════════════════════════════════════════════════════════
 function classificarNivel(tags, nome) {
     const n = norm(nome + (tags.description || ''));
     const healthcare = tags.healthcare || tags.amenity;
     const speciality = tags['healthcare:speciality'] || '';
 
-    // --- ATENÇÃO PRIMÁRIA ---
-    if (n.includes('ubs') || n.includes('posto de saude') || n.includes('unidade basica') ||
-        n.includes('esf') || n.includes('saude da familia') || n.includes('psf') ||
-        n.includes('caps') || n.includes('centro de atencao psicossocial') ||
-        n.includes('clinica da familia') || n.includes('cafs') ||
-        n.includes('centro de saude') || n.includes('centro municipal de saude') ||
-        n.includes('cms') ||
-        (healthcare === 'health_post') ||
-        (healthcare === 'health_centre' && !n.includes('policlinica') && !n.includes('upa'))) {
-        return {
-            nivel: 'primaria',
-            perfil: n.includes('ubs') ? 'UBS' :
-                    n.includes('caps') ? 'CAPS' :
-                    n.includes('clinica da familia') ? 'Clínica da Família' :
-                    n.includes('esf') ? 'ESF' :
-                    n.includes('cms') ? 'Centro Municipal de Saúde' :
-                    n.includes('posto') ? 'Posto de Saúde' : 'Unidade Básica de Saúde'
-        };
+    // --- ATENÇÃO TERCIÁRIA (deve vir primeiro para não ser sobreposta) ---
+    if (n.includes('hospital') || n.includes('hosp') ||
+        healthcare === 'hospital' ||
+        n.includes('oncologico') || n.includes('cancer') || n.includes('inca') || n.includes('into') ||
+        n.includes('cardiologia') || n.includes('cardiovascular') ||
+        n.includes('reabilitacao') || n.includes('centro de reabilitacao') ||
+        n.includes('instituto') || n.includes('santa casa') ||
+        n.includes('universitario') || n.includes('ensino') ||
+        n.includes('referencia') || n.includes('geral') ||
+        n.includes('maternidade') || n.includes('matern')) {
+
+        let perfil = 'Hospital Geral';
+        if (n.includes('oncologico') || n.includes('cancer') || n.includes('inca')) {
+            perfil = 'Hospital Oncológico';
+        } else if (n.includes('cardiologia') || n.includes('cardiovascular')) {
+            perfil = 'Hospital Cardiológico';
+        } else if (n.includes('reabilitacao') || n.includes('reabilitação')) {
+            perfil = 'Centro de Reabilitação';
+        } else if (n.includes('universitario') || n.includes('ensino')) {
+            perfil = 'Hospital Universitário';
+        } else if (n.includes('santa casa')) {
+            perfil = 'Santa Casa';
+        } else if (n.includes('maternidade') || n.includes('matern')) {
+            perfil = 'Maternidade';
+        } else if (n.includes('instituto')) {
+            perfil = 'Instituto Especializado';
+        }
+        return { nivel: 'terciaria', perfil };
     }
 
     // --- ATENÇÃO SECUNDÁRIA ---
@@ -1238,34 +1248,27 @@ function classificarNivel(tags, nome) {
         };
     }
 
-    // --- ATENÇÃO TERCIÁRIA ---
-    if (healthcare === 'hospital' || n.includes('hospital') || n.includes('hosp') ||
-        n.includes('santa casa') || n.includes('universitario') || n.includes('ensino') ||
-        n.includes('maternidade') || n.includes('matern') ||
-        n.includes('oncologico') || n.includes('cancer') || n.includes('cardiologia') ||
-        n.includes('reabilitacao') || n.includes('centro de reabilitacao') ||
-        n.includes('referencia') || n.includes('geral') ||
-        n.includes('instituto') || n.includes('inca') || n.includes('into')) {
-
-        let perfil = 'Hospital Geral';
-        if (n.includes('maternidade') || n.includes('matern')) {
-            perfil = 'Maternidade';
-        } else if (n.includes('oncologico') || n.includes('cancer') || n.includes('inca')) {
-            perfil = 'Hospital Oncológico';
-        } else if (n.includes('cardiologia') || n.includes('cardiovascular')) {
-            perfil = 'Hospital Cardiológico';
-        } else if (n.includes('reabilitacao') || n.includes('reabilitação')) {
-            perfil = 'Centro de Reabilitação';
-        } else if (n.includes('universitario') || n.includes('ensino')) {
-            perfil = 'Hospital Universitário';
-        } else if (n.includes('santa casa')) {
-            perfil = 'Santa Casa';
-        } else if (n.includes('instituto')) {
-            perfil = 'Instituto Especializado';
-        }
-        return { nivel: 'terciaria', perfil };
+    // --- ATENÇÃO PRIMÁRIA ---
+    if (n.includes('ubs') || n.includes('posto de saude') || n.includes('unidade basica') ||
+        n.includes('esf') || n.includes('saude da familia') || n.includes('psf') ||
+        n.includes('caps') || n.includes('centro de atencao psicossocial') ||
+        n.includes('clinica da familia') || n.includes('cafs') ||
+        n.includes('centro de saude') || n.includes('centro municipal de saude') ||
+        n.includes('cms') ||
+        (healthcare === 'health_post') ||
+        (healthcare === 'health_centre' && !n.includes('policlinica') && !n.includes('upa'))) {
+        return {
+            nivel: 'primaria',
+            perfil: n.includes('ubs') ? 'UBS' :
+                    n.includes('caps') ? 'CAPS' :
+                    n.includes('clinica da familia') ? 'Clínica da Família' :
+                    n.includes('esf') ? 'ESF' :
+                    n.includes('cms') ? 'Centro Municipal de Saúde' :
+                    n.includes('posto') ? 'Posto de Saúde' : 'Unidade Básica de Saúde'
+        };
     }
 
+    // Fallback
     return { nivel: 'primaria', perfil: 'Unidade de Saúde' };
 }
 
@@ -1306,7 +1309,7 @@ function getTextoAcolhimento(acolhimento) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FORMATAR TELEFONE (mantido)
+//  FORMATAR TELEFONE
 // ════════════════════════════════════════════════════════════════════════════
 function formatarTelefoneBR(telefone) {
     if (!telefone) return '';
@@ -1335,7 +1338,7 @@ function limparNumeroParaLigacao(telefone) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  LINK WHATSAPP (mantido)
+//  LINK WHATSAPP
 // ════════════════════════════════════════════════════════════════════════════
 function gerarLinkCompartilhamentoWhatsApp(unit) {
     const mapsLink = unit.mapsLink || `https://www.google.com/maps?q=${unit.lat},${unit.lon}`;
@@ -2137,7 +2140,7 @@ function exportToExcel() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PDF (mantido)
+//  PDF (com cidade/UF nos cards)
 // ════════════════════════════════════════════════════════════════════════════
 function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual, totalPaginas, totalUnidades, dataAtual) {
     const cardsHTML = units.map(u => {
@@ -2148,15 +2151,26 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
         const acolhimentoTexto = getTextoAcolhimento(u.acolhimento);
         const distancia = u.distancia ? `<div class="pdf-unit-detail"><span>🧭</span> <span>${u.distancia.toFixed(1)} km</span></div>` : '';
         const cnes = u.cnes ? `<div style="font-size:0.55rem; margin-top:2px;">CNES: ${u.cnes}</div>` : '';
+        // Linha de cidade/UF
+        const localizacao = (u.cidade && u.uf) ? `<div class="pdf-unit-detail"><span>🏙️</span> <span>${u.cidade} - ${u.uf}</span></div>` : '';
+        // Mapeia acolhimento para classe CSS (urgente, ambulatorial, maternidade, especializado)
+        let badgeClass = '';
+        if (u.acolhimento === 'urgencia') badgeClass = 'urgente';
+        else if (u.acolhimento === 'ambulatorial') badgeClass = 'ambulatorial';
+        else if (u.acolhimento === 'maternidade') badgeClass = 'maternidade';
+        else if (u.acolhimento === 'especializado') badgeClass = 'especializado';
+        else badgeClass = 'ambulatorial';
+
         return `
             <div class="pdf-unit-card">
                 <div class="pdf-unit-name">${u.nome}</div>
                 <div class="pdf-unit-detail"><span>📍</span> <span>${endereco}${bairro}</span></div>
+                ${localizacao}
                 <div class="pdf-unit-detail"><span>📞</span> <span>${telefone}</span></div>
                 ${u.email ? `<div class="pdf-unit-detail"><span>📧</span> <span>${u.email}</span></div>` : ''}
                 <div class="pdf-unit-detail"><span>🏥</span> <span>${u.perfil}</span></div>
                 ${distancia}
-                <span class="pdf-unit-badge ${acolhimentoClass}">${acolhimentoTexto}</span>
+                <span class="pdf-unit-badge ${badgeClass}">${acolhimentoTexto}</span>
                 ${cnes}
             </div>
         `;
