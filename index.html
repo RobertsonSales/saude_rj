@@ -936,13 +936,13 @@
       <div class="stat-card-icon" style="background: #E8F8F3; color: #00A878;">🏠</div>
       <div class="stat-card-value" id="statPrimaria">—</div>
       <div class="stat-card-label">Atenção Primária</div>
-      <div class="stat-card-sublabel">UBS, Postos, ESF</div>
+      <div class="stat-card-sublabel">UBS, Postos, Clínicas, CAPS</div>
     </div>
     <div class="stat-card" style="--card-accent: var(--blue);">
       <div class="stat-card-icon" style="background: var(--blue-pale); color: var(--blue);">🔬</div>
       <div class="stat-card-value" id="statSecundaria">—</div>
       <div class="stat-card-label">Atenção Secundária</div>
-      <div class="stat-card-sublabel">Policlínicas, UPA, CAPS</div>
+      <div class="stat-card-sublabel">UPA, AME, CEO, Policlínica</div>
     </div>
     <div class="stat-card" style="--card-accent: var(--red);">
       <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🏨</div>
@@ -1192,105 +1192,208 @@ function determinarGestao(tags, nome) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CLASSIFICAÇÃO DE NÍVEL E PERFIL (REFINADA - TERCIÁRIA PRIORITÁRIA)
+//  CLASSIFICAÇÃO DE NÍVEL E PERFIL — HIERARQUIA SUS (TOTALMENTE REESCRITA)
+//  Primário → Secundário → Terciário  (ordem crescente de complexidade)
+//  Terciário é avaliado PRIMEIRO para garantir prioridade clínica correta.
 // ════════════════════════════════════════════════════════════════════════════
 function classificarNivel(tags, nome) {
-    const n = norm(nome + (tags.description || ''));
-    const healthcare = tags.healthcare || tags.amenity;
-    const speciality = tags['healthcare:speciality'] || '';
+    const n    = norm(nome + ' ' + (tags.description || ''));
+    const nomeN = norm(nome);
+    const healthcare = (tags.healthcare || tags.amenity || '').toLowerCase();
 
-    // --- ATENÇÃO TERCIÁRIA (deve vir primeiro para não ser sobreposta) ---
-    if (n.includes('hospital') || n.includes('hosp') ||
-        healthcare === 'hospital' ||
-        n.includes('oncologico') || n.includes('cancer') || n.includes('inca') || n.includes('into') ||
-        n.includes('cardiologia') || n.includes('cardiovascular') ||
-        n.includes('reabilitacao') || n.includes('centro de reabilitacao') ||
-        n.includes('instituto') || n.includes('santa casa') ||
-        n.includes('universitario') || n.includes('ensino') ||
-        n.includes('referencia') || n.includes('geral') ||
-        n.includes('maternidade') || n.includes('matern')) {
+    // ═══════════════════════════════════════════════════════════
+    //  NÍVEL TERCIÁRIO — Alta Complexidade
+    //  Hospitais Gerais/Universitários, Santas Casas, Hospitais
+    //  Especializados (oncológico, cardiovascular, maternidade)
+    //  e Centros de Reabilitação.
+    // ═══════════════════════════════════════════════════════════
 
+    // 1. Tag OSM definitiva
+    const ehHospitalOSM = healthcare === 'hospital';
+
+    // 2. Nome começa com "hospital" — indicativo forte e preciso
+    const nomeComeçaHospital = nomeN.startsWith('hospital');
+
+    // 3. Santa Casa / Misericórdia
+    const ehSantaCasa = n.includes('santa casa') || n.includes('misericordia');
+
+    // 4. Tipos de hospitais especializados (combinações precisas)
+    const ehHospEspecializado =
+        n.includes('hospital geral')           || n.includes('hospital universitario')  ||
+        n.includes('hospital de ensino')        || n.includes('hospital escola')          ||
+        n.includes('hospital federal')          || n.includes('hospital estadual')        ||
+        n.includes('hospital regional')         || n.includes('hospital de referencia')   ||
+        n.includes('hospital de base')          || n.includes('hospital das clinicas')    ||
+        n.includes('hospital de clinicas')      || n.includes('hospital municipal')       ||
+        n.includes('hospital infantil')         || n.includes('hospital pediatrico')      ||
+        n.includes('hospital de urgencia')      || n.includes('hospital de emergencia')   ||
+        n.includes('hospital beneficencia')     || n.includes('hospital oncologico')      ||
+        n.includes('hospital cardiologico')     || n.includes('hospital especializado');
+
+    // 5. Institutos especializados de saúde (apenas com contexto médico claro)
+    const ehInstituto = n.includes('instituto') && (
+        n.includes('oncologia') || n.includes('cancer')        ||
+        n.includes('cardiologia')|| n.includes('cardiovascular')||
+        n.includes('neurologia') || n.includes('ortopedia')    ||
+        n.includes('reabilitacao')|| n.includes('psiquiatria') ||
+        n.includes('medicina')   || n.includes('pediatria')    ||
+        n.includes('materno')    || n.includes('saude publica')
+    );
+
+    // 6. Termos diretos de especialidades hospitalares
+    const ehOncologico   = n.includes('oncologico')  || n.includes('hospital do cancer') ||
+                            n.includes('inca')         || n.includes('into');
+    const ehCardiologico = n.includes('cardiologico') || n.includes('cardiovascular');
+    const ehMaternidade  = nomeN.startsWith('maternidade') ||
+                            (n.includes('maternidade') && !n.includes('posto') && !n.includes('ubs'));
+    const ehReabilitacao = n.includes('centro de reabilitacao') ||
+                            (n.includes('reabilitacao') && nomeComeçaHospital);
+
+    const ehTerciaria = ehHospitalOSM || nomeComeçaHospital || ehSantaCasa ||
+                         ehHospEspecializado || ehInstituto   ||
+                         ehOncologico || ehCardiologico       ||
+                         ehMaternidade || ehReabilitacao;
+
+    if (ehTerciaria) {
         let perfil = 'Hospital Geral';
-        if (n.includes('oncologico') || n.includes('cancer') || n.includes('inca')) {
-            perfil = 'Hospital Oncológico';
-        } else if (n.includes('cardiologia') || n.includes('cardiovascular')) {
-            perfil = 'Hospital Cardiológico';
-        } else if (n.includes('reabilitacao') || n.includes('reabilitação')) {
-            perfil = 'Centro de Reabilitação';
-        } else if (n.includes('universitario') || n.includes('ensino')) {
-            perfil = 'Hospital Universitário';
-        } else if (n.includes('santa casa')) {
-            perfil = 'Santa Casa';
-        } else if (n.includes('maternidade') || n.includes('matern')) {
-            perfil = 'Maternidade';
-        } else if (n.includes('instituto')) {
-            perfil = 'Instituto Especializado';
-        }
+        if      (ehOncologico)                                        perfil = 'Hospital Oncológico';
+        else if (ehCardiologico)                                       perfil = 'Hospital Cardiológico';
+        else if (ehReabilitacao || n.includes('centro de reabilitacao')) perfil = 'Centro de Reabilitação';
+        else if (n.includes('universitario') || n.includes('ensino') ||
+                 n.includes('escola'))                                 perfil = 'Hospital Universitário';
+        else if (ehSantaCasa)                                          perfil = 'Santa Casa';
+        else if (ehMaternidade)                                        perfil = 'Maternidade';
+        else if (n.includes('infantil') || n.includes('pediatrico'))   perfil = 'Hospital Infantil/Pediátrico';
+        else if (ehInstituto)                                          perfil = 'Instituto Especializado';
         return { nivel: 'terciaria', perfil };
     }
 
-    // --- ATENÇÃO SECUNDÁRIA ---
-    if (n.includes('upa') || n.includes('pronto atendimento') || n.includes('pronto socorro') ||
-        n.includes('ame') || n.includes('ambulatorio medico de especialidades') ||
-        n.includes('centro de especialidades odontologicas') || n.includes('ceo') ||
-        n.includes('unidade mista') || n.includes('policlinica') || n.includes('policlínica') ||
-        n.includes('cer') || n.includes('coordenação de emergência regional') ||
-        n.includes('coordenacao de emergencia regional') ||
-        (healthcare === 'clinic' && (n.includes('especialidades') || n.includes('referencia')))) {
-        return {
-            nivel: 'secundaria',
-            perfil: n.includes('upa') ? 'UPA' :
-                    n.includes('ame') ? 'AME' :
-                    n.includes('ceo') ? 'CEO' :
-                    n.includes('cer') ? 'CER' :
-                    n.includes('policlinica') ? 'Policlínica' :
-                    n.includes('unidade mista') ? 'Unidade Mista' : 'Unidade de Média Complexidade'
-        };
+    // ═══════════════════════════════════════════════════════════
+    //  NÍVEL SECUNDÁRIO — Média Complexidade
+    //  UPAs 24h, AME, CEO, Unidades Mistas, Policlínicas, CER,
+    //  SAMU, Pronto-Atendimento independente.
+    // ═══════════════════════════════════════════════════════════
+
+    // UPA — Unidade de Pronto Atendimento (verificação precisa via início de nome)
+    const ehUPA = nomeN.startsWith('upa ') || nomeN === 'upa' || nomeN.endsWith(' upa') ||
+                   n.includes('unidade de pronto atendimento') ||
+                   n.includes('unidade pronto atendimento')    ||
+                   healthcare === 'urgent_care';
+
+    // AME — Ambulatório Médico de Especialidades
+    const ehAME = (nomeN.startsWith('ame ') || nomeN === 'ame' || / ame[ /]/.test(nomeN)) ||
+                   n.includes('ambulatorio medico de especialidades');
+
+    // CEO — Centro de Especialidades Odontológicas
+    const ehCEO = (nomeN.startsWith('ceo ') || nomeN === 'ceo' || / ceo[ /]/.test(nomeN)) ||
+                   n.includes('centro de especialidades odontologicas');
+
+    // Unidade Mista
+    const ehUnidadeMista = n.includes('unidade mista de saude') || n.includes('unidade mista');
+
+    // Policlínica
+    const ehPoliclinica = n.includes('policlinica') || healthcare === 'polyclinic';
+
+    // CER — Coordenação de Emergência Regional (verificação por sigla com limite de palavra)
+    const ehCER = (nomeN.startsWith('cer ') || nomeN === 'cer' || nomeN.endsWith(' cer')) ||
+                   n.includes('coordenacao regional de emergencia') ||
+                   n.includes('coordenacao de emergencia regional');
+
+    // SAMU — Serviço de Atendimento Móvel de Urgência
+    const ehSAMU = n.includes('samu') ||
+                    n.includes('servico de atendimento movel de urgencia');
+
+    // Pronto-Atendimento independente (não hospitalar)
+    const ehProntoAtendimento = (n.includes('pronto atendimento') || n.includes('pronto-atendimento')) &&
+                                  !nomeComeçaHospital;
+
+    // Clínica de especialidades (OSM: clinic + contexto de especialidades)
+    const ehClinicaEspecialidades = healthcare === 'clinic' &&
+                                     (n.includes('especialidades') || n.includes('ambulatorio de referencia'));
+
+    const ehSecundaria = ehUPA || ehAME || ehCEO || ehUnidadeMista || ehPoliclinica ||
+                          ehCER || ehSAMU || ehProntoAtendimento || ehClinicaEspecialidades;
+
+    if (ehSecundaria) {
+        let perfil = 'Unidade de Média Complexidade';
+        if      (ehUPA)              perfil = 'UPA 24h';
+        else if (ehAME)              perfil = 'AME';
+        else if (ehCEO)              perfil = 'CEO';
+        else if (ehCER)              perfil = 'CER';
+        else if (ehSAMU)             perfil = 'SAMU';
+        else if (ehPoliclinica)      perfil = 'Policlínica';
+        else if (ehUnidadeMista)     perfil = 'Unidade Mista';
+        else if (ehProntoAtendimento) perfil = 'Pronto Atendimento';
+        return { nivel: 'secundaria', perfil };
     }
 
-    // --- ATENÇÃO PRIMÁRIA ---
-    if (n.includes('ubs') || n.includes('posto de saude') || n.includes('unidade basica') ||
-        n.includes('esf') || n.includes('saude da familia') || n.includes('psf') ||
-        n.includes('caps') || n.includes('centro de atencao psicossocial') ||
-        n.includes('clinica da familia') || n.includes('cafs') ||
-        n.includes('centro de saude') || n.includes('centro municipal de saude') ||
-        n.includes('cms') ||
-        (healthcare === 'health_post') ||
-        (healthcare === 'health_centre' && !n.includes('policlinica') && !n.includes('upa'))) {
-        return {
-            nivel: 'primaria',
-            perfil: n.includes('ubs') ? 'UBS' :
-                    n.includes('caps') ? 'CAPS' :
-                    n.includes('clinica da familia') ? 'Clínica da Família' :
-                    n.includes('esf') ? 'ESF' :
-                    n.includes('cms') ? 'Centro Municipal de Saúde' :
-                    n.includes('posto') ? 'Posto de Saúde' : 'Unidade Básica de Saúde'
-        };
-    }
+    // ═══════════════════════════════════════════════════════════
+    //  NÍVEL PRIMÁRIO — Atenção Básica
+    //  UBS, Postos de Saúde, Clínicas da Família, ESF/PSF,
+    //  CAPS / CAPS-AD, Centros de Saúde.
+    // ═══════════════════════════════════════════════════════════
 
-    // Fallback
-    return { nivel: 'primaria', perfil: 'Unidade de Saúde' };
+    const ehUBS         = nomeN.startsWith('ubs') || n.includes('unidade basica de saude') || n.includes('unidade basica');
+    const ehPosto       = n.includes('posto de saude') || n.includes('posto saude');
+    const ehESF         = nomeN.startsWith('esf ') || nomeN === 'esf' || n.includes(' esf ') ||
+                           n.includes('saude da familia') || n.includes('equipe de saude da familia');
+    const ehPSF         = nomeN.startsWith('psf ') || nomeN === 'psf' || n.includes(' psf ') ||
+                           n.includes('programa saude da familia');
+    const ehCAPSAD      = n.includes('caps-ad') || n.includes('caps ad') ||
+                           n.includes('centro de atencao psicossocial alcool') ||
+                           n.includes('caps ad ii') || n.includes('caps ad iii');
+    const ehCAPS        = !ehCAPSAD && n.includes('caps');
+    const ehClinicaFam  = n.includes('clinica da familia') || n.includes('clinica de familia');
+    const ehCAFS        = n.includes('cafs');
+    const ehCentroSaude = n.includes('centro de saude') || n.includes('centro municipal de saude');
+    const ehCMS         = nomeN.startsWith('cms ') || nomeN === 'cms' || n.includes(' cms ');
+
+    // Fallback primário (inclui tipos OSM genéricos de atenção básica)
+    let perfil = 'Unidade de Saúde';
+    if      (ehUBS)         perfil = 'UBS';
+    else if (ehPosto)       perfil = 'Posto de Saúde';
+    else if (ehClinicaFam)  perfil = 'Clínica da Família';
+    else if (ehESF || ehPSF) perfil = 'ESF/PSF';
+    else if (ehCAPSAD)      perfil = 'CAPS-AD';
+    else if (ehCAPS)        perfil = 'CAPS';
+    else if (ehCMS || ehCentroSaude) perfil = 'Centro de Saúde';
+    else if (ehCAFS)        perfil = 'CAFS';
+    else if (healthcare === 'health_post')    perfil = 'Posto de Saúde';
+    else if (healthcare === 'health_centre')  perfil = 'Centro de Saúde';
+    else if (healthcare === 'doctors')        perfil = 'Consultório/Clínica';
+
+    return { nivel: 'primaria', perfil };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DETERMINAR ACOLHIMENTO (AJUSTADO)
 // ════════════════════════════════════════════════════════════════════════════
 function determinarAcolhimento(unit) {
-    const n = norm(unit.nome + unit.perfil);
-    if (n.includes('upa') || n.includes('urgencia') || n.includes('emergencia') || 
-        n.includes('pronto socorro') || n.includes('pronto atendimento')) {
+    const n = norm(unit.nome + ' ' + unit.perfil);
+
+    // SAMU — serviço móvel de urgência
+    if (n.includes('samu') || n.includes('servico de atendimento movel')) {
+        return 'samu';
+    }
+    // Urgência / Emergência
+    if (n.includes('upa')    || n.includes('urgencia')   || n.includes('emergencia') ||
+        n.includes('pronto socorro')  || n.includes('pronto atendimento') ||
+        n.includes('cer ')  || unit.perfil === 'CER'     || unit.perfil === 'UPA 24h') {
         return 'urgencia';
     }
+    // Maternidade / Obstetrícia
     if (n.includes('maternidade') || n.includes('obstetricia') || n.includes('parto')) {
         return 'maternidade';
     }
-    if (n.includes('ortopedia') || n.includes('cardiologia') || n.includes('oncologia') ||
-        n.includes('especializado') || n.includes('referencia') || n.includes('instituto')) {
+    // Especializado
+    if (n.includes('ortopedia')   || n.includes('cardiologia') || n.includes('oncologia') ||
+        n.includes('especializado')|| n.includes('instituto')  ||
+        unit.perfil === 'AME'      || unit.perfil === 'CEO'     ||
+        unit.perfil === 'Hospital Oncológico' || unit.perfil === 'Hospital Cardiológico' ||
+        unit.perfil === 'Instituto Especializado') {
         return 'especializado';
     }
-    if (n.includes('samu')) {
-        return 'samu';
-    }
+    // Hospitais gerais e santas casas → urgência/emergência por padrão
     if (unit.nivel === 'terciaria') {
         return 'urgencia';
     }
@@ -1843,17 +1946,37 @@ function limparFiltros() {
 }
 
 function applyLocalFilters() {
-    const bairro = document.getElementById('inputBairro').value.toLowerCase().trim();
-    const nivel = document.getElementById('selectNivel').value;
+    const bairro      = document.getElementById('inputBairro').value.toLowerCase().trim();
+    const nivel       = document.getElementById('selectNivel').value;
     const acolhimento = document.getElementById('selectAcolhimento').value;
-    const gestao = document.getElementById('selectGestao').value;
+    const gestao      = document.getElementById('selectGestao').value;
+
     filteredUnits = allUnits.filter(u => {
         if (bairro && u.bairro && !u.bairro.toLowerCase().includes(bairro)) return false;
-        if (nivel && u.nivel !== nivel) return false;
+        if (nivel       && u.nivel       !== nivel)       return false;
         if (acolhimento && u.acolhimento !== acolhimento) return false;
-        if (gestao && u.gestao !== gestao) return false;
+        if (gestao      && u.gestao      !== gestao)      return false;
         return true;
     });
+
+    // ─── Ordenação inteligente por modo de busca ──────────────────────────
+    // Geolocalização → ordena por nível e, dentro de cada nível, por distância
+    // Município      → ordena por nível e, dentro de cada nível, por nome A→Z
+    const nivelOrdem  = { primaria: 1, secundaria: 2, terciaria: 3 };
+    const temDistancia = filteredUnits.some(u => u.distancia != null);
+
+    filteredUnits.sort((a, b) => {
+        // 1º critério: hierarquia de nível (Primário < Secundário < Terciário)
+        const nivelDiff = (nivelOrdem[a.nivel] || 9) - (nivelOrdem[b.nivel] || 9);
+        if (nivelDiff !== 0) return nivelDiff;
+
+        // 2º critério: distância (busca geográfica) ou nome (busca por município)
+        if (temDistancia) {
+            return (a.distancia ?? 9999) - (b.distancia ?? 9999);
+        }
+        return norm(a.nome).localeCompare(norm(b.nome));
+    });
+
     renderResults();
 }
 
@@ -1917,6 +2040,11 @@ function renderResults() {
 
 function renderGroup(config, units) {
     const groupId = `group-${config.key}`;
+    // Informação de ordenação exibida abaixo do rótulo do grupo
+    const temDistancia = units.some(u => u.distancia != null);
+    const sortInfo = temDistancia
+        ? '★ Ordenadas por proximidade (mais próxima primeiro)'
+        : '★ Ordenadas por nome (A → Z)';
     return `
         <div class="group-section">
             <div class="group-header" onclick="toggleGroup('${groupId}')">
@@ -1924,7 +2052,10 @@ function renderGroup(config, units) {
                     <span class="group-pill" style="background: ${config.color}22; color: ${config.color};">${config.icon}</span>
                     <div>
                         <div class="group-name">${config.label}</div>
-                        <div class="group-meta">${units.length} unidade${units.length !== 1 ? 's' : ''} encontrada${units.length !== 1 ? 's' : ''}</div>
+                        <div class="group-meta">
+                            ${units.length} unidade${units.length !== 1 ? 's' : ''} encontrada${units.length !== 1 ? 's' : ''}
+                            &nbsp;&middot;&nbsp;<span style="font-size:0.7rem;color:var(--teal);">${sortInfo}</span>
+                        </div>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 16px;">
