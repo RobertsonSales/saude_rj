@@ -801,7 +801,7 @@
       </svg>
     </div>
     <div class="header-titles">
-      <h1>Saúde<span> -BR</span> &mdash; Localizador Unid. de Saúde</h1>
+      <h1>Saúde<span> -BR</span> &mdash; Localizador de Unidades de Saúde</h1>
       <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
     <span class="header-badge">🟢 Online</span>
@@ -1311,28 +1311,30 @@ function getTextoAcolhimento(acolhimento) {
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FORMATAR TELEFONE BRASILEIRO (SEM CÓDIGO DO PAÍS)
+//  Versão melhorada: remove 55 apenas se for código do país e formata como (DDD) número
 // ════════════════════════════════════════════════════════════════════════════
 function formatarTelefoneBR(telefone) {
     if (!telefone) return '';
+    // Remove tudo que não for dígito
     let numeros = telefone.replace(/\D/g, '');
-    // Remove código do país 55 se presente no início
-    if (numeros.startsWith('55') && numeros.length >= 12) {
-        numeros = numeros.substring(2);
+    // Se começar com 55, pode ser código do país
+    if (numeros.startsWith('55')) {
+        // Verifica se após remover 55 temos 10 ou 11 dígitos (válido para Brasil)
+        if (numeros.length === 12 || numeros.length === 13) {
+            numeros = numeros.substring(2);
+        }
     }
-    if (numeros.length < 10) return telefone;
-
-    const ddd = numeros.substring(0, 2);
-    let numeroLocal = numeros.substring(2);
-
-    if (numeroLocal.length === 8) {
-        numeroLocal = numeroLocal.replace(/(\d{4})(\d{4})/, '$1-$2');
-    } else if (numeroLocal.length === 9) {
-        numeroLocal = numeroLocal.replace(/(\d{5})(\d{4})/, '$1-$2');
+    // Agora deve ter 10 ou 11 dígitos (DDD + número)
+    if (numeros.length === 10) {
+        // Fixo: (XX) XXXX-XXXX
+        return `(${numeros.substring(0,2)}) ${numeros.substring(2,6)}-${numeros.substring(6)}`;
+    } else if (numeros.length === 11) {
+        // Celular: (XX) 9XXXX-XXXX
+        return `(${numeros.substring(0,2)}) ${numeros.substring(2,7)}-${numeros.substring(7)}`;
     } else {
+        // Se não tem formato esperado, retorna original (pode ser 0800, etc)
         return telefone;
     }
-
-    return `(${ddd}) ${numeroLocal}`;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1341,7 +1343,7 @@ function formatarTelefoneBR(telefone) {
 function limparNumeroParaLigacao(telefone) {
     if (!telefone) return '';
     let numeros = telefone.replace(/\D/g, '');
-    if (numeros.startsWith('55')) {
+    if (numeros.startsWith('55') && (numeros.length === 12 || numeros.length === 13)) {
         numeros = numeros.substring(2);
     }
     return numeros;
@@ -2245,7 +2247,7 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
             </div>
             <div class="pdf-cards-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">${cardsHTML}</div>
             <div class="pdf-footer" style="display: flex; justify-content: space-between; font-size: 0.55rem; color: #5A6E85; border-top: 1px solid #D8E2EE; padding-top: 4px; margin-top: 8px;">
-                <span>🔍 Gerado pelo SaúdeBR Localizador</span>
+                <span>🔍 Gerado pelo Saúde-BR Localizador</span>
                 <span>Página ${paginaAtual} de ${totalPaginas} • ${dataAtual}</span>
             </div>
         </div>
@@ -2472,7 +2474,7 @@ async function compartilharPDFWhatsApp() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('SaúdeBR Localizador CNES v4.5 (SUS exclusivo) iniciado');
+    console.log('Saúde-BR Localizador de Unidades de Saúde - SUS');
 });
 
 document.querySelectorAll('.modal-overlay').forEach(modal => {
