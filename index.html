@@ -11,7 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    /* (CSS original, mantido integralmente com acréscimos no final) */
+    /* CSS original (mantido integralmente) */
     :root {
       --navy: #0B1F3A;
       --navy-mid: #132D50;
@@ -801,7 +801,7 @@
       </svg>
     </div>
     <div class="header-titles">
-      <h1>Saúde (+)<span>BR</span> &mdash; Seu Localizador de Unidades de Saúde</h1>
+      <h1>Saúde(+)<span>BR</span> &mdash; Seu Localizador de Unidades de Saúde</h1>
       <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
     <span class="header-badge">🟢 Online</span>
@@ -1035,7 +1035,7 @@ const CONFIG = {
 };
 
 // Lista expandida de tipos de saúde (inclui todos os possíveis)
-const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polyclinic|health|hospitals|medical|social_facility|nursing_home|birthing_center|healthcare|clinic|centre|ambulatory|health_center|health_post|health_station|maternity|birthing_center|urgent_care|emergency_ward|community_health_worker|phc|primary_healthcare';
+const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polyclinic|health|hospitals|medical|social_facility|nursing_home|birthing_center|healthcare|centre|ambulatory|health_center|health_station|maternity|urgent_care|emergency_ward|community_health_worker|phc|primary_healthcare';
 const EXCLUIR_TIPOS = 'pharmacy|dentist|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary';
 
 let allUnits = [];
@@ -1110,45 +1110,62 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  NOVA FUNÇÃO DE VÍNCULO SUS (BOOLEANA, SEM PONTUAÇÃO)
+//  NOVA FUNÇÃO DE VÍNCULO SUS (PONTUAÇÃO COM LIMIAR)
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
-    const nomeNorm = norm(nome);
+    let score = 0;
     const op = norm(tags.operator || '');
+    const nomeNorm = norm(nome);
     const desc = norm(tags.description || '');
     const brand = norm(tags.brand || '');
 
-    // Se tem CNES, é público
-    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
+    // 1. CNES é prova máxima (100 pontos)
+    if (tags['ref:CNES'] || tags['ref:cnes']) score += 100;
 
-    // Palavras-chave de gestão pública
-    const palavrasPublicas = [
+    // 2. Operador público ou governo
+    const palavrasOperadorPublico = ['public', 'government', 'municipal', 'estadual', 'federal', 'prefeitura', 'secretaria', 'ministerio', 'autarquia', 'fundacao'];
+    for (let palavra of palavrasOperadorPublico) {
+        if (op.includes(palavra)) score += 50;
+    }
+
+    // 3. Tipo de operador
+    const operatorType = tags['operator:type'] || '';
+    if (operatorType === 'public' || operatorType === 'government') score += 60;
+
+    // 4. Propriedade pública
+    if (tags.ownership === 'public') score += 50;
+
+    // 5. Acesso público ou sem restrição
+    if (tags.access === 'yes' || tags.access === 'public') score += 20;
+
+    // 6. Palavras‑chave fortes no nome ou descrição
+    const palavrasFortes = [
         'ubs', 'posto de saude', 'unidade basica', 'centro de saude', 'caps', 'upa',
         'samu', 'hospital municipal', 'hospital estadual', 'hospital federal',
-        'secretaria municipal', 'secretaria de saude', 'prefeitura', 'governo',
-        'ministerio da saude', 'fundacao publica', 'autarquia', 'cnes',
         'clinica da familia', 'esf', 'psf', 'cafs', 'cer', 'ceo', 'policlinica',
         'maternidade', 'santa casa', 'instituto', 'oncologico', 'cardiologia'
     ];
-    for (let palavra of palavrasPublicas) {
-        if (op.includes(palavra) || nomeNorm.includes(palavra) || desc.includes(palavra)) {
-            return true;
+    for (let palavra of palavrasFortes) {
+        if (nomeNorm.includes(palavra) || desc.includes(palavra)) {
+            score += 30;
+            break;
         }
     }
 
-    // Se o operador ou nome contém indicação de privado, exclui
+    // 7. Penalidade por palavras privadas
     const palavrasPrivadas = [
         'particular', 'privado', 'unimed', 'plano de saude', 'convênio',
         'empresa privada', 'clinica particular', 'hospital privado'
     ];
     for (let palavra of palavrasPrivadas) {
         if (op.includes(palavra) || nomeNorm.includes(palavra) || brand.includes(palavra)) {
-            return false;
+            score -= 100; // elimina
+            break;
         }
     }
 
-    // Por padrão, se for um healthcare amenity, consideramos público (evita falsos negativos)
-    return true;
+    // Limiar: 30 pontos (CNES já dá 100, então garante)
+    return score >= 30;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1624,7 +1641,7 @@ async function buscarUnidadesNoMunicipioComFiltro(municipio, uf) {
     if (municipio.osmId && municipio.osmType === 'relation') {
         const areaId = 3600000000 + municipio.osmId;
         const queryArea = `
-[out:json][timeout:90];
+[out:json][timeout:120];
 area(${areaId})->.searchArea;
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](area.searchArea);
@@ -1646,7 +1663,7 @@ out center tags;
     if (elementos.length === 0) {
         metodoUsado = 'bounding box';
         updateSearchProgress(35, 'Usando bounding box...', 'calculando área aproximada');
-        const raio = 25; // km
+        const raio = 30; // km
         const lat = municipio.latitude;
         const lon = municipio.longitude;
         const dLat = raio / 111;
@@ -1656,7 +1673,7 @@ out center tags;
         const oeste = (lon - dLon).toFixed(6);
         const leste = (lon + dLon).toFixed(6);
         const queryBbox = `
-[out:json][timeout:90];
+[out:json][timeout:120];
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${sul},${oeste},${norte},${leste});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${sul},${oeste},${norte},${leste});
@@ -2098,7 +2115,7 @@ function updateDashboard() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  EXPORTAÇÃO (EXCEL, PDF) - mantidas inalteradas
+//  EXPORTAÇÃO EXCEL
 // ════════════════════════════════════════════════════════════════════════════
 function exportToExcel() {
     if (filteredUnits.length === 0) {
@@ -2131,10 +2148,272 @@ function exportToExcel() {
     showNotification(`Arquivo Excel exportado: ${fileName}`, 'success');
 }
 
-// Funções PDF mantidas do original (não listadas por brevidade, mas presentes no código original)
-// ... (código PDF inalterado)
-// Para economia de espaço, as funções PDF foram omitidas, mas devem ser mantidas exatamente como no original.
-// ...
+// ════════════════════════════════════════════════════════════════════════════
+//  PDF (mantido da versão anterior)
+// ════════════════════════════════════════════════════════════════════════════
+function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual, totalPaginas, totalUnidades, dataAtual) {
+    const cardsHTML = units.map(u => {
+        const endereco = u.enderecoCompleto || u.endereco || '';
+        const bairro = u.bairro ? ` - ${u.bairro}` : '';
+        const telefone = u.telefoneFormatado || u.telefone || 'Não informado';
+        const acolhimentoClass = u.acolhimento || 'ambulatorial';
+        const acolhimentoTexto = getTextoAcolhimento(u.acolhimento);
+        const distancia = u.distancia ? `<div class="pdf-unit-detail"><span>🧭</span> <span>${u.distancia.toFixed(1)} km</span></div>` : '';
+        const cnes = u.cnes ? `<div style="font-size:0.55rem; margin-top:2px;">CNES: ${u.cnes}</div>` : '';
+        return `
+            <div class="pdf-unit-card">
+                <div class="pdf-unit-name">${u.nome}</div>
+                <div class="pdf-unit-detail"><span>📍</span> <span>${endereco}${bairro}</span></div>
+                <div class="pdf-unit-detail"><span>📞</span> <span>${telefone}</span></div>
+                ${u.email ? `<div class="pdf-unit-detail"><span>📧</span> <span>${u.email}</span></div>` : ''}
+                <div class="pdf-unit-detail"><span>🏥</span> <span>${u.perfil}</span></div>
+                ${distancia}
+                <span class="pdf-unit-badge ${acolhimentoClass}">${acolhimentoTexto}</span>
+                ${cnes}
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="pdf-page" style="width: 800px; background: white; font-family: 'Outfit', 'Fira Sans', sans-serif; padding: 10px; box-sizing: border-box;">
+            <div class="pdf-header" style="background: linear-gradient(135deg, #0B1F3A, #132D50); color: white; padding: 8px 12px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="font-size: 1.2rem; font-weight: 800; margin:0;">Saúde<span style="color: #00C896;"> - BR</span> — Unidades Públicas de Saúde</h1>
+                    <p style="font-size: 0.6rem; opacity:0.8;">Dados do OpenStreetMap • Apenas unidades públicas</p>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 1.1rem; font-weight:800; color:#00C896;">${totalUnidades}</div>
+                    <div style="font-size:0.5rem; opacity:0.7;">Total de Unidades</div>
+                </div>
+            </div>
+            <div class="pdf-nivel-header" style="display: flex; align-items: center; gap: 6px; background: ${corClasse === 'primaria' ? 'linear-gradient(135deg, #00A878, #00C896)' : corClasse === 'secundaria' ? 'linear-gradient(135deg, #1565C0, #2196f3)' : 'linear-gradient(135deg, #E53935, #f44336)'}; color: white; padding: 6px 10px; border-radius: 6px; margin: 8px 0;">
+                <span style="font-size: 1.2rem;">${iconeNivel}</span>
+                <span style="flex:1; font-weight:700; font-size:0.8rem;">${tituloNivel}</span>
+                <span style="font-weight:800; font-size:1rem;">${units.length}</span>
+            </div>
+            <div class="pdf-cards-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">${cardsHTML}</div>
+            <div class="pdf-footer" style="display: flex; justify-content: space-between; font-size: 0.55rem; color: #5A6E85; border-top: 1px solid #D8E2EE; padding-top: 4px; margin-top: 8px;">
+                <span>🔍 Gerado pelo Saúde-BR Localizador de Unidades de Saúde</span>
+                <span>Página ${paginaAtual} de ${totalPaginas} • ${dataAtual}</span>
+            </div>
+        </div>
+    `;
+}
+
+const pdfStyles = `
+    <style>
+        .pdf-unit-card {
+            background: #f8fafd;
+            border: 1px solid #D8E2EE;
+            border-radius: 6px;
+            padding: 6px;
+            font-size: 0.65rem;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        .pdf-unit-name {
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #0B1F3A;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pdf-unit-detail {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.6rem;
+            color: #5A6E85;
+            margin-bottom: 2px;
+        }
+        .pdf-unit-detail span:first-child { min-width: 14px; }
+        .pdf-unit-badge {
+            display: inline-block;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 0.55rem;
+            font-weight: 600;
+            margin-top: 3px;
+        }
+        .pdf-unit-badge.urgente { background: #FDECEA; color: #E53935; }
+        .pdf-unit-badge.ambulatorial { background: #E8F8F3; color: #00A878; }
+        .pdf-unit-badge.maternidade { background: #F3E5F5; color: #6A1B9A; }
+        .pdf-unit-badge.especializado { background: #FFF8EC; color: #C07A00; }
+    </style>
+`;
+
+async function gerarPDFCompleto() {
+    const dataAtual = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const primaria = filteredUnits.filter(u => u.nivel === 'primaria');
+    const secundaria = filteredUnits.filter(u => u.nivel === 'secundaria');
+    const terciaria = filteredUnits.filter(u => u.nivel === 'terciaria');
+    const grupos = [
+        { units: primaria, titulo: 'Atenção Primária', icone: '🏠', cor: 'primaria' },
+        { units: secundaria, titulo: 'Atenção Secundária', icone: '🔬', cor: 'secundaria' },
+        { units: terciaria, titulo: 'Atenção Terciária', icone: '🏨', cor: 'terciaria' }
+    ].filter(g => g.units.length > 0);
+    const CARDS_POR_PAGINA = 8;
+    const paginasHTML = [];
+    let paginaGlobal = 1;
+    for (const grupo of grupos) {
+        const units = grupo.units;
+        for (let i = 0; i < units.length; i += CARDS_POR_PAGINA) {
+            const fatia = units.slice(i, i + CARDS_POR_PAGINA);
+            paginasHTML.push(gerarPaginaHTML(fatia, grupo.titulo, grupo.icone, grupo.cor, paginaGlobal, 0, filteredUnits.length, dataAtual));
+            paginaGlobal++;
+        }
+    }
+    const totalPaginas = paginasHTML.length;
+    let htmlFinal = pdfStyles;
+    for (let i = 0; i < paginasHTML.length; i++) {
+        const item = paginasHTML[i];
+        const htmlComNumero = item.replace('Página 0 de 0', `Página ${i+1} de ${totalPaginas}`);
+        htmlFinal += htmlComNumero;
+        if (i < paginasHTML.length - 1) htmlFinal += '<div style="page-break-before: always; height: 0;"></div>';
+    }
+    return htmlFinal;
+}
+
+async function visualizarPDF() {
+    if (filteredUnits.length === 0) { showNotification('Nenhuma unidade para gerar PDF', 'error'); return; }
+    showSearchProgress(true);
+    updateSearchProgress(10, 'Gerando visualização do PDF...', 'Preparando conteúdo');
+    try {
+        const html = await gerarPDFCompleto();
+        document.getElementById('pdfModalBody').innerHTML = html;
+        document.getElementById('pdfModal').classList.add('visible');
+        showSearchProgress(false);
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        showNotification('Erro ao gerar visualização do PDF', 'error');
+        showSearchProgress(false);
+    }
+}
+
+function closePDFModal() { document.getElementById('pdfModal').classList.remove('visible'); }
+
+async function downloadPDF() {
+    if (filteredUnits.length === 0) return;
+    showSearchProgress(true);
+    updateSearchProgress(10, 'Gerando PDF...', 'Processando páginas');
+    try {
+        const { jsPDF } = window.jspdf;
+        const htmlString = await gerarPDFCompleto();
+        const container = document.createElement('div');
+        container.innerHTML = htmlString;
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '800px';
+        container.style.background = 'white';
+        document.body.appendChild(container);
+        const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
+        for (let i = 0; i < paginas.length; i++) {
+            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1} de ${paginas.length}...`, 'Aguarde, pode levar alguns segundos');
+            const pageDiv = paginas[i];
+            pageDiv.style.width = '800px';
+            pageDiv.style.height = 'auto';
+            pageDiv.style.margin = '0';
+            pageDiv.style.padding = '10px';
+            const canvas = await html2canvas(pageDiv, { scale: 1.5, backgroundColor: '#ffffff', logging: false, allowTaint: true, useCORS: true, windowWidth: 800, windowHeight: pageDiv.scrollHeight });
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+            const width = imgWidth * ratio;
+            const height = imgHeight * ratio;
+            const x = (pdfWidth - width) / 2;
+            const y = (pdfHeight - height) / 2;
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', x, y, width, height);
+        }
+        document.body.removeChild(container);
+        const fileName = `SaudeBR_Unidades_${new Date().toISOString().split('T')[0]}.pdf`;
+        pdf.save(fileName);
+        showSearchProgress(false);
+        showNotification(`PDF baixado: ${fileName}`, 'success');
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        showNotification('Erro ao gerar PDF', 'error');
+        showSearchProgress(false);
+    }
+}
+
+async function compartilharPDFWhatsApp() {
+    if (filteredUnits.length === 0) { showNotification('Nenhuma unidade para compartilhar', 'error'); return; }
+    showSearchProgress(true);
+    updateSearchProgress(10, 'Preparando PDF para WhatsApp...', 'Gerando páginas...');
+    try {
+        const { jsPDF } = window.jspdf;
+        const htmlString = await gerarPDFCompleto();
+        const container = document.createElement('div');
+        container.innerHTML = htmlString;
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '800px';
+        container.style.background = 'white';
+        document.body.appendChild(container);
+        const paginas = Array.from(container.children).filter(el => el.classList.contains('pdf-page'));
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
+        for (let i = 0; i < paginas.length; i++) {
+            updateSearchProgress(20 + Math.round((i / paginas.length) * 70), `Renderizando página ${i+1} de ${paginas.length}...`, 'Convertendo imagem...');
+            const pageDiv = paginas[i];
+            pageDiv.style.width = '800px';
+            pageDiv.style.height = 'auto';
+            pageDiv.style.margin = '0';
+            pageDiv.style.padding = '10px';
+            const canvas = await html2canvas(pageDiv, { scale: 1.5, backgroundColor: '#ffffff', logging: false, allowTaint: true, useCORS: true, windowWidth: 800, windowHeight: pageDiv.scrollHeight });
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+            const width = imgWidth * ratio;
+            const height = imgHeight * ratio;
+            const x = (pdfWidth - width) / 2;
+            const y = (pdfHeight - height) / 2;
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', x, y, width, height);
+        }
+        document.body.removeChild(container);
+        const pdfBlob = pdf.output('blob');
+        updateSearchProgress(95, 'Pronto!', 'Preparando compartilhamento...');
+        // Tenta compartilhar via Web Share API
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' })] })) {
+            const file = new File([pdfBlob], 'SaudeBR_Unidades.pdf', { type: 'application/pdf' });
+            await navigator.share({
+                title: 'Relatório de Unidades de Saúde',
+                text: 'Confira as unidades de saúde próximas.',
+                files: [file]
+            });
+            showNotification('Compartilhado com sucesso!', 'success');
+        } else {
+            // Fallback: download
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = pdfUrl;
+            link.download = 'SaudeBR_Unidades.pdf';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(pdfUrl);
+            alert('✅ PDF gerado com sucesso!\n\nPara compartilhar no WhatsApp:\n1️⃣ Clique em OK e aguarde o download\n2️⃣ Abra o WhatsApp\n3️⃣ Selecione a conversa desejada\n4️⃣ Clique no ícone 📎 (anexar)\n5️⃣ Escolha "Documento"\n6️⃣ Selecione o arquivo baixado');
+        }
+        showSearchProgress(false);
+        showNotification('PDF pronto para compartilhamento!', 'success');
+    } catch (error) {
+        console.error('Erro ao gerar PDF para WhatsApp:', error);
+        showNotification('Erro ao gerar PDF para WhatsApp', 'error');
+        showSearchProgress(false);
+    }
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INICIALIZAÇÃO
