@@ -1210,15 +1210,13 @@
       </p>
       <div class="pix-qr-wrap">
         <img
-          src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=robertguima%40gmail.com&bgcolor=ffffff&color=0B1F3A&margin=8"
+          id="pixQrImg" src="" alt="QR Code PIX"
           alt="QR Code PIX — robertguima@gmail.com"
-          loading="lazy"
-          onerror="this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=robertguima%40gmail.com&choe=UTF-8'"
-        >
+          loading="lazy">
       </div>
       <div class="pix-key-box">
         <span class="pix-key-label">Chave PIX</span>
-        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="robertguima@gmail.com">[email&#160;protected]</a></span>
+        <span class="pix-key-value" id="pixKeyText"></span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -1415,7 +1413,41 @@ function isVinculadoSUS(tags, nome) {
         }
     }
 
-    // ── B2: Tags OSM de tipos EXCLUSIVAMENTE públicos/governamentais ─────────
+    // ── B2: Exclusão de estabelecimentos NÃO relacionados à saúde ──────────────
+    // OSM marca escolas, igrejas, creches etc. com operator:type=public — isso
+    // não os torna unidades SUS. Rejeitar por amenity= ou nome inequivocamente
+    // não-saúde ANTES de qualquer verificação positiva.
+    const amenityNaoSaude = tags.amenity || '';
+    const tiposNaoSaude = [
+        'school','kindergarten','university','college','library',
+        'place_of_worship','church','temple','mosque','synagogue',
+        'community_centre','social_centre','townhall','police','fire_station',
+        'post_office','bank','restaurant','cafe','fast_food','bar','pub',
+        'parking','fuel','charging_station','marketplace','pharmacy'
+    ];
+    if (tiposNaoSaude.includes(amenityNaoSaude.toLowerCase())) return false;
+
+    // Rejeitar também se o nome contiver termos inequivocamente não-saúde
+    const termosNaoSaude = [
+        'escola municipal', 'escola estadual', 'escola federal',
+        'escola publica', 'escola de ensino', 'escola infantil',
+        'colegio municipal', 'colegio estadual',
+        'creche municipal', 'creche publica',
+        'centro de educacao', 'centro educacional',
+        'educacao infantil', 'educacao basica',
+        'ensino fundamental', 'ensino medio',
+        'centro esportivo', 'gremio', 'sindicato',
+        'subprefeitura', 'administracao regional',
+        'delegacia', 'policia', 'bombeiro',
+        'biblioteca', 'museu', 'teatro',
+        'cemiterio', 'funeraria',
+        'mercado publico', 'feira',
+    ];
+    for (const t of termosNaoSaude) {
+        if (nomeNorm.includes(t)) return false;
+    }
+
+    // ── B3: Tags OSM de tipos EXCLUSIVAMENTE públicos/governamentais ─────────
     // (health_post, primary_healthcare, community_health_worker, phc são
     //  tipos que no OSM identificam unidades de atenção básica pública)
     const hcTagsExclusivamentePublicas = [
@@ -3030,7 +3062,21 @@ async function compartilharPDFWhatsApp() {
 // ════════════════════════════════════════════════════════════════════════════
 //  MODAL PIX — Contribuição do desenvolvedor
 // ════════════════════════════════════════════════════════════════════════════
+// Monta a chave PIX via JS para evitar ofuscação de e-mail por proxies/CDN
+function _pixKey() {
+    return ['robertguima', '@', 'gmail', '.', 'com'].join('');
+}
 function abrirModalPix() {
+    // Garante que a chave e o QR estejam visíveis toda vez que o modal abre
+    const chave = _pixKey();
+    const el = document.getElementById('pixKeyText');
+    if (el) el.textContent = chave;
+    const qr = document.getElementById('pixQrImg');
+    if (qr && !qr.getAttribute('data-loaded')) {
+        const encoded = encodeURIComponent(chave);
+        qr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encoded + '&bgcolor=ffffff&color=0B1F3A&margin=8';
+        qr.setAttribute('data-loaded', '1');
+    }
     document.getElementById('pixModal').classList.add('visible');
 }
 function fecharModalPix() {
@@ -3043,7 +3089,7 @@ function fecharModalPixOverlay(e) {
     if (e.target === document.getElementById('pixModal')) fecharModalPix();
 }
 async function copiarChavePix() {
-    const chave = document.getElementById('pixKeyText').textContent;
+    const chave = _pixKey();
     try {
         await navigator.clipboard.writeText(chave);
     } catch {
