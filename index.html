@@ -1034,12 +1034,23 @@ const CONFIG = {
     OVERPASS: 'https://overpass-api.de/api/interpreter'
 };
 
-// Tipos OSM aceitos na busca (amenity=)
-const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polyclinic|health|hospitals|medical|social_facility|nursing_home|birthing_center|healthcare|centre|ambulatory|health_center|health_station|maternity|urgent_care|emergency_ward|community_health_worker|phc|primary_healthcare|dentist';
+// ── INCLUIR_TIPOS: valores de amenity= e healthcare= buscados no Overpass ───
+// Restritos a tipos que correspondem a estabelecimentos SUS ou potencialmente
+// SUS. Tipos genéricos como "doctors", "medical", "centre", "health" foram
+// removidos pois trazem consultórios e clínicas privadas para o pool.
+const INCLUIR_TIPOS = [
+    // amenity= tipicamente públicos
+    'hospital', 'clinic', 'health_post', 'health_centre',
+    'polyclinic', 'birthing_center', 'maternity',
+    'urgent_care', 'emergency_ward', 'health_center', 'health_station',
+    'primary_healthcare', 'community_health_worker', 'phc',
+    // healthcare= (passa pelo filtro EXCLUIR abaixo)
+    'hospital', 'clinic', 'dentist',
+].filter((v, i, a) => a.indexOf(v) === i).join('|');   // deduplica
 
-// Tipos OSM excluídos via tag healthcare= (serviços privados/não-SUS)
-// NOTA: dentist NÃO é excluído — CEOs são SUS
-const EXCLUIR_TIPOS = 'pharmacy|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary';
+// ── EXCLUIR_TIPOS: valores de healthcare= explicitamente não-SUS ─────────────
+// dentist NÃO está aqui — CEOs (Centros de Especialidades Odontológicas) são SUS
+const EXCLUIR_TIPOS = 'pharmacy|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary|cosmetics|beauty';
 
 let allUnits = [];
 let filteredUnits = [];
@@ -1138,116 +1149,164 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS — REFATORADO COM MAIOR COBERTURA
+//  VÍNCULO SUS — EXIGE PROVA POSITIVA DE PERTENCIMENTO À REDE PÚBLICA
+//
+//  Lógica:  (A) sem prova positiva → rejeita
+//           (B) indício de serviço privado → rejeita (prevalece sobre A)
+//           (C) prova inequívoca de gestão pública → aceita
+//           (D) nome tipicamente SUS → aceita
+//
+//  ⚠  Tags OSM como healthcare=clinic ou amenity=hospital NÃO são prova
+//     suficiente por si sós — clínicas e hospitais privados usam as mesmas
+//     tags no OpenStreetMap.
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
-    // 1. CNES é prova definitiva
+    // ── A: CNES é registro exclusivo do sistema público brasileiro ───────────
     if (tags['ref:CNES'] || tags['ref:cnes']) return true;
 
     const nomeNorm = norm(nome);
-    const op      = norm(tags.operator || '');
-    const brand   = norm(tags.brand    || '');
-    const funding = norm(tags.funding  || tags['healthcare:funding'] || '');
+    const op       = norm(tags.operator || '');
+    const brand    = norm(tags.brand    || '');
+    const funding  = norm(tags.funding  || tags['healthcare:funding'] || '');
+    const desc     = norm(tags.description || '');
 
-    // 2. Exclusão imediata: explicitamente privado/convênio
-    const palavrasPrivadas = [
-        'particular', 'privado', 'unimed', 'plano de saude', 'convenio',
-        'empresa privada', 'clinica particular', 'hospital privado',
-        'amil', 'bradesco saude', 'sulamerica', 'notredame', 'hapvida'
+    // ── B: Exclusão imediata — qualquer marcador inequívoco de serviço privado
+    const marcadoresPrivados = [
+        // planos e operadoras privadas
+        'unimed', 'amil', 'bradesco saude', 'sulamerica saude', 'notredame',
+        'hapvida', 'prevent senior', 'clinipam', 'golden cross', 'mediservice',
+        'sompo', 'care plus', 'assim saude', 'omint', 'saude caixa', 'cassi',
+        'postal saude', 'petrobras saude', 'eletros',
+        // designações explícitas de serviço privado
+        'particular', 'privado', 'clinica particular', 'hospital privado',
+        'plano de saude', 'convenio', 'empresa privada',
+        // redes hospitalares privadas conhecidas
+        'rede dor', 'hospital samaritano', 'hospital sirio libanes',
+        'hospital albert einstein', 'hospital mater dei', 'hospital lifecenter',
+        'hospital nine july', 'hospital nove de julho', 'hospital sao luiz',
+        'hospital total cor', 'hospital leforte', 'hospital israelita',
+        'hospital alemao oswaldo cruz', 'hospital santa catarina',
+        'hospital pro matre', 'hospital sao camilo',
     ];
-    for (const p of palavrasPrivadas) {
-        if (op.includes(p) || nomeNorm.includes(p) || brand.includes(p) || funding.includes(p)) return false;
-    }
-
-    // 3. Aceitação imediata por indicadores fortes de gestão pública
-    if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
-    if (tags.ownership === 'public' || tags.government) return true;
-    if (funding === 'public' || funding === 'government') return true;
-    const palavrasOperadorPublico = [
-        'public', 'government', 'municipal', 'estadual', 'federal',
-        'prefeitura', 'secretaria', 'ministerio', 'autarquia', 'fundacao', 'sus', 'governo'
-    ];
-    for (const p of palavrasOperadorPublico) {
-        if (op.includes(p)) return true;
-    }
-
-    // 4. Pontuação — threshold baixo para cobrir unidades com tags OSM mas sem operador declarado
-    let score = 0;
-    const desc    = norm(tags.description || '');
-    const amenity = (tags.amenity || '').toLowerCase();
-    const hcare   = (tags.healthcare || '').toLowerCase();
-
-    // Tag healthcare presente (já passou pelo filtro EXCLUIR_TIPOS) = forte indicador SUS
-    if (hcare && hcare !== 'yes') score += 30;
-    // amenity tipicamente público
-    if (['hospital','health_post','health_centre','polyclinic'].includes(amenity)) score += 30;
-    else if (amenity === 'clinic') score += 20;
-    else if (amenity && amenity !== '') score += 15;
-    // Acesso público
-    if (tags.access === 'yes' || tags.access === 'public') score += 10;
-
-    // Palavras‑chave fortes no nome ou descrição
-    const palavrasFortes = [
-        // Primário
-        'ubs', 'posto de saude', 'unidade basica', 'unidade basica de saude',
-        'centro de saude', 'centro municipal de saude', 'cms',
-        'caps', 'caps-ad', 'caps ad', 'centro de atencao psicossocial',
-        'clinica da familia', 'clinica de familia',
-        'esf', 'equipe de saude da familia', 'saude da familia',
-        'psf', 'programa saude da familia',
-        'cafs', 'agente comunitario',
-        // Secundário
-        'upa', 'unidade de pronto atendimento', 'unidade pronto atendimento',
-        'ame', 'ambulatorio medico de especialidades',
-        'ceo', 'centro de especialidades odontologicas',
-        'policlinica', 'polyclinica',
-        'unidade mista', 'unidade mista de saude',
-        'cer', 'coordenacao regional de emergencia',
-        'samu', 'servico de atendimento movel de urgencia',
-        'pronto atendimento',
-        // Terciário
-        'hospital municipal', 'hospital estadual', 'hospital federal',
-        'hospital geral', 'hospital universitario', 'hospital de ensino',
-        'hospital regional', 'hospital de referencia', 'hospital das clinicas',
-        'hospital infantil', 'hospital pediatrico',
-        'hospital oncologico', 'hospital cardiologico', 'hospital especializado',
-        'maternidade', 'santa casa', 'misericordia',
-        'centro de reabilitacao', 'instituto oncologico', 'instituto cardiologico',
-        'inca', 'into', 'hc', 'hupe', 'huap'
-    ];
-    for (const palavra of palavrasFortes) {
-        if (nomeNorm.includes(palavra) || desc.includes(palavra)) {
-            score += 30;
-            break;
+    for (const p of marcadoresPrivados) {
+        if (op.includes(p) || nomeNorm.includes(p) || brand.includes(p) || funding.includes(p)) {
+            return false;
         }
     }
 
-    // Limiar: qualquer elemento com tag healthcare ou amenity de saúde já passa
-    return score >= 15;
+    // ── C: Aceitação imediata — prova inequívoca de gestão pública ───────────
+
+    // Tags OSM explícitas de operador público
+    if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
+    if (tags.ownership === 'public' || tags.government) return true;
+    if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
+
+    // Operador contém nome de instituição pública brasileira
+    const opPublico = [
+        'prefeitura', 'secretaria', 'ministerio', 'governo do estado',
+        'governo municipal', 'governo federal', 'municipio de', 'estado de',
+        'autarquia', 'fundacao', 'sus', 'datasus', 'ebserh'
+    ];
+    for (const p of opPublico) {
+        if (op.includes(p)) return true;
+    }
+    // "municipal" e "estadual" e "federal" no operador (mas não no nome,
+    // pois "Hospital Municipal São Lucas" é verificado abaixo)
+    if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
+
+    // ── D: Nome identifica inequivocamente uma unidade SUS ───────────────────
+    //
+    // Siglas de 2-4 letras: exigem fronteira de palavra para evitar falsos
+    // positivos ("ame" dentro de "amei", "esf" dentro de "esforço", etc.)
+    const siglasRegex = [
+        /\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/,
+        /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/,
+        /\bame\b/, /\bsamu\b/, /\bcafs\b/,
+    ];
+    for (const r of siglasRegex) {
+        if (r.test(nomeNorm)) return true;
+    }
+
+    // Expressões compostas (sem risco de falso positivo pela extensão)
+    const nomesPublicos = [
+        // Atenção Primária
+        'unidade basica de saude', 'unidade basica',
+        'posto de saude',
+        'clinica da familia', 'clinica de familia',
+        'centro de saude', 'centro municipal de saude',
+        'equipe de saude da familia', 'saude da familia',
+        'programa saude da familia',
+        'centro de atencao psicossocial',
+        'agente comunitario de saude',
+        // Atenção Secundária
+        'unidade de pronto atendimento', 'unidade pronto atendimento',
+        'ambulatorio medico de especialidades',
+        'centro de especialidades odontologicas',
+        'coordenacao regional de emergencia',
+        'unidade mista de saude', 'unidade mista',
+        'servico de atendimento movel de urgencia',
+        'policlinica',
+        // Atenção Terciária
+        'hospital municipal', 'hospital estadual', 'hospital federal',
+        'hospital geral', 'hospital universitario', 'hospital de ensino',
+        'hospital escola', 'hospital regional', 'hospital de referencia',
+        'hospital das clinicas', 'hospital de clinicas',
+        'hospital infantil', 'hospital pediatrico',
+        'hospital oncologico', 'hospital cardiologico', 'hospital especializado',
+        'hospital de urgencia', 'hospital de emergencia',
+        'santa casa', 'misericordia',
+        'centro de reabilitacao',
+        'maternidade municipal', 'maternidade estadual', 'maternidade federal',
+        'maternidade escola',
+        // Institutos públicos conhecidos
+        'instituto nacional de cancer', 'inca',
+        'instituto nacional de traumatologia', 'into',
+        'instituto nacional de cardiologia',
+        'hospital das forcas armadas',
+        'hupe', 'huap', 'husm', 'hucff', 'hucam',    // HUs conhecidos
+        'ebserh',
+    ];
+    for (const p of nomesPublicos) {
+        if (nomeNorm.includes(p) || desc.includes(p)) return true;
+    }
+
+    // Maternidade sem qualificador: aceita apenas se não contiver indicadores
+    // de serviço privado (já verificados acima) e tiver outro indício público
+    if (nomeNorm.startsWith('maternidade') && op && !op.includes('privado')) return true;
+
+    // ── Sem prova positiva → rejeita ─────────────────────────────────────────
+    return false;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DETERMINAR ESFERA DE GESTÃO (mantido igual)
+//  DETERMINAR ESFERA DE GESTÃO
 // ════════════════════════════════════════════════════════════════════════════
 function determinarGestao(tags, nome) {
-    const op = norm(tags.operator || '');
+    const op       = norm(tags.operator || '');
     const nomeNorm = norm(nome);
-    const operatorType = tags['operator:type'] || '';
 
-    if (op.includes('federal') || op.includes('ministerio') || op.includes('união') || 
-        nomeNorm.includes('federal') || tags['government'] === 'federal' ||
-        (tags['ref:CNES'] && nomeNorm.includes('federal'))) {
-        return 'Federal';
-    }
-    if (op.includes('estadual') || op.includes('governo do estado') || 
-        nomeNorm.includes('estadual') || tags['government'] === 'state') {
-        return 'Estadual';
-    }
-    if (op.includes('municipal') || op.includes('prefeitura') || 
-        nomeNorm.includes('municipal') || tags['government'] === 'municipal') {
-        return 'Municipal';
-    }
+    // Federal
+    const isFederal =
+        op.includes('federal') || op.includes('ministerio') ||
+        op.includes('uniao') || op.includes('governo federal') ||
+        op.includes('ebserh') || op.includes('marinha') ||
+        op.includes('exercito') || op.includes('aeronautica') ||
+        nomeNorm.includes('federal') ||
+        nomeNorm.includes('hospital das forcas armadas') ||
+        nomeNorm.includes('ebserh') ||
+        ['inca', 'into', 'hupe', 'huap', 'husm', 'hucff', 'hucam'].some(s => nomeNorm.includes(s)) ||
+        tags['government'] === 'federal';
+    if (isFederal) return 'Federal';
 
+    // Estadual
+    const isEstadual =
+        op.includes('estadual') || op.includes('governo do estado') ||
+        op.includes('governo estadual') || op.includes('estado de') ||
+        nomeNorm.includes('estadual') ||
+        tags['government'] === 'state';
+    if (isEstadual) return 'Estadual';
+
+    // Municipal (default para unidades SUS sem qualificador de esfera)
     return 'Municipal';
 }
 
