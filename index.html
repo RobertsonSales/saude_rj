@@ -1149,28 +1149,19 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS — EXIGE PROVA POSITIVA DE PERTENCIMENTO À REDE PÚBLICA
+//  VÍNCULO SUS — REVISADO PARA SER MAIS INCLUSIVO
 //
-//  Lógica:  (A) sem prova positiva → rejeita
-//           (B) indício de serviço privado → rejeita (prevalece sobre A)
-//           (C) prova inequívoca de gestão pública → aceita
-//           (D) nome tipicamente SUS → aceita
-//
-//  ⚠  Tags OSM como healthcare=clinic ou amenity=hospital NÃO são prova
-//     suficiente por si sós — clínicas e hospitais privados usam as mesmas
-//     tags no OpenStreetMap.
+//  Agora considera qualquer unidade de saúde como potencialmente pública,
+//  a menos que haja evidência explícita de ser privada.
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
-    // ── A: CNES é registro exclusivo do sistema público brasileiro ───────────
-    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
-
     const nomeNorm = norm(nome);
     const op       = norm(tags.operator || '');
     const brand    = norm(tags.brand    || '');
     const funding  = norm(tags.funding  || tags['healthcare:funding'] || '');
     const desc     = norm(tags.description || '');
 
-    // ── B: Exclusão imediata — qualquer marcador inequívoco de serviço privado
+    // ── Exclusão imediata — marcadores inequívocos de serviço privado
     const marcadoresPrivados = [
         // planos e operadoras privadas
         'unimed', 'amil', 'bradesco saude', 'sulamerica saude', 'notredame',
@@ -1194,92 +1185,66 @@ function isVinculadoSUS(tags, nome) {
         }
     }
 
-    // ── C: Aceitação imediata — prova inequívoca de gestão pública ───────────
+    // ── Aceitação imediata se houver prova positiva de vínculo público ──
+    // CNES
+    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
 
-    // Tags OSM explícitas de operador público
+    // Tags de operador público
     if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
     if (tags.ownership === 'public' || tags.government) return true;
     if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
+    if (op.includes('prefeitura') || op.includes('secretaria') || op.includes('ministerio') ||
+        op.includes('governo do estado') || op.includes('governo municipal') ||
+        op.includes('governo federal') || op.includes('municipio de') ||
+        op.includes('estado de') || op.includes('autarquia') || op.includes('fundacao') ||
+        op.includes('sus') || op.includes('datasus') || op.includes('ebserh') ||
+        op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
 
-    // Operador contém nome de instituição pública brasileira
-    const opPublico = [
-        'prefeitura', 'secretaria', 'ministerio', 'governo do estado',
-        'governo municipal', 'governo federal', 'municipio de', 'estado de',
-        'autarquia', 'fundacao', 'sus', 'datasus', 'ebserh'
+    // Nome com siglas ou expressões típicas de SUS
+    const siglas = [
+        /\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/,
+        /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/
     ];
-    for (const p of opPublico) {
-        if (op.includes(p)) return true;
-    }
-    // "municipal" e "estadual" e "federal" no operador (mas não no nome,
-    // pois "Hospital Municipal São Lucas" é verificado abaixo)
-    if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
-
-    // ── D: Nome identifica inequivocamente uma unidade SUS ───────────────────
-    //
-    // Siglas de 2-4 letras: exigem fronteira de palavra para evitar falsos
-    // positivos ("ame" dentro de "amei", "esf" dentro de "esforço", etc.)
-    const siglasRegex = [
-        /\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/,
-        /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/,
-        /\bame\b/, /\bsamu\b/, /\bcafs\b/,
-    ];
-    for (const r of siglasRegex) {
+    for (const r of siglas) {
         if (r.test(nomeNorm)) return true;
     }
 
-    // Expressões compostas (sem risco de falso positivo pela extensão)
     const nomesPublicos = [
-        // Atenção Primária
-        'unidade basica de saude', 'unidade basica',
-        'posto de saude',
-        'clinica da familia', 'clinica de familia',
-        'centro de saude', 'centro municipal de saude',
-        'equipe de saude da familia', 'saude da familia',
-        'programa saude da familia',
-        'centro de atencao psicossocial',
-        'agente comunitario de saude',
-        // Atenção Secundária
+        'unidade basica de saude', 'unidade basica', 'posto de saude',
+        'clinica da familia', 'clinica de familia', 'centro de saude',
+        'centro municipal de saude', 'equipe de saude da familia',
+        'saude da familia', 'programa saude da familia',
+        'centro de atencao psicossocial', 'agente comunitario de saude',
         'unidade de pronto atendimento', 'unidade pronto atendimento',
         'ambulatorio medico de especialidades',
         'centro de especialidades odontologicas',
-        'coordenacao regional de emergencia',
-        'unidade mista de saude', 'unidade mista',
-        'servico de atendimento movel de urgencia',
-        'policlinica',
-        // Atenção Terciária
-        'hospital municipal', 'hospital estadual', 'hospital federal',
-        'hospital geral', 'hospital universitario', 'hospital de ensino',
-        'hospital escola', 'hospital regional', 'hospital de referencia',
-        'hospital das clinicas', 'hospital de clinicas',
-        'hospital infantil', 'hospital pediatrico',
+        'coordenacao regional de emergencia', 'unidade mista de saude',
+        'unidade mista', 'servico de atendimento movel de urgencia',
+        'policlinica', 'hospital municipal', 'hospital estadual',
+        'hospital federal', 'hospital geral', 'hospital universitario',
+        'hospital de ensino', 'hospital escola', 'hospital regional',
+        'hospital de referencia', 'hospital das clinicas',
+        'hospital de clinicas', 'hospital infantil', 'hospital pediatrico',
         'hospital oncologico', 'hospital cardiologico', 'hospital especializado',
-        'hospital de urgencia', 'hospital de emergencia',
-        'santa casa', 'misericordia',
-        'centro de reabilitacao',
-        'maternidade municipal', 'maternidade estadual', 'maternidade federal',
-        'maternidade escola',
-        // Institutos públicos conhecidos
+        'hospital de urgencia', 'hospital de emergencia', 'santa casa',
+        'misericordia', 'centro de reabilitacao', 'maternidade municipal',
+        'maternidade estadual', 'maternidade federal', 'maternidade escola',
         'instituto nacional de cancer', 'inca',
         'instituto nacional de traumatologia', 'into',
-        'instituto nacional de cardiologia',
-        'hospital das forcas armadas',
-        'hupe', 'huap', 'husm', 'hucff', 'hucam',    // HUs conhecidos
-        'ebserh',
+        'instituto nacional de cardiologia', 'hospital das forcas armadas',
+        'hupe', 'huap', 'husm', 'hucff', 'hucam', 'ebserh'
     ];
     for (const p of nomesPublicos) {
         if (nomeNorm.includes(p) || desc.includes(p)) return true;
     }
 
-    // Maternidade sem qualificador: aceita apenas se não contiver indicadores
-    // de serviço privado (já verificados acima) e tiver outro indício público
-    if (nomeNorm.startsWith('maternidade') && op && !op.includes('privado')) return true;
-
-    // ── Sem prova positiva → rejeita ─────────────────────────────────────────
-    return false;
+    // ── Se chegou até aqui, não há evidência de ser privado.
+    //    Consideramos como pública por padrão, pois a unidade tem tags de saúde.
+    return true;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DETERMINAR ESFERA DE GESTÃO
+//  DETERMINAR ESFERA DE GESTÃO (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
 function determinarGestao(tags, nome) {
     const op       = norm(tags.operator || '');
@@ -1806,7 +1771,9 @@ async function reverseGeocode(lat, lon) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  BUSCA POR MUNICÍPIO (REFATORADA COM FILTRO POR CIDADE CONDICIONAL) — mantido igual
+//  BUSCA POR MUNICÍPIO (REFATORADA COM FILTRO POR CIDADE CONDICIONAL)
+//  ⚠️  ALTERAÇÃO: no fallback por bbox, não filtramos mais por distância do centro
+//     e a verificação de addr:city só é aplicada se a tag existir e for diferente.
 // ════════════════════════════════════════════════════════════════════════════
 async function buscarPorMunicipio() {
     const uf = document.getElementById('selectEstado').value;
@@ -1986,12 +1953,13 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
 
     // ─── PASSO 3: processar em paralelo SEM reverseGeocode individual ───────
     // Quando usandoArea = true  → aceita todos (o Overpass já limitou ao município).
-    // Quando usandoArea = false → aceita unidades cujo addr:city bate com o nome
-    //                             OU (sem addr:city) estejam dentro de 30km do centro,
-    //                             evitando centenas de chamadas Nominatim por elemento.
-    const raioAceitacaoKm = 30;
+    // Quando usandoArea = false → aceita todas as unidades dentro do bbox,
+    //                              sem filtro de distância do centro.
+    //                              A verificação de addr:city é aplicada apenas
+    //                              se a tag existir e for diferente do município.
     const BATCH = 50;
     const unidades = [];
+    const nomeMunNorm = norm(municipio.nome);
 
     for (let i = 0; i < elementos.length; i += BATCH) {
         if (!buscaAtiva) return [];
@@ -2004,14 +1972,15 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
             if (!elLat || !elLon) return null;
 
             if (!usandoArea) {
-                // Filtro espacial leve: descarta unidades fora do raio de aceitação
-                const dist = calcularDistancia(municipio.latitude, municipio.longitude, elLat, elLon);
-                if (dist > raioAceitacaoKm) return null;
-
                 // Verifica cidade somente se addr:city estiver disponível na tag
-                // (evita flood de requisições Nominatim)
-                const addrCity = norm(tags['addr:city'] || '');
-                if (addrCity && addrCity !== norm(municipio.nome)) return null;
+                // e for diferente do município alvo (evita falsos positivos de cidades vizinhas)
+                const addrCity = tags['addr:city'] || '';
+                if (addrCity) {
+                    const addrNorm = norm(addrCity);
+                    // Se a cidade informada for diferente do município, descarta
+                    if (addrNorm && addrNorm !== nomeMunNorm) return null;
+                }
+                // Se não tem addr:city, mantém (dentro do bbox)
             }
 
             return await montarUnidade(tags, elLat, elLon, el.id,
