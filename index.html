@@ -1034,9 +1034,15 @@ const CONFIG = {
     OVERPASS: 'https://overpass-api.de/api/interpreter'
 };
 
-// Lista expandida de tipos de saúde
-const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polyclinic|health|hospitals|medical|social_facility|nursing_home|birthing_center|healthcare|centre|ambulatory|health_center|health_station|maternity|urgent_care|emergency_ward|community_health_worker|phc|primary_healthcare';
-const EXCLUIR_TIPOS = 'pharmacy|dentist|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary';
+// Tipos OSM aceitos na busca (amenity=)
+const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polyclinic|health|hospitals|medical|social_facility|nursing_home|birthing_center|healthcare|centre|ambulatory|health_center|health_station|maternity|urgent_care|emergency_ward|community_health_worker|phc|primary_healthcare|dentist';
+
+// Tipos OSM excluídos via tag healthcare= (apenas serviços claramente privados/não-SUS)
+// NOTA: dentist NAO e excluido — CEOs (Centros de Especialidades Odontológicas) são SUS
+const EXCLUIR_TIPOS = 'pharmacy|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary';
+
+// Padrão de nomes para busca direta no Overpass (captura unidades sem tags corretas no OSM)
+const NOME_PATTERN = 'UBS |Unidade B.sica|Posto de Sa.de|UPA |Unidade de Pronto|CAPS |CAPS-AD|Cl.nica da Fam.lia|ESF |PSF |CMS |CEO |AME |CER |Policl.nica|Maternidade|Santa Casa|Hospital Municipal|Hospital Estadual|Hospital Federal|Hospital Geral|Hospital Universit.rio|Hospital de Ensino|Centro de Sa.de|Centro Municipal|Centro de Aten.ao|Centro de Reabilita';
 
 let allUnits = [];
 let filteredUnits = [];
@@ -1110,43 +1116,52 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS (PONTUAÇÃO REFATORADA) — mantido igual
+//  VÍNCULO SUS — REFATORADO COM MAIOR COBERTURA
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
     // 1. CNES é prova definitiva
     if (tags['ref:CNES'] || tags['ref:cnes']) return true;
 
     const nomeNorm = norm(nome);
-    const op = norm(tags.operator || '');
-    const brand = norm(tags.brand || '');
+    const op      = norm(tags.operator || '');
+    const brand   = norm(tags.brand    || '');
+    const funding = norm(tags.funding  || tags['healthcare:funding'] || '');
 
-    // 2. Verificar palavras privadas (exclusão imediata)
-    const palavrasPrivadas = ['particular', 'privado', 'unimed', 'plano de saude', 'convênio', 'empresa privada', 'clinica particular', 'hospital privado'];
-    for (let palavra of palavrasPrivadas) {
-        if (op.includes(palavra) || nomeNorm.includes(palavra) || brand.includes(palavra)) {
-            return false;
-        }
+    // 2. Exclusão imediata: explicitamente privado/convênio
+    const palavrasPrivadas = [
+        'particular', 'privado', 'unimed', 'plano de saude', 'convenio',
+        'empresa privada', 'clinica particular', 'hospital privado',
+        'amil', 'bradesco saude', 'sulamerica', 'notredame', 'hapvida'
+    ];
+    for (const p of palavrasPrivadas) {
+        if (op.includes(p) || nomeNorm.includes(p) || brand.includes(p) || funding.includes(p)) return false;
     }
 
-    // 3. Pontuação
+    // 3. Aceitação imediata por indicadores fortes de gestão pública
+    if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
+    if (tags.ownership === 'public' || tags.government) return true;
+    if (funding === 'public' || funding === 'government') return true;
+    const palavrasOperadorPublico = [
+        'public', 'government', 'municipal', 'estadual', 'federal',
+        'prefeitura', 'secretaria', 'ministerio', 'autarquia', 'fundacao', 'sus', 'governo'
+    ];
+    for (const p of palavrasOperadorPublico) {
+        if (op.includes(p)) return true;
+    }
+
+    // 4. Pontuação
     let score = 0;
-    const desc = norm(tags.description || '');
+    const desc   = norm(tags.description || '');
+    const amenity = (tags.amenity || '').toLowerCase();
+    const hcare   = (tags.healthcare || '').toLowerCase();
 
-    // Operador público
-    const palavrasOperadorPublico = ['public', 'government', 'municipal', 'estadual', 'federal', 'prefeitura', 'secretaria', 'ministerio', 'autarquia', 'fundacao'];
-    for (let palavra of palavrasOperadorPublico) {
-        if (op.includes(palavra)) score += 50;
-    }
-
-    // Tipo de operador
-    const operatorType = tags['operator:type'] || '';
-    if (operatorType === 'public' || operatorType === 'government') score += 60;
-
-    // Propriedade pública
-    if (tags.ownership === 'public') score += 50;
-
+    // Tag healthcare presente (já passou pelo filtro EXCLUIR_TIPOS) = forte indicador SUS
+    if (hcare && hcare !== 'yes') score += 25;
+    // amenity tipicamente público
+    if (['hospital','health_post','health_centre','polyclinic'].includes(amenity)) score += 25;
+    else if (amenity === 'clinic') score += 15;
     // Acesso público
-    if (tags.access === 'yes' || tags.access === 'public') score += 20;
+    if (tags.access === 'yes' || tags.access === 'public') score += 10;
 
     // Palavras‑chave fortes no nome ou descrição
     const palavrasFortes = [
@@ -1177,14 +1192,15 @@ function isVinculadoSUS(tags, nome) {
         'centro de reabilitacao', 'instituto oncologico', 'instituto cardiologico',
         'inca', 'into', 'hc', 'hupe', 'huap'
     ];
-    for (let palavra of palavrasFortes) {
+    for (const palavra of palavrasFortes) {
         if (nomeNorm.includes(palavra) || desc.includes(palavra)) {
             score += 30;
             break;
         }
     }
 
-    return score >= 30;
+    // Limiar reduzido: qualquer unidade com tag de saúde + indicativo de nome é aceita
+    return score >= 20;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1563,56 +1579,64 @@ async function usarGeolocalizacao() {
 
     navigator.geolocation.getCurrentPosition(
         async (position) => {
-            if (!buscaAtiva) return;
-            
-            currentGeoPosition = {
-                lat: position.coords.latitude,
-                lon: position.coords.longitude
-            };
-
-            updateSearchProgress(20, 'Localização obtida!', `Lat: ${currentGeoPosition.lat.toFixed(4)}, Lon: ${currentGeoPosition.lon.toFixed(4)}`);
-
-            // Tenta obter a cidade (não crítico)
-            let location = null;
             try {
-                location = await reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon);
-            } catch (e) {
-                console.warn('Reverse geocode falhou, continuando sem cidade');
-            }
+                if (!buscaAtiva) return;
 
-            const cidade = location?.cidade || 'sua localização';
-            const uf = location?.uf || '';
+                currentGeoPosition = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude
+                };
 
-            updateSearchProgress(30, 'Município detectado', cidade);
+                updateSearchProgress(20, 'Localização obtida!', `Lat: ${currentGeoPosition.lat.toFixed(4)}, Lon: ${currentGeoPosition.lon.toFixed(4)}`);
 
-            const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
-            let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio, uf, cidade);
-            if (!buscaAtiva) return;
-
-            units.forEach(u => {
-                if (u.lat && u.lon) {
-                    u.distancia = calcularDistancia(
-                        currentGeoPosition.lat,
-                        currentGeoPosition.lon,
-                        u.lat,
-                        u.lon
-                    );
+                // Tenta obter a cidade (não crítico)
+                let location = null;
+                try {
+                    location = await reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon);
+                } catch (e) {
+                    console.warn('Reverse geocode falhou, continuando sem cidade');
                 }
-            });
-            units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
 
-            allUnits = units;
-            if (!buscaAtiva) return;
-            applyLocalFilters();
+                const cidade = location?.cidade || 'sua localização';
+                const uf = location?.uf || '';
 
-            updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades no raio de ${raio}km`);
-            setTimeout(() => {
+                updateSearchProgress(30, 'Município detectado', cidade);
+
+                const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
+                let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio, uf, cidade);
+                if (!buscaAtiva) return;
+
+                units.forEach(u => {
+                    if (u.lat && u.lon) {
+                        u.distancia = calcularDistancia(
+                            currentGeoPosition.lat,
+                            currentGeoPosition.lon,
+                            u.lat,
+                            u.lon
+                        );
+                    }
+                });
+                units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
+
+                allUnits = units;
+                if (!buscaAtiva) return;
+                applyLocalFilters();
+
+                updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades no raio de ${raio}km`);
+                setTimeout(() => {
+                    showSearchProgress(false);
+                    showNotification(`${allUnits.length} unidades encontradas próximas a você`, 'success');
+                    document.getElementById('geoStatus').textContent =
+                        `📍 Sua localização: ${cidade} • ${allUnits.length} unidades no raio de ${raio}km`;
+                }, 800);
+
+            } catch (err) {
+                // Garante que o spinner SEMPRE seja fechado, mesmo em erros de rede/Overpass
+                console.error('Erro na busca por proximidade:', err);
+                buscaAtiva = false;
                 showSearchProgress(false);
-                showNotification(`${allUnits.length} unidades encontradas próximas a você`, 'success');
-                document.getElementById('geoStatus').textContent = 
-                    `📍 Sua localização: ${cidade} • ${allUnits.length} unidades no raio de ${raio}km`;
-            }, 800);
-
+                showNotification('Erro ao buscar unidades próximas: ' + (err.message || 'falha na conexão'), 'error');
+            }
         },
         (error) => {
             showSearchProgress(false);
@@ -1628,13 +1652,17 @@ async function usarGeolocalizacao() {
 
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const raioMetros = raioKm * 1000;
+    // Query unificada: tags OSM + busca por nome (para unidades sem tags corretas no Brasil)
     const query = `
-[out:json][timeout:45];
+[out:json][timeout:60];
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
+  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
   node["amenity"~"^(${INCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
+  node["name"~"${NOME_PATTERN}",i](around:${raioMetros},${lat},${lon});
+  way["name"~"${NOME_PATTERN}",i](around:${raioMetros},${lat},${lon});
 );
 out center tags;
     `.trim();
@@ -1720,15 +1748,18 @@ async function buscarPorMunicipio() {
             throw new Error('Não foi possível obter coordenadas do município');
         }
 
-        updateSearchProgress(20, 'Localizando área do município...', `${municipio.nome} (${municipio.latitude.toFixed(4)}, ${municipio.longitude.toFixed(4)})`);
+        updateSearchProgress(20, 'Localizando área do município...',
+            `${municipio.nome} — ${municipio.osmType || 'bbox'} OSM`);
 
         const units = await buscarUnidadesNoMunicipio(municipio, uf);
         if (!buscaAtiva) return;
-        
+
         if (units.length === 0) {
-            updateSearchProgress(100, 'Nenhuma unidade encontrada', 'Tente expandir a busca');
-            setTimeout(() => showSearchProgress(false), 1500);
-            showNotification('Nenhuma unidade encontrada neste município', 'warning');
+            updateSearchProgress(100, 'Nenhuma unidade SUS encontrada',
+                'O mapeamento OSM desta área pode estar incompleto');
+            setTimeout(() => showSearchProgress(false), 2000);
+            showNotification('Nenhuma unidade SUS encontrada neste município. '
+                + 'O mapeamento da região no OpenStreetMap pode estar incompleto.', 'error');
             return;
         }
 
@@ -1736,16 +1767,19 @@ async function buscarPorMunicipio() {
         if (!buscaAtiva) return;
         applyLocalFilters();
 
-        updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades encontradas em ${municipio.nome}`);
+        updateSearchProgress(100, 'Concluído!',
+            `${allUnits.length} unidades encontradas em ${municipio.nome}`);
         setTimeout(() => {
             showSearchProgress(false);
-            showNotification(`${allUnits.length} unidades encontradas em ${municipio.nome}`, 'success');
+            showNotification(
+                `${allUnits.length} unidades SUS encontradas em ${municipio.nome}`, 'success');
         }, 800);
 
     } catch (error) {
         console.error('Erro na busca por município:', error);
+        buscaAtiva = false;
         showSearchProgress(false);
-        showNotification('Erro ao buscar unidades: ' + error.message, 'error');
+        showNotification('Erro ao buscar unidades: ' + (error.message || 'falha na conexão'), 'error');
     }
 }
 
@@ -1764,6 +1798,12 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
         if (!response.ok) return null;
         const data = await response.json();
         if (data.length > 0) {
+            // Extrair bounding box [minlat, maxlat, minlon, maxlon] → [sul, norte, oeste, leste]
+            let bbox = null;
+            if (data[0].boundingbox && data[0].boundingbox.length === 4) {
+                const bb = data[0].boundingbox.map(parseFloat);
+                bbox = [bb[0], bb[1], bb[2], bb[3]];
+            }
             const mun = {
                 id: codigoIBGE,
                 nome: nomeMunicipio,
@@ -1771,7 +1811,8 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
                 longitude: parseFloat(data[0].lon),
                 osmId: data[0].osm_id,
                 osmType: data[0].osm_type,
-                geojson: data[0].geojson
+                geojson: data[0].geojson,
+                bbox
             };
             if (!municipiosPorEstado[uf]) municipiosPorEstado[uf] = [];
             const index = municipiosPorEstado[uf].findIndex(m => m.id === codigoIBGE);
@@ -1785,97 +1826,115 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
     return null;
 }
 
+// Função auxiliar: cria a union Overpass para um escopo (área ou bbox)
+function buildHealthQuery(escopo) {
+    return `
+[out:json][timeout:180];
+${escopo}
+(
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](__AREA__);
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](__AREA__);
+  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](__AREA__);
+  node["amenity"~"^(${INCLUIR_TIPOS})$"](__AREA__);
+  way["amenity"~"^(${INCLUIR_TIPOS})$"](__AREA__);
+  relation["amenity"~"^(${INCLUIR_TIPOS})$"](__AREA__);
+  node["name"~"${NOME_PATTERN}",i](__AREA__);
+  way["name"~"${NOME_PATTERN}",i](__AREA__);
+);
+out center tags;
+    `.trim();
+}
+
 async function buscarUnidadesNoMunicipio(municipio, uf) {
     let elementos = [];
     let usandoArea = false;
 
-    // 1. Tentar usar relação administrativa
+    // ─── PASSO 1: relação administrativa OSM ───────────────────────────────
     if (municipio.osmId && municipio.osmType === 'relation') {
         const areaId = 3600000000 + municipio.osmId;
-        const queryArea = `
-[out:json][timeout:120];
-area(${areaId})->.searchArea;
-(
-  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](area.searchArea);
-  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](area.searchArea);
-  node["amenity"~"^(${INCLUIR_TIPOS})$"](area.searchArea);
-  way["amenity"~"^(${INCLUIR_TIPOS})$"](area.searchArea);
-);
-out center tags;
-        `;
+        const escopoArea = `area(${areaId})->.searchArea;`;
+        const queryArea  = buildHealthQuery(escopoArea).replace(/__AREA__/g, 'area.searchArea');
+        updateSearchProgress(30, 'Consultando área municipal...', `Relação OSM: ${municipio.osmId}`);
         try {
             const dados = await consultarOverpass(queryArea);
             elementos = dados.elements || [];
             usandoArea = elementos.length > 0;
-            if (usandoArea) updateSearchProgress(50, 'Usando relação administrativa...', `${elementos.length} candidatos`);
-        } catch (e) { console.warn('Falha ao consultar por área:', e); }
+            if (usandoArea) updateSearchProgress(50, 'Área municipal encontrada', `${elementos.length} candidatos`);
+        } catch (e) { console.warn('Falha na relação administrativa:', e); }
     }
 
-    // 2. Fallback: bounding box ampla
+    // ─── PASSO 2: bounding box derivada do Nominatim ────────────────────────
     if (elementos.length === 0) {
         updateSearchProgress(35, 'Usando bounding box...', 'calculando área aproximada');
-        const raio = 30; // km
-        const lat = municipio.latitude;
-        const lon = municipio.longitude;
-        const dLat = raio / 111;
-        const dLon = raio / (111 * Math.cos(lat * Math.PI / 180));
-        const sul = (lat - dLat).toFixed(6);
-        const norte = (lat + dLat).toFixed(6);
-        const oeste = (lon - dLon).toFixed(6);
-        const leste = (lon + dLon).toFixed(6);
-        const queryBbox = `
-[out:json][timeout:120];
-(
-  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${sul},${oeste},${norte},${leste});
-  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${sul},${oeste},${norte},${leste});
-  node["amenity"~"^(${INCLUIR_TIPOS})$"](${sul},${oeste},${norte},${leste});
-  way["amenity"~"^(${INCLUIR_TIPOS})$"](${sul},${oeste},${norte},${leste});
-);
-out center tags;
-        `;
+        const lat  = municipio.latitude;
+        const lon  = municipio.longitude;
+        // Usa o bbox do Nominatim se disponível, senão calcula raio de 25km
+        let sul, norte, oeste, leste;
+        if (municipio.bbox && municipio.bbox.length === 4) {
+            [sul, norte, oeste, leste] = municipio.bbox;
+        } else {
+            const raio = 25;
+            const dLat = raio / 111;
+            const dLon = raio / (111 * Math.cos(lat * Math.PI / 180));
+            sul   = (lat - dLat).toFixed(6);
+            norte = (lat + dLat).toFixed(6);
+            oeste = (lon - dLon).toFixed(6);
+            leste = (lon + dLon).toFixed(6);
+        }
+        const bboxStr   = `${sul},${oeste},${norte},${leste}`;
+        const escopoBbox = '';
+        const queryBbox  = buildHealthQuery('').replace(/__AREA__/g, bboxStr);
         try {
             const dados = await consultarOverpass(queryBbox);
             elementos = dados.elements || [];
-            if (elementos.length > 0) updateSearchProgress(50, 'Usando bounding box...', `${elementos.length} candidatos`);
+            if (elementos.length > 0) updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
         } catch (e) { console.warn('Overpass bbox falhou:', e); }
     }
 
     if (elementos.length === 0) return [];
 
-    updateSearchProgress(60, 'Classificando unidades...', `${elementos.length} candidatos encontrados`);
+    updateSearchProgress(55, 'Filtrando e classificando...', `${elementos.length} candidatos`);
 
+    // ─── PASSO 3: processar em paralelo SEM reverseGeocode individual ───────
+    // Quando usandoArea = true  → aceita todos (o Overpass já limitou ao município).
+    // Quando usandoArea = false → aceita unidades cujo addr:city bate com o nome
+    //                             OU (sem addr:city) estejam dentro de 30km do centro,
+    //                             evitando centenas de chamadas Nominatim por elemento.
+    const raioAceitacaoKm = 30;
+    const BATCH = 50;
     const unidades = [];
-    const batchSize = 20;
-    for (let i = 0; i < elementos.length; i += batchSize) {
-        const batch = elementos.slice(i, i + batchSize);
+
+    for (let i = 0; i < elementos.length; i += BATCH) {
+        if (!buscaAtiva) return [];
+        const batch = elementos.slice(i, i + BATCH);
+
         const promises = batch.map(async (el) => {
             const tags = el.tags || {};
-            const lat = el.lat ?? el.center?.lat;
-            const lon = el.lon ?? el.center?.lon;
-            if (!lat || !lon) return null;
+            const elLat = el.lat ?? el.center?.lat;
+            const elLon = el.lon ?? el.center?.lon;
+            if (!elLat || !elLon) return null;
 
-            // Se não estamos usando área, precisamos verificar a cidade
             if (!usandoArea) {
-                let cidade = tags['addr:city'];
-                if (!cidade) {
-                    const rev = await reverseGeocode(lat, lon);
-                    if (rev) cidade = rev.cidade;
-                }
-                // Se a cidade não corresponder, descarta
-                if (!cidade || norm(cidade) !== norm(municipio.nome)) return null;
+                // Filtro espacial leve: descarta unidades fora do raio de aceitação
+                const dist = calcularDistancia(municipio.latitude, municipio.longitude, elLat, elLon);
+                if (dist > raioAceitacaoKm) return null;
+
+                // Verifica cidade somente se addr:city estiver disponível na tag
+                // (evita flood de requisições Nominatim)
+                const addrCity = norm(tags['addr:city'] || '');
+                if (addrCity && addrCity !== norm(municipio.nome)) return null;
             }
 
-            return await montarUnidade(tags, lat, lon, el.id, el.type === 'node' ? 'node' : 'way', uf, municipio.nome);
+            return await montarUnidade(tags, elLat, elLon, el.id,
+                el.type === 'node' ? 'node' : (el.type === 'relation' ? 'relation' : 'way'),
+                uf, municipio.nome);
         });
 
         const results = await Promise.all(promises);
-        for (const u of results) {
-            if (u) unidades.push(u);
-        }
+        for (const u of results) { if (u) unidades.push(u); }
 
-        const pct = 60 + Math.round((i + batchSize) / elementos.length * 30);
-        updateSearchProgress(pct, 'Processando...', `${unidades.length} unidades válidas encontradas`);
-        if (!buscaAtiva) return [];
+        const pct = 55 + Math.round(((i + BATCH) / elementos.length) * 40);
+        updateSearchProgress(Math.min(pct, 95), 'Processando...', `${unidades.length} unidades SUS válidas`);
     }
 
     return deduplicar(unidades);
@@ -1941,7 +2000,8 @@ async function onEstadoChange() {
             longitude: null,
             osmId: null,
             osmType: null,
-            geojson: null
+            geojson: null,
+            bbox: null
         }));
         selectMun.innerHTML = '<option value="">— Selecione um município —</option>';
         municipiosPorEstado[uf].sort((a, b) => a.nome.localeCompare(b.nome)).forEach(mun => {
