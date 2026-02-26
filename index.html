@@ -1037,12 +1037,9 @@ const CONFIG = {
 // Tipos OSM aceitos na busca (amenity=)
 const INCLUIR_TIPOS = 'hospital|clinic|health_post|health_centre|doctors|polyclinic|health|hospitals|medical|social_facility|nursing_home|birthing_center|healthcare|centre|ambulatory|health_center|health_station|maternity|urgent_care|emergency_ward|community_health_worker|phc|primary_healthcare|dentist';
 
-// Tipos OSM excluídos via tag healthcare= (apenas serviços claramente privados/não-SUS)
-// NOTA: dentist NAO e excluido — CEOs (Centros de Especialidades Odontológicas) são SUS
+// Tipos OSM excluídos via tag healthcare= (serviços privados/não-SUS)
+// NOTA: dentist NÃO é excluído — CEOs são SUS
 const EXCLUIR_TIPOS = 'pharmacy|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary';
-
-// Padrão de nomes para busca direta no Overpass (captura unidades sem tags corretas no OSM)
-const NOME_PATTERN = 'UBS |Unidade B.sica|Posto de Sa.de|UPA |Unidade de Pronto|CAPS |CAPS-AD|Cl.nica da Fam.lia|ESF |PSF |CMS |CEO |AME |CER |Policl.nica|Maternidade|Santa Casa|Hospital Municipal|Hospital Estadual|Hospital Federal|Hospital Geral|Hospital Universit.rio|Hospital de Ensino|Centro de Sa.de|Centro Municipal|Centro de Aten.ao|Centro de Reabilita';
 
 let allUnits = [];
 let filteredUnits = [];
@@ -1084,13 +1081,38 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function consultarOverpass(query) {
-    const resp = await fetch(CONFIG.OVERPASS, {
-        method: 'POST',
-        body: query
-    });
-    if (!resp.ok) throw new Error('Overpass falhou');
-    return await resp.json();
+// consultarOverpass: AbortController garante timeout real no fetch;
+// em caso de falha tenta espelhos alternativos antes de desistir.
+const OVERPASS_MIRRORS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+];
+
+async function consultarOverpass(query, timeoutMs = 90000) {
+    let lastErr;
+    for (const endpoint of OVERPASS_MIRRORS) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                body: query,
+                signal: controller.signal,
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
+            clearTimeout(timer);
+            if (resp.ok) return await resp.json();
+            const txt = await resp.text().catch(() => resp.status);
+            lastErr = new Error(`HTTP ${resp.status}: ${String(txt).slice(0, 120)}`);
+        } catch (e) {
+            clearTimeout(timer);
+            lastErr = e;
+            console.warn(`Overpass ${endpoint} falhou:`, e.message || e);
+            await new Promise(r => setTimeout(r, 1000)); // pausa antes do próximo espelho
+        }
+    }
+    throw lastErr || new Error('Todos os servidores Overpass falharam');
 }
 
 function showSearchProgress(visible) {
@@ -1149,17 +1171,18 @@ function isVinculadoSUS(tags, nome) {
         if (op.includes(p)) return true;
     }
 
-    // 4. Pontuação
+    // 4. Pontuação — threshold baixo para cobrir unidades com tags OSM mas sem operador declarado
     let score = 0;
-    const desc   = norm(tags.description || '');
+    const desc    = norm(tags.description || '');
     const amenity = (tags.amenity || '').toLowerCase();
     const hcare   = (tags.healthcare || '').toLowerCase();
 
     // Tag healthcare presente (já passou pelo filtro EXCLUIR_TIPOS) = forte indicador SUS
-    if (hcare && hcare !== 'yes') score += 25;
+    if (hcare && hcare !== 'yes') score += 30;
     // amenity tipicamente público
-    if (['hospital','health_post','health_centre','polyclinic'].includes(amenity)) score += 25;
-    else if (amenity === 'clinic') score += 15;
+    if (['hospital','health_post','health_centre','polyclinic'].includes(amenity)) score += 30;
+    else if (amenity === 'clinic') score += 20;
+    else if (amenity && amenity !== '') score += 15;
     // Acesso público
     if (tags.access === 'yes' || tags.access === 'public') score += 10;
 
@@ -1199,8 +1222,8 @@ function isVinculadoSUS(tags, nome) {
         }
     }
 
-    // Limiar reduzido: qualquer unidade com tag de saúde + indicativo de nome é aceita
-    return score >= 20;
+    // Limiar: qualquer elemento com tag healthcare ou amenity de saúde já passa
+    return score >= 15;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1651,18 +1674,17 @@ async function usarGeolocalizacao() {
 }
 
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
-    const raioMetros = raioKm * 1000;
-    // Query unificada: tags OSM + busca por nome (para unidades sem tags corretas no Brasil)
+    const R = raioKm * 1000;
+    const around = `around:${R},${lat},${lon}`;
     const query = `
 [out:json][timeout:60];
 (
-  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
-  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
-  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
-  node["amenity"~"^(${INCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
-  way["amenity"~"^(${INCLUIR_TIPOS})$"](around:${raioMetros},${lat},${lon});
-  node["name"~"${NOME_PATTERN}",i](around:${raioMetros},${lat},${lon});
-  way["name"~"${NOME_PATTERN}",i](around:${raioMetros},${lat},${lon});
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
+  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
+  node["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
+  way["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
+  relation["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
 );
 out center tags;
     `.trim();
@@ -1791,7 +1813,7 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
 
     try {
         const nomeBusca = encodeURIComponent(`${nomeMunicipio}, ${uf}, Brasil`);
-        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br&polygon_geojson=1&addressdetails=1`;
+        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br&polygon_geojson=0&addressdetails=1`;
         const response = await fetch(url, {
             headers: { 'User-Agent': `SaudeBR-Localizador/4.5 (${CONFIG.NOMINATIM.EMAIL})` }
         });
@@ -1826,20 +1848,22 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
     return null;
 }
 
-// Função auxiliar: cria a union Overpass para um escopo (área ou bbox)
-function buildHealthQuery(escopo) {
+// Função auxiliar: constrói a query Overpass para um escopo.
+// escopo pode ser:
+//   • "area(NNNN)->.a;"   → busca dentro de relação administrativa
+//   • ""                  → __AREA__ será substituído pelo bbox "sul,oeste,norte,leste"
+function buildHealthQuery(escopo, areaVar) {
+    // areaVar = "area.a" para query de área, ou o bbox direto para query de bbox
     return `
-[out:json][timeout:180];
+[out:json][timeout:90];
 ${escopo}
 (
-  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](__AREA__);
-  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](__AREA__);
-  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](__AREA__);
-  node["amenity"~"^(${INCLUIR_TIPOS})$"](__AREA__);
-  way["amenity"~"^(${INCLUIR_TIPOS})$"](__AREA__);
-  relation["amenity"~"^(${INCLUIR_TIPOS})$"](__AREA__);
-  node["name"~"${NOME_PATTERN}",i](__AREA__);
-  way["name"~"${NOME_PATTERN}",i](__AREA__);
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
+  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
+  node["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
+  way["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
+  relation["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
 );
 out center tags;
     `.trim();
@@ -1850,25 +1874,30 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
     let usandoArea = false;
 
     // ─── PASSO 1: relação administrativa OSM ───────────────────────────────
+    // A relação administrativa é a forma mais precisa: busca apenas dentro do
+    // polígono real do município, sem ruído de cidades vizinhas.
     if (municipio.osmId && municipio.osmType === 'relation') {
-        const areaId = 3600000000 + municipio.osmId;
-        const escopoArea = `area(${areaId})->.searchArea;`;
-        const queryArea  = buildHealthQuery(escopoArea).replace(/__AREA__/g, 'area.searchArea');
-        updateSearchProgress(30, 'Consultando área municipal...', `Relação OSM: ${municipio.osmId}`);
+        const osmIdNum = parseInt(municipio.osmId, 10);
+        const areaId   = 3600000000 + osmIdNum;          // padrão Overpass para relations
+        updateSearchProgress(30, 'Consultando área municipal...', `Relação OSM #${osmIdNum}`);
+        const queryArea = buildHealthQuery(`area(${areaId})->.a;`, 'area.a');
         try {
             const dados = await consultarOverpass(queryArea);
-            elementos = dados.elements || [];
-            usandoArea = elementos.length > 0;
-            if (usandoArea) updateSearchProgress(50, 'Área municipal encontrada', `${elementos.length} candidatos`);
-        } catch (e) { console.warn('Falha na relação administrativa:', e); }
+            elementos    = dados.elements || [];
+            usandoArea   = elementos.length > 0;
+            if (usandoArea) updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
+        } catch (e) {
+            console.warn('Falha na relação administrativa:', e.message || e);
+        }
     }
 
-    // ─── PASSO 2: bounding box derivada do Nominatim ────────────────────────
+    // ─── PASSO 2: fallback por bounding box ────────────────────────────────
+    // Usado quando: município sem relação OSM, ou relação não produziu resultados.
+    // O bbox do Nominatim é preciso; se não disponível, calcula raio de 25 km.
     if (elementos.length === 0) {
-        updateSearchProgress(35, 'Usando bounding box...', 'calculando área aproximada');
-        const lat  = municipio.latitude;
-        const lon  = municipio.longitude;
-        // Usa o bbox do Nominatim se disponível, senão calcula raio de 25km
+        updateSearchProgress(35, 'Usando bounding box...', 'Calculando área do município');
+        const lat = municipio.latitude;
+        const lon = municipio.longitude;
         let sul, norte, oeste, leste;
         if (municipio.bbox && municipio.bbox.length === 4) {
             [sul, norte, oeste, leste] = municipio.bbox;
@@ -1881,14 +1910,15 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
             oeste = (lon - dLon).toFixed(6);
             leste = (lon + dLon).toFixed(6);
         }
-        const bboxStr   = `${sul},${oeste},${norte},${leste}`;
-        const escopoBbox = '';
-        const queryBbox  = buildHealthQuery('').replace(/__AREA__/g, bboxStr);
+        const bboxStr  = `${sul},${oeste},${norte},${leste}`;
+        const queryBbox = buildHealthQuery('', bboxStr);
         try {
             const dados = await consultarOverpass(queryBbox);
-            elementos = dados.elements || [];
+            elementos    = dados.elements || [];
             if (elementos.length > 0) updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
-        } catch (e) { console.warn('Overpass bbox falhou:', e); }
+        } catch (e) {
+            console.warn('Overpass bbox falhou:', e.message || e);
+        }
     }
 
     if (elementos.length === 0) return [];
