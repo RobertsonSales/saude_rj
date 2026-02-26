@@ -104,6 +104,159 @@
       text-transform: uppercase;
     }
 
+    /* ─── PIX BUTTON ─── */
+    .pix-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #00B37E 0%, #00C896 100%);
+      border: none;
+      border-radius: 10px;
+      padding: 9px 16px;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      box-shadow: 0 3px 12px rgba(0,180,126,0.45);
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+    .pix-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0,180,126,0.55);
+    }
+
+    /* ─── PIX MODAL ─── */
+    .pix-modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(11,31,58,0.75);
+      backdrop-filter: blur(6px);
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .pix-modal-overlay.visible { display: flex; }
+    .pix-modal-content {
+      background: var(--surface);
+      border-radius: 20px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 24px 64px rgba(11,31,58,0.25);
+      overflow: hidden;
+      animation: slideDown 0.3s ease;
+    }
+    .pix-modal-header {
+      background: linear-gradient(135deg, var(--navy) 0%, #1a4a7a 100%);
+      padding: 22px 24px 20px;
+      text-align: center;
+      position: relative;
+    }
+    .pix-modal-header h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .pix-modal-header p {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.55);
+    }
+    .pix-modal-close {
+      position: absolute;
+      top: 14px; right: 14px;
+      background: rgba(255,255,255,0.12);
+      border: none;
+      border-radius: 8px;
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: rgba(255,255,255,0.7);
+      transition: all 0.2s;
+    }
+    .pix-modal-close:hover { background: rgba(255,255,255,0.22); color: #fff; }
+    .pix-modal-body {
+      padding: 26px 24px 28px;
+      text-align: center;
+    }
+    .pix-appeal {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 22px;
+      text-align: left;
+    }
+    .pix-appeal strong { color: var(--navy); }
+    .pix-qr-wrap {
+      background: #fff;
+      border: 3px solid var(--teal-pale);
+      border-radius: 16px;
+      padding: 16px;
+      display: inline-block;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .pix-qr-wrap img {
+      display: block;
+      width: 200px; height: 200px;
+      border-radius: 8px;
+    }
+    .pix-key-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+    }
+    .pix-key-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .pix-key-value {
+      flex: 1;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--navy);
+      text-align: left;
+      word-break: break-all;
+    }
+    .pix-copy-btn {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-light) 100%);
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      white-space: nowrap;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .pix-copy-btn:hover { transform: scale(1.03); }
+    .pix-copy-btn.copied { background: linear-gradient(135deg, #00A878, #00A878); }
+    .pix-thanks {
+      font-size: 0.78rem;
+      color: var(--text-light);
+      margin-top: 4px;
+    }
+    .pix-thanks span { color: var(--teal); font-weight: 600; }
+
     /* ─── MAIN LAYOUT ─── */
     .main-wrapper {
       max-width: 1440px;
@@ -805,6 +958,12 @@
       <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
     <span class="header-badge">🟢 Online</span>
+    <button class="pix-btn" onclick="abrirModalPix()" title="Contribuir com o desenvolvedor via PIX">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
+      <span>Apoiar</span>
+    </button>
   </div>
 </header>
 
@@ -1017,6 +1176,45 @@
   </div>
 </div>
 
+<!-- ═══ PIX MODAL ═══ -->
+<div class="pix-modal-overlay" id="pixModal" onclick="fecharModalPixOverlay(event)">
+  <div class="pix-modal-content">
+    <div class="pix-modal-header">
+      <h3>💚 Apoie o Saúde(+)BR</h3>
+      <p>Contribuição voluntária via PIX</p>
+      <button class="pix-modal-close" onclick="fecharModalPix()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="pix-modal-body">
+      <p class="pix-appeal">
+        Se você gostou deste aplicativo e deseja contribuir com sua melhoria, <strong>ajude o desenvolvedor com qualquer contribuição em moeda nacional (BR)</strong>. Nós agradecemos muito sua participação! 🙏
+      </p>
+      <div class="pix-qr-wrap">
+        <img
+          src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=robertguima%40gmail.com&bgcolor=ffffff&color=0B1F3A&margin=8"
+          alt="QR Code PIX — robertguima@gmail.com"
+          loading="lazy"
+          onerror="this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=robertguima%40gmail.com&choe=UTF-8'"
+        >
+      </div>
+      <div class="pix-key-box">
+        <span class="pix-key-label">Chave PIX</span>
+        <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
+        <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copiar
+        </button>
+      </div>
+      <p class="pix-thanks">Sua contribuição financia melhorias e manutenção do serviço.<br><span>Muito obrigado! ❤️</span></p>
+    </div>
+  </div>
+</div>
+
 <footer class="footer">
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
 </footer>
@@ -1149,19 +1347,28 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS — REVISADO PARA SER MAIS INCLUSIVO
+//  VÍNCULO SUS — EXIGE PROVA POSITIVA DE PERTENCIMENTO À REDE PÚBLICA
 //
-//  Agora considera qualquer unidade de saúde como potencialmente pública,
-//  a menos que haja evidência explícita de ser privada.
+//  Lógica:  (A) sem prova positiva → rejeita
+//           (B) indício de serviço privado → rejeita (prevalece sobre A)
+//           (C) prova inequívoca de gestão pública → aceita
+//           (D) nome tipicamente SUS → aceita
+//
+//  ⚠  Tags OSM como healthcare=clinic ou amenity=hospital NÃO são prova
+//     suficiente por si sós — clínicas e hospitais privados usam as mesmas
+//     tags no OpenStreetMap.
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
+    // ── A: CNES é registro exclusivo do sistema público brasileiro ───────────
+    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
+
     const nomeNorm = norm(nome);
     const op       = norm(tags.operator || '');
     const brand    = norm(tags.brand    || '');
     const funding  = norm(tags.funding  || tags['healthcare:funding'] || '');
     const desc     = norm(tags.description || '');
 
-    // ── Exclusão imediata — marcadores inequívocos de serviço privado
+    // ── B: Exclusão imediata — qualquer marcador inequívoco de serviço privado
     const marcadoresPrivados = [
         // planos e operadoras privadas
         'unimed', 'amil', 'bradesco saude', 'sulamerica saude', 'notredame',
@@ -1178,6 +1385,13 @@ function isVinculadoSUS(tags, nome) {
         'hospital total cor', 'hospital leforte', 'hospital israelita',
         'hospital alemao oswaldo cruz', 'hospital santa catarina',
         'hospital pro matre', 'hospital sao camilo',
+        // privados específicos Rio de Janeiro
+        'hospital copa dor', 'hospital copa star', 'hospital barra dor',
+        'hospital quinta dor', 'hospital glória dor', 'hospital rios dor',
+        'hospital são lucas', 'clinica sao vicente', 'clinica são bernardo',
+        'hospital sao jose', 'hospital norte dor', 'hospital miracema',
+        'dasa', 'fleury', 'hermes pardini', 'grupo diagnosticos brasil',
+        'cassi', 'camed', 'petrosal', 'funcef',
     ];
     for (const p of marcadoresPrivados) {
         if (op.includes(p) || nomeNorm.includes(p) || brand.includes(p) || funding.includes(p)) {
@@ -1185,66 +1399,135 @@ function isVinculadoSUS(tags, nome) {
         }
     }
 
-    // ── Aceitação imediata se houver prova positiva de vínculo público ──
-    // CNES
-    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
+    // ── B2: healthcare= é uma tag específica para estabelecimentos de saúde.
+    // Se não há marcadores privados e a tag healthcare= aponta para tipo
+    // reconhecidamente compatível com SUS → aceita sem exigir prova adicional.
+    const hcTagSUS = ['clinic', 'hospital', 'health_post', 'health_centre',
+        'health_center', 'health_station', 'urgent_care', 'emergency_ward',
+        'primary_healthcare', 'community_health_worker', 'phc', 'polyclinic',
+        'birthing_center', 'maternity', 'dialysis', 'rehabilitation',
+        'nursing_home', 'social_facility'];
+    if (tags.healthcare && hcTagSUS.includes(tags.healthcare.toLowerCase())) return true;
 
-    // Tags de operador público
+    // ── C: Aceitação imediata — prova inequívoca de gestão pública ───────────
+
+    // Tags OSM explícitas de operador público
     if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
     if (tags.ownership === 'public' || tags.government) return true;
     if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
-    if (op.includes('prefeitura') || op.includes('secretaria') || op.includes('ministerio') ||
-        op.includes('governo do estado') || op.includes('governo municipal') ||
-        op.includes('governo federal') || op.includes('municipio de') ||
-        op.includes('estado de') || op.includes('autarquia') || op.includes('fundacao') ||
-        op.includes('sus') || op.includes('datasus') || op.includes('ebserh') ||
-        op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
 
-    // Nome com siglas ou expressões típicas de SUS
-    const siglas = [
-        /\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/,
-        /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/
+    // Operador contém nome de instituição pública brasileira
+    const opPublico = [
+        'prefeitura', 'secretaria', 'ministerio', 'governo do estado',
+        'governo municipal', 'governo federal', 'municipio de', 'estado de',
+        'autarquia', 'fundacao', 'sus', 'datasus', 'ebserh'
     ];
-    for (const r of siglas) {
+    for (const p of opPublico) {
+        if (op.includes(p)) return true;
+    }
+    // "municipal" e "estadual" e "federal" no operador (mas não no nome,
+    // pois "Hospital Municipal São Lucas" é verificado abaixo)
+    if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
+
+    // ── D: Nome identifica inequivocamente uma unidade SUS ───────────────────
+    //
+    // Siglas de 2-4 letras: exigem fronteira de palavra para evitar falsos
+    // positivos ("ame" dentro de "amei", "esf" dentro de "esforço", etc.)
+    const siglasRegex = [
+        /\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/,
+        /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/,
+        /\bame\b/, /\bsamu\b/, /\bcafs\b/,
+        /\bcf\b/,        // Clínica da Família (abreviação usada no Rio)
+        /\bcap\b/,       // Coordenação de Área Programática (Rio de Janeiro)
+        /\bsms\b/,       // Secretaria Municipal de Saúde (operador)
+        /\bsmsdc\b/,     // SMS e Defesa Civil — Rio de Janeiro
+        /\bcacon\b/,     // Centro de Assistência de Alta Complexidade em Oncologia
+        /\bcaps-i\b/, /\bcaps-ii\b/, /\bcaps-iii\b/,
+        /\bcaps i\b/,  /\bcaps ii\b/, /\bcaps iii\b/,
+    ];
+    for (const r of siglasRegex) {
         if (r.test(nomeNorm)) return true;
     }
 
+    // Expressões compostas (sem risco de falso positivo pela extensão)
     const nomesPublicos = [
-        'unidade basica de saude', 'unidade basica', 'posto de saude',
-        'clinica da familia', 'clinica de familia', 'centro de saude',
-        'centro municipal de saude', 'equipe de saude da familia',
-        'saude da familia', 'programa saude da familia',
-        'centro de atencao psicossocial', 'agente comunitario de saude',
+        // Atenção Primária
+        'unidade basica de saude', 'unidade basica',
+        'posto de saude',
+        'clinica da familia', 'clinica de familia',
+        'clinica municipal', 'clinica carioca',
+        'centro de saude', 'centro municipal de saude',
+        'equipe de saude da familia', 'saude da familia',
+        'programa saude da familia',
+        'centro de atencao psicossocial',
+        'agente comunitario de saude',
+        'nucleo de apoio a saude da familia', 'nasf',
+        'consultorio de rua', 'consultorio na rua',
+        'academia da saude',
+        // Atenção Secundária
         'unidade de pronto atendimento', 'unidade pronto atendimento',
         'ambulatorio medico de especialidades',
         'centro de especialidades odontologicas',
-        'coordenacao regional de emergencia', 'unidade mista de saude',
-        'unidade mista', 'servico de atendimento movel de urgencia',
-        'policlinica', 'hospital municipal', 'hospital estadual',
-        'hospital federal', 'hospital geral', 'hospital universitario',
-        'hospital de ensino', 'hospital escola', 'hospital regional',
-        'hospital de referencia', 'hospital das clinicas',
-        'hospital de clinicas', 'hospital infantil', 'hospital pediatrico',
+        'coordenacao regional de emergencia',
+        'unidade mista de saude', 'unidade mista',
+        'servico de atendimento movel de urgencia',
+        'policlinica', 'policlinica municipal', 'policlinica estadual',
+        'centro de especialidades', 'centro de referencia',
+        'centro de imagens', 'centro de diagnostico',
+        'laboratorio municipal', 'laboratorio estadual',
+        'pronto atendimento municipal', 'pronto atendimento',
+        'centro de atencao integral a saude', 'cais',
+        'ambulatorio de especialidades', 'ambulatorio municipal',
+        'nucleo municipal de saude', 'noas',
+        // Atenção Terciária
+        'hospital municipal', 'hospital estadual', 'hospital federal',
+        'hospital geral', 'hospital universitario', 'hospital de ensino',
+        'hospital escola', 'hospital regional', 'hospital de referencia',
+        'hospital das clinicas', 'hospital de clinicas',
+        'hospital infantil', 'hospital pediatrico',
         'hospital oncologico', 'hospital cardiologico', 'hospital especializado',
-        'hospital de urgencia', 'hospital de emergencia', 'santa casa',
-        'misericordia', 'centro de reabilitacao', 'maternidade municipal',
-        'maternidade estadual', 'maternidade federal', 'maternidade escola',
+        'hospital de urgencia', 'hospital de emergencia',
+        'hospital publico', 'hospital sus',
+        'santa casa', 'misericordia',
+        'centro de reabilitacao',
+        'maternidade municipal', 'maternidade estadual', 'maternidade federal',
+        'maternidade escola', 'maternidade publica',
+        // Institutos públicos conhecidos
         'instituto nacional de cancer', 'inca',
         'instituto nacional de traumatologia', 'into',
-        'instituto nacional de cardiologia', 'hospital das forcas armadas',
-        'hupe', 'huap', 'husm', 'hucff', 'hucam', 'ebserh'
+        'instituto nacional de cardiologia',
+        'instituto nacional de saude',
+        'hospital das forcas armadas',
+        'hupe', 'huap', 'husm', 'hucff', 'hucam', 'hurio',
+        'ebserh',
+        // Padrões administrativos Rio de Janeiro / SUS
+        'coordenacao de area programatica',
+        'secretaria municipal de saude',
+        'secretaria estadual de saude',
+        'secretaria de saude',
+        'fundacao oswaldo cruz', 'fiocruz',
+        'instituto municipal', 'instituto estadual',
+        'hospital albert schweitzer',
+        'hospital souza aguiar', 'hospital lourenco jorge',
+        'hospital getulio vargas',
+        'hospital salgado filho',
+        'hospital pedro ernesto',
+        'hospital angrense', 'hospital da mulher',
     ];
     for (const p of nomesPublicos) {
         if (nomeNorm.includes(p) || desc.includes(p)) return true;
     }
 
-    // ── Se chegou até aqui, não há evidência de ser privado.
-    //    Consideramos como pública por padrão, pois a unidade tem tags de saúde.
-    return true;
+    // Maternidade sem qualificador: aceita apenas se não contiver indicadores
+    // de serviço privado (já verificados acima) e tiver outro indício público
+    if (nomeNorm.startsWith('maternidade') && op && !op.includes('privado')) return true;
+
+    // ── Sem prova positiva → rejeita ─────────────────────────────────────────
+    return false;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DETERMINAR ESFERA DE GESTÃO (mantido igual)
+//  DETERMINAR ESFERA DE GESTÃO
 // ════════════════════════════════════════════════════════════════════════════
 function determinarGestao(tags, nome) {
     const op       = norm(tags.operator || '');
@@ -1299,7 +1582,8 @@ function classificarNivel(tags, nome) {
                           n.includes('unidade basica de saude') ||
                           n.includes('unidade basica');
     const ehPosto      = n.includes('posto de saude') || n.includes('posto saude');
-    const ehClinicaFam = n.includes('clinica da familia') || n.includes('clinica de familia');
+    const ehClinicaFam = n.includes('clinica da familia') || n.includes('clinica de familia') ||
+                          nomeN.startsWith('cf ') || nomeN === 'cf' || / cf[ /]/.test(nomeN);
     const ehESF        = nomeN.startsWith('esf ') || nomeN === 'esf' ||
                           n.includes(' esf ') || n.includes('saude da familia') ||
                           n.includes('equipe de saude da familia');
@@ -1701,7 +1985,7 @@ async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const R = raioKm * 1000;
     const around = `around:${R},${lat},${lon}`;
     const query = `
-[out:json][timeout:60];
+[out:json][timeout:90];
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
@@ -1709,6 +1993,8 @@ async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
   relation["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
+  node["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${around});
+  way["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${around});
 );
 out center tags;
     `.trim();
@@ -1771,9 +2057,7 @@ async function reverseGeocode(lat, lon) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  BUSCA POR MUNICÍPIO (REFATORADA COM FILTRO POR CIDADE CONDICIONAL)
-//  ⚠️  ALTERAÇÃO: no fallback por bbox, não filtramos mais por distância do centro
-//     e a verificação de addr:city só é aplicada se a tag existir e for diferente.
+//  BUSCA POR MUNICÍPIO (REFATORADA COM FILTRO POR CIDADE CONDICIONAL) — mantido igual
 // ════════════════════════════════════════════════════════════════════════════
 async function buscarPorMunicipio() {
     const uf = document.getElementById('selectEstado').value;
@@ -1881,7 +2165,7 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
 function buildHealthQuery(escopo, areaVar) {
     // areaVar = "area.a" para query de área, ou o bbox direto para query de bbox
     return `
-[out:json][timeout:90];
+[out:json][timeout:120];
 ${escopo}
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
@@ -1890,6 +2174,9 @@ ${escopo}
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
   relation["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
+  node["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${areaVar});
+  way["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${areaVar});
+  relation["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${areaVar});
 );
 out center tags;
     `.trim();
@@ -1953,13 +2240,12 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
 
     // ─── PASSO 3: processar em paralelo SEM reverseGeocode individual ───────
     // Quando usandoArea = true  → aceita todos (o Overpass já limitou ao município).
-    // Quando usandoArea = false → aceita todas as unidades dentro do bbox,
-    //                              sem filtro de distância do centro.
-    //                              A verificação de addr:city é aplicada apenas
-    //                              se a tag existir e for diferente do município.
+    // Quando usandoArea = false → aceita unidades cujo addr:city bate com o nome
+    //                             OU (sem addr:city) estejam dentro de 30km do centro,
+    //                             evitando centenas de chamadas Nominatim por elemento.
+    const raioAceitacaoKm = 30;
     const BATCH = 50;
     const unidades = [];
-    const nomeMunNorm = norm(municipio.nome);
 
     for (let i = 0; i < elementos.length; i += BATCH) {
         if (!buscaAtiva) return [];
@@ -1972,15 +2258,14 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
             if (!elLat || !elLon) return null;
 
             if (!usandoArea) {
+                // Filtro espacial leve: descarta unidades fora do raio de aceitação
+                const dist = calcularDistancia(municipio.latitude, municipio.longitude, elLat, elLon);
+                if (dist > raioAceitacaoKm) return null;
+
                 // Verifica cidade somente se addr:city estiver disponível na tag
-                // e for diferente do município alvo (evita falsos positivos de cidades vizinhas)
-                const addrCity = tags['addr:city'] || '';
-                if (addrCity) {
-                    const addrNorm = norm(addrCity);
-                    // Se a cidade informada for diferente do município, descarta
-                    if (addrNorm && addrNorm !== nomeMunNorm) return null;
-                }
-                // Se não tem addr:city, mantém (dentro do bbox)
+                // (evita flood de requisições Nominatim)
+                const addrCity = norm(tags['addr:city'] || '');
+                if (addrCity && addrCity !== norm(municipio.nome)) return null;
             }
 
             return await montarUnidade(tags, elLat, elLon, el.id,
@@ -2717,6 +3002,41 @@ async function compartilharPDFWhatsApp() {
         showNotification('Erro ao gerar PDF para WhatsApp', 'error');
         showSearchProgress(false);
     }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  MODAL PIX — Contribuição do desenvolvedor
+// ════════════════════════════════════════════════════════════════════════════
+function abrirModalPix() {
+    document.getElementById('pixModal').classList.add('visible');
+}
+function fecharModalPix() {
+    document.getElementById('pixModal').classList.remove('visible');
+    const btn = document.getElementById('pixCopyBtn');
+    btn.classList.remove('copied');
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar';
+}
+function fecharModalPixOverlay(e) {
+    if (e.target === document.getElementById('pixModal')) fecharModalPix();
+}
+async function copiarChavePix() {
+    const chave = document.getElementById('pixKeyText').textContent;
+    try {
+        await navigator.clipboard.writeText(chave);
+    } catch {
+        const ta = document.createElement('textarea');
+        ta.value = chave; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+    }
+    const btn = document.getElementById('pixCopyBtn');
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copiado!';
+    showNotification('Chave PIX copiada!', 'success');
+    setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar';
+    }, 3000);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
