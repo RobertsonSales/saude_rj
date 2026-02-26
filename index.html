@@ -104,28 +104,37 @@
       text-transform: uppercase;
     }
 
+    .header-right-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
     /* ─── PIX BUTTON ─── */
     .pix-btn {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
       background: linear-gradient(135deg, #00B37E 0%, #00C896 100%);
       border: none;
-      border-radius: 10px;
-      padding: 9px 16px;
+      border-radius: 9px;
+      padding: 7px 13px;
       color: #fff;
       font-family: 'Outfit', sans-serif;
       font-weight: 700;
-      font-size: 0.82rem;
+      font-size: 0.75rem;
       cursor: pointer;
       flex-shrink: 0;
-      box-shadow: 0 3px 12px rgba(0,180,126,0.45);
+      box-shadow: 0 3px 10px rgba(0,180,126,0.45);
       transition: all 0.2s;
       letter-spacing: 0.3px;
+      white-space: nowrap;
     }
     .pix-btn:hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(0,180,126,0.55);
+      box-shadow: 0 6px 16px rgba(0,180,126,0.55);
     }
 
     /* ─── PIX MODAL ─── */
@@ -957,13 +966,20 @@
       <h1>Saúde(+)<span>BR</span> &mdash; Seu Localizador de Unidades de Saúde</h1>
       <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
-    <span class="header-badge">🟢 Online</span>
-    <button class="pix-btn" onclick="abrirModalPix()" title="Contribuir com o desenvolvedor via PIX">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-      </svg>
-      <span>Apoiar</span>
-    </button>
+    <div class="header-right-col">
+      <span class="header-badge">🟢 Online</span>
+      <button class="pix-btn" onclick="abrirModalPix()" title="Contribuir com o desenvolvedor via PIX">
+        <!-- Logomarca PIX estilizada -->
+        <svg width="18" height="18" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15.5 4.5 L20 0 L24.5 4.5 L20 9 Z" fill="white" opacity="0.95"/>
+          <path d="M35.5 15.5 L40 20 L35.5 24.5 L31 20 Z" fill="white" opacity="0.95"/>
+          <path d="M24.5 35.5 L20 40 L15.5 35.5 L20 31 Z" fill="white" opacity="0.95"/>
+          <path d="M4.5 24.5 L0 20 L4.5 15.5 L9 20 Z" fill="white" opacity="0.95"/>
+          <path d="M20 9 L31 20 L20 31 L9 20 Z" fill="white" opacity="0.82"/>
+        </svg>
+        <span>Apoiar via PIX</span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -1202,7 +1218,7 @@
       </div>
       <div class="pix-key-box">
         <span class="pix-key-label">Chave PIX</span>
-        <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
+        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="7e0c111c1b0c0a190b17131f3e19131f1712501d1113">[email&#160;protected]</a></span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -1219,7 +1235,7 @@
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO E CONSTANTES (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
@@ -1399,15 +1415,14 @@ function isVinculadoSUS(tags, nome) {
         }
     }
 
-    // ── B2: healthcare= é uma tag específica para estabelecimentos de saúde.
-    // Se não há marcadores privados e a tag healthcare= aponta para tipo
-    // reconhecidamente compatível com SUS → aceita sem exigir prova adicional.
-    const hcTagSUS = ['clinic', 'hospital', 'health_post', 'health_centre',
-        'health_center', 'health_station', 'urgent_care', 'emergency_ward',
-        'primary_healthcare', 'community_health_worker', 'phc', 'polyclinic',
-        'birthing_center', 'maternity', 'dialysis', 'rehabilitation',
-        'nursing_home', 'social_facility'];
-    if (tags.healthcare && hcTagSUS.includes(tags.healthcare.toLowerCase())) return true;
+    // ── B2: Tags OSM de tipos EXCLUSIVAMENTE públicos/governamentais ─────────
+    // (health_post, primary_healthcare, community_health_worker, phc são
+    //  tipos que no OSM identificam unidades de atenção básica pública)
+    const hcTagsExclusivamentePublicas = [
+        'health_post', 'health_station', 'primary_healthcare',
+        'community_health_worker', 'phc'
+    ];
+    if (tags.healthcare && hcTagsExclusivamentePublicas.includes(tags.healthcare.toLowerCase())) return true;
 
     // ── C: Aceitação imediata — prova inequívoca de gestão pública ───────────
 
@@ -1993,8 +2008,12 @@ async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
   relation["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
-  node["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${around});
-  way["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${around});
+  node["ref:CNES"](${around});
+  way["ref:CNES"](${around});
+  node["operator:type"~"^(public|government)$"](${around});
+  way["operator:type"~"^(public|government)$"](${around});
+  node["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica de Sa.de|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica Municipal|Maternidade Municipal|Maternidade Estadual|CAPS |SAMU |Secretaria Municipal de Sa.de|Secretaria Estadual de Sa.de",i](${around});
+  way["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica de Sa.de|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica Municipal|Maternidade Municipal|Maternidade Estadual|CAPS |SAMU |Secretaria Municipal de Sa.de|Secretaria Estadual de Sa.de",i](${around});
 );
 out center tags;
     `.trim();
@@ -2174,9 +2193,13 @@ ${escopo}
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
   relation["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
-  node["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${areaVar});
-  way["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${areaVar});
-  relation["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica|Maternidade|CAPS |SAMU|Centro de Especialidades|Pronto Atendimento",i](${areaVar});
+  node["ref:CNES"](${areaVar});
+  way["ref:CNES"](${areaVar});
+  node["operator:type"~"^(public|government)$"](${areaVar});
+  way["operator:type"~"^(public|government)$"](${areaVar});
+  node["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica de Sa.de|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica Municipal|Maternidade Municipal|Maternidade Estadual|CAPS |SAMU |Secretaria Municipal de Sa.de|Secretaria Estadual de Sa.de",i](${areaVar});
+  way["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica de Sa.de|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica Municipal|Maternidade Municipal|Maternidade Estadual|CAPS |SAMU |Secretaria Municipal de Sa.de|Secretaria Estadual de Sa.de",i](${areaVar});
+  relation["name"~"Cl.nica da Fam.lia|Unidade de Pronto Atendimento|UPA |Centro Municipal de Sa.de|CMS |Posto de Sa.de|Unidade B.sica de Sa.de|Hospital Municipal|Hospital Estadual|Hospital Federal|Policl.nica Municipal|Maternidade Municipal|Maternidade Estadual|CAPS |SAMU |Secretaria Municipal de Sa.de|Secretaria Estadual de Sa.de",i](${areaVar});
 );
 out center tags;
     `.trim();
@@ -3044,15 +3067,4 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR Localizador de Unidades de Saúde - SUS');
-});
-
-document.querySelectorAll('.modal-overlay').forEach(modal => {
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('visible');
-    });
-});
-</script>
-
-</body>
-</html>
+    console.log('Saúde-BR Localizador de Unidades de Sa
