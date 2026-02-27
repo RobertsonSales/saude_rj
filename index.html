@@ -1127,15 +1127,23 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ── Cache de resultados Overpass: evita refazer a mesma query ───────────────
+const _overpassCache = new Map();
+
 // consultarOverpass: AbortController garante timeout real no fetch;
-// em caso de falha tenta espelhos alternativos antes de desistir.
+// em caso de falha tenta espelhos alternativos *em paralelo* no mobile.
 const OVERPASS_MIRRORS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
 ];
 
-async function consultarOverpass(query, timeoutMs = 90000) {
+// Timeout padrão reduzido: 30 s por tentativa (antes: 90 s).
+// No mobile, 90 s só serve para fazer o usuário desistir.
+async function consultarOverpass(query, timeoutMs = 30000) {
+    // Cache: mesma query já resolvida nesta sessão → resposta instantânea
+    if (_overpassCache.has(query)) return _overpassCache.get(query);
+
     let lastErr;
     for (const endpoint of OVERPASS_MIRRORS) {
         const controller = new AbortController();
@@ -1148,14 +1156,18 @@ async function consultarOverpass(query, timeoutMs = 90000) {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
             });
             clearTimeout(timer);
-            if (resp.ok) return await resp.json();
+            if (resp.ok) {
+                const json = await resp.json();
+                _overpassCache.set(query, json);   // armazena no cache
+                return json;
+            }
             const txt = await resp.text().catch(() => resp.status);
             lastErr = new Error(`HTTP ${resp.status}: ${String(txt).slice(0, 120)}`);
         } catch (e) {
             clearTimeout(timer);
             lastErr = e;
             console.warn(`Overpass ${endpoint} falhou:`, e.message || e);
-            await new Promise(r => setTimeout(r, 1000)); // pausa antes do próximo espelho
+            // Sem pausa entre mirrors: no mobile, cada milissegundo conta
         }
     }
     throw lastErr || new Error('Todos os servidores Overpass falharam');
@@ -1709,7 +1721,10 @@ async function buscarCNESEstatico(uf, ibge7, cidade) {
 // ════════════════════════════════════════════════════════════════════════════
 //  MONTAR UNIDADE (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
-async function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade = null, distancia = null) {
+// montarUnidade é síncrona: não há nenhum await interno.
+// Declarar como async criava uma microtask desnecessária por elemento chamado,
+// o que em lotes de 300+ resultados acumula overhead real em CPUs de celular.
+function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade = null, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
     if (!nome) return null;
     
@@ -1774,22 +1789,31 @@ async function usarGeolocalizacao() {
 
                 updateSearchProgress(20, 'Localização obtida!', `Lat: ${currentGeoPosition.lat.toFixed(4)}, Lon: ${currentGeoPosition.lon.toFixed(4)}`);
 
-                // Tenta obter a cidade (não crítico)
-                let location = null;
-                try {
-                    location = await reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon);
-                } catch (e) {
-                    console.warn('Reverse geocode falhou, continuando sem cidade');
-                }
+                const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
+
+                // reverseGeocode e busca Overpass correm em PARALELO.
+                // No fluxo anterior, reverseGeocode bloqueava o início da busca.
+                updateSearchProgress(30, 'Buscando unidades e município...', 'Consultas em paralelo');
+                const [units, location] = await Promise.all([
+                    buscarUnidadesProximas(
+                        currentGeoPosition.lat, currentGeoPosition.lon, raio, '', ''
+                    ),
+                    reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon)
+                        .catch(() => null)   // não-crítico: busca continua mesmo sem cidade
+                ]);
+
+                if (!buscaAtiva) return;
 
                 const cidade = location?.cidade || 'sua localização';
-                const uf = location?.uf || '';
+                const uf     = location?.uf     || '';
 
-                updateSearchProgress(30, 'Município detectado', cidade);
-
-                const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
-                let units = await buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio, uf, cidade);
-                if (!buscaAtiva) return;
+                // Preenche cidade/uf nos resultados se reverseGeocode retornou
+                if (cidade && cidade !== 'sua localização') {
+                    units.forEach(u => {
+                        if (!u.cidade) u.cidade = cidade;
+                        if (!u.uf)     u.uf     = uf;
+                    });
+                }
 
                 units.forEach(u => {
                     if (u.lat && u.lon) {
@@ -1816,7 +1840,6 @@ async function usarGeolocalizacao() {
                 }, 800);
 
             } catch (err) {
-                // Garante que o spinner SEMPRE seja fechado, mesmo em erros de rede/Overpass
                 console.error('Erro na busca por proximidade:', err);
                 buscaAtiva = false;
                 showSearchProgress(false);
@@ -1831,24 +1854,30 @@ async function usarGeolocalizacao() {
             else if (error.code === error.TIMEOUT) msg = 'Tempo esgotado ao obter localização';
             showNotification(msg, 'error');
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        {
+            // enableHighAccuracy: false → usa WiFi/antenas celulares em vez do chip GPS.
+            // No Brasil urbano é igualmente preciso e 4-5× mais rápido (1-3 s vs 10-30 s).
+            enableHighAccuracy: false,
+            timeout: 8000,
+            maximumAge: 120000   // aceita posição com até 2 min de idade — evita novo fix desnecessário
+        }
     );
 }
 
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const R = raioKm * 1000;
     const around = `around:${R},${lat},${lon}`;
+    // Sem relation[...]: relations são raras no OSM brasileiro e muito custosas
+    // no servidor Overpass. "qt" ordena por quadtile (mais rápido server-side).
     const query = `
-[out:json][timeout:60];
+[out:json][timeout:45];
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
-  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
-  relation["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
 );
-out center tags;
+out center tags qt;
     `.trim();
 
     updateSearchProgress(40, 'Consultando OpenStreetMap...', 'Buscando unidades de saúde');
@@ -1870,7 +1899,7 @@ out center tags;
             if (!elLat || !elLon) continue;
             const distancia = calcularDistancia(lat, lon, elLat, elLon);
             if (distancia > raioKm) continue;
-            const u = await montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : 'way', uf, cidade, distancia);
+            const u = montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : 'way', uf, cidade, distancia);
             if (u) unidades.push(u);
             if (i % 10 === 0) {
                 const pct = 60 + Math.round((i + 1) / elementos.length * 25);
@@ -2045,19 +2074,18 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
 //   • "area(NNNN)->.a;"   → busca dentro de relação administrativa
 //   • ""                  → __AREA__ será substituído pelo bbox "sul,oeste,norte,leste"
 function buildHealthQuery(escopo, areaVar) {
-    // areaVar = "area.a" para query de área, ou o bbox direto para query de bbox
+    // Sem relation[...]: quase não existe no OSM brasileiro e é muito custoso.
+    // timeout reduzido para 45 s; "qt" = quadtile sort (mais rápido server-side).
     return `
-[out:json][timeout:90];
+[out:json][timeout:45];
 ${escopo}
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
-  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
-  relation["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
 );
-out center tags;
+out center tags qt;
     `.trim();
 }
 
@@ -2147,7 +2175,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
                 if (addrCity && addrCity !== norm(municipio.nome)) return null;
             }
 
-            return await montarUnidade(tags, elLat, elLon, el.id,
+            return montarUnidade(tags, elLat, elLon, el.id,
                 el.type === 'node' ? 'node' : (el.type === 'relation' ? 'relation' : 'way'),
                 uf, municipio.nome);
         });
@@ -2315,10 +2343,30 @@ function applyLocalFilters() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  RENDERIZAÇÃO (mantida igual)
+//  RENDERIZAÇÃO COM LAZY LOADING
+//
+//  Problema anterior: container.innerHTML = htmlGigante renderizava todos os
+//  cards de uma vez. Para 360 resultados no Rio, isso congela a thread
+//  principal por até 2 s em celulares de entrada.
+//
+//  Solução: renderiza apenas os primeiros BATCH_SIZE cards de cada grupo.
+//  Um IntersectionObserver monitora um sentinela invisível no fim de cada
+//  grupo e, quando ele aparece na tela, carrega o próximo lote.
+//  O usuário só percebe o carregamento incremental se rolar rápido —
+//  na prática, a interface responde instantaneamente.
 // ════════════════════════════════════════════════════════════════════════════
+const RENDER_BATCH = 20;   // cards iniciais por grupo
+const RENDER_MORE  = 20;   // cards adicionais por scroll
+
+// IntersectionObserver reutilizado entre renderizações
+let _lazyObserver = null;
+
 function renderResults() {
     updateDashboard();
+
+    // Desconecta observer anterior para evitar vazamentos
+    if (_lazyObserver) { _lazyObserver.disconnect(); _lazyObserver = null; }
+
     const container = document.getElementById('resultsSection');
     if (filteredUnits.length === 0) {
         container.innerHTML = `
@@ -2330,35 +2378,43 @@ function renderResults() {
         `;
         return;
     }
+
     const groups = {
-        'primaria': filteredUnits.filter(u => u.nivel === 'primaria'),
+        'primaria':   filteredUnits.filter(u => u.nivel === 'primaria'),
         'secundaria': filteredUnits.filter(u => u.nivel === 'secundaria'),
-        'terciaria': filteredUnits.filter(u => u.nivel === 'terciaria')
+        'terciaria':  filteredUnits.filter(u => u.nivel === 'terciaria')
     };
-    let html = `
-        <div class="results-header">
-            <div>
-                <h2 class="results-title">
-                    Resultados
-                    <span class="results-count">${filteredUnits.length}</span>
-                </h2>
-            </div>
-            <div class="export-row">
-                <button class="btn btn-amber btn-sm" onclick="exportToExcel()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    Exportar Excel
-                </button>
-                <button class="btn btn-navy btn-sm" onclick="visualizarPDF()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    Visualizar PDF
-                </button>
-            </div>
+
+    // Cabeçalho com botões de exportação
+    const header = document.createElement('div');
+    header.className = 'results-header';
+    header.innerHTML = `
+        <div>
+            <h2 class="results-title">
+                Resultados
+                <span class="results-count">${filteredUnits.length}</span>
+            </h2>
+        </div>
+        <div class="export-row">
+            <button class="btn btn-amber btn-sm" onclick="exportToExcel()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                Exportar Excel
+            </button>
+            <button class="btn btn-navy btn-sm" onclick="visualizarPDF()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                Visualizar PDF
+            </button>
         </div>
     `;
+
+    // Limpa e re-popula o container usando DocumentFragment (uma só operação DOM)
+    const fragment = document.createDocumentFragment();
+    fragment.appendChild(header);
+
     const groupConfigs = [
         { key: 'primaria',   label: 'Atenção Primária',   color: '#00A878', icon: '🏠',
           desc: 'UBS · Postos de Saúde · Clínicas da Família · ESF/PSF · CAPS/CAPS-AD' },
@@ -2367,12 +2423,69 @@ function renderResults() {
         { key: 'terciaria',  label: 'Atenção Terciária',   color: '#E53935', icon: '🏨',
           desc: 'Hospitais Gerais · Universitários · Santas Casas · Especializados · Reabilitação' }
     ];
+
+    // Cria o IntersectionObserver compartilhado para todos os grupos
+    _lazyObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const sentinel = entry.target;
+            _lazyObserver.unobserve(sentinel);
+
+            const grid      = sentinel.dataset.grid;
+            const groupKey  = sentinel.dataset.groupKey;
+            const rendered  = parseInt(sentinel.dataset.rendered, 10);
+            const color     = sentinel.dataset.color;
+
+            const gridEl    = document.getElementById(grid);
+            if (!gridEl) return;
+
+            // Unidades deste grupo (já filtradas e ordenadas em filteredUnits)
+            const allInGroup = filteredUnits.filter(u => u.nivel === groupKey);
+            const next       = allInGroup.slice(rendered, rendered + RENDER_MORE);
+
+            if (next.length === 0) return;
+
+            // Renderiza o próximo lote
+            const frag = document.createDocumentFragment();
+            next.forEach((u, i) => {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = renderUnitCard(u, color, rendered + i);
+                frag.appendChild(tmp.firstElementChild);
+            });
+
+            const newRendered = rendered + next.length;
+
+            // Se ainda há mais, adiciona novo sentinela
+            if (newRendered < allInGroup.length) {
+                const newSentinel = _makeSentinel(grid, groupKey, newRendered, color);
+                frag.appendChild(newSentinel);
+                _lazyObserver.observe(newSentinel);
+            }
+
+            // Remove o sentinela antigo e insere o novo conteúdo
+            sentinel.remove();
+            gridEl.appendChild(frag);
+        });
+    }, { rootMargin: '200px' });   // pré-carrega 200 px antes de aparecer na tela
+
     groupConfigs.forEach(cfg => {
-        if (groups[cfg.key] && groups[cfg.key].length > 0) {
-            html += renderGroup(cfg, groups[cfg.key]);
-        }
+        if (!groups[cfg.key] || groups[cfg.key].length === 0) return;
+        fragment.appendChild(renderGroup(cfg, groups[cfg.key]));
     });
-    container.innerHTML = html;
+
+    container.innerHTML = '';
+    container.appendChild(fragment);
+}
+
+function _makeSentinel(gridId, groupKey, rendered, color) {
+    const s = document.createElement('div');
+    s.className = 'lazy-sentinel';
+    s.dataset.grid     = gridId;
+    s.dataset.groupKey = groupKey;
+    s.dataset.rendered = rendered;
+    s.dataset.color    = color;
+    s.style.cssText    = 'height:1px;grid-column:1/-1;';
+    return s;
 }
 
 function renderGroup(config, units) {
@@ -2381,34 +2494,53 @@ function renderGroup(config, units) {
     const sortInfo = modoGeo
         ? '📍 Ordenadas por proximidade (mais próxima primeiro)'
         : '🔤 Ordenadas por nome (A → Z)';
-    return `
-        <div class="group-section">
-            <div class="group-header" onclick="toggleGroup('${groupId}')">
-                <div class="group-header-left">
-                    <span class="group-pill" style="background: ${config.color}22; color: ${config.color};">${config.icon}</span>
-                    <div>
-                        <div class="group-name">${config.label}</div>
-                        <div class="group-meta">
-                            ${units.length} unidade${units.length !== 1 ? 's' : ''} encontrada${units.length !== 1 ? 's' : ''}
-                            &nbsp;&middot;&nbsp;<span style="font-size:0.7rem;color:var(--teal);">${sortInfo}</span>
-                        </div>
-                        <div style="font-size:0.68rem;color:var(--text-light);margin-top:2px;">${config.desc || ''}</div>
+
+    // Renderiza apenas o primeiro lote — o resto virá pelo IntersectionObserver
+    const primeiroLote = units.slice(0, RENDER_BATCH);
+    let cardsHTML = primeiroLote.map((u, idx) => renderUnitCard(u, config.color, idx)).join('');
+
+    const section = document.createElement('div');
+    section.className = 'group-section';
+    section.innerHTML = `
+        <div class="group-header" onclick="toggleGroup('${groupId}')">
+            <div class="group-header-left">
+                <span class="group-pill" style="background: ${config.color}22; color: ${config.color};">${config.icon}</span>
+                <div>
+                    <div class="group-name">${config.label}</div>
+                    <div class="group-meta">
+                        ${units.length} unidade${units.length !== 1 ? 's' : ''} encontrada${units.length !== 1 ? 's' : ''}
+                        &nbsp;&middot;&nbsp;<span style="font-size:0.7rem;color:var(--teal);">${sortInfo}</span>
                     </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 16px;">
-                    <div class="group-count">${units.length}</div>
-                    <span class="group-arrow" id="${groupId}-arrow">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-                    </span>
+                    <div style="font-size:0.68rem;color:var(--text-light);margin-top:2px;">${config.desc || ''}</div>
                 </div>
             </div>
-            <div class="group-body" id="${groupId}">
-                <div class="cards-grid">
-                    ${units.map((u, idx) => renderUnitCard(u, config.color, idx)).join('')}
-                </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div class="group-count">${units.length}</div>
+                <span class="group-arrow" id="${groupId}-arrow">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </span>
+            </div>
+        </div>
+        <div class="group-body" id="${groupId}">
+            <div class="cards-grid" id="${groupId}-grid">
+                ${cardsHTML}
             </div>
         </div>
     `;
+
+    // Se há mais cards além do primeiro lote, adiciona sentinela e registra observer
+    if (units.length > RENDER_BATCH) {
+        const gridEl   = section.querySelector(`#${groupId}-grid`);
+        const sentinel = _makeSentinel(`${groupId}-grid`, config.key, RENDER_BATCH, config.color);
+        gridEl.appendChild(sentinel);
+        // Observer será registrado depois que a section for inserida no DOM,
+        // por isso usamos requestAnimationFrame para garantir visibilidade
+        requestAnimationFrame(() => {
+            if (_lazyObserver) _lazyObserver.observe(sentinel);
+        });
+    }
+
+    return section;
 }
 
 function renderUnitCard(unit, accentColor, idx) {
