@@ -1,1 +1,79 @@
+name: Atualizar dados CNES
+
+# Executa todo dia 15 às 06:00 UTC (DATASUS publica os dados mensalmente)
+# Também pode ser disparado manualmente em Actions → Run workflow
+on:
+  schedule:
+    - cron: "0 6 15 * *"
+  workflow_dispatch:
+    inputs:
+      forcar:
+        description: "Forçar commit mesmo sem alterações"
+        required: false
+        default: "false"
+
+jobs:
+  atualizar-cnes:
+    name: Baixar e processar CNES
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # necessário para git push
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependências
+        run: |
+          pip install --upgrade pip
+          pip install "pysus>=0.4" pandas pyarrow
+
+      - name: Gerar dados CNES
+        id: gerar
+        run: python scripts/gerar_dados_cnes.py
+
+      - name: Verificar arquivos gerados
+        run: |
+          echo "=== Arquivos gerados em data/cnes/ ==="
+          ls -lh data/cnes/ || echo "Diretório vazio ou inexistente"
+          echo ""
+          echo "=== Metadados ==="
+          cat data/cnes/_meta.json 2>/dev/null || echo "Sem metadados"
+
+      - name: Commitar dados atualizados
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/cnes/
+
+          # Verifica se há alterações
+          if git diff --staged --quiet; then
+            echo "Nenhuma alteração nos dados CNES. Nada a commitar."
+            if [ "${{ github.event.inputs.forcar }}" = "true" ]; then
+              echo "Commit forçado solicitado — criando commit vazio."
+              git commit --allow-empty -m "chore: verificação CNES $(date +'%Y-%m') (sem alterações)"
+              git push
+            fi
+          else
+            COMPETENCIA=$(python -c "
+          import json; m=json.load(open('data/cnes/_meta.json'))
+          print(m['competencia'])
+          " 2>/dev/null || date +'%Y-%m')
+            TOTAL=$(python -c "
+          import json; m=json.load(open('data/cnes/_meta.json'))
+          print(m['total_geral'])
+          " 2>/dev/null || echo "?")
+            git commit -m "data(cnes): atualiza competência ${COMPETENCIA} — ${TOTAL} unidades SUS"
+            git push
+            echo "✓ Dados CNES atualizados e enviados ao repositório."
+          fi
 
