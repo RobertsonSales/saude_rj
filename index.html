@@ -137,6 +137,75 @@
       box-shadow: 0 6px 16px rgba(0,180,126,0.55);
     }
 
+    /* ─── BOTÃO IMPORTAR PLANILHA ─── */
+    .import-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #1565C0 0%, #1976D2 100%);
+      border: none;
+      border-radius: 8px;
+      padding: 7px 13px;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.72rem;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(21,101,192,0.35);
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+    .import-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(21,101,192,0.45); }
+    #importFileInput { display: none; }
+
+    /* ─── BANNER DE PLANILHA IMPORTADA ─── */
+    .import-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #E8F0FE 0%, #EDF1F7 100%);
+      border: 1.5px solid #1565C0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-top: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.8rem;
+      color: #1565C0;
+    }
+    .import-banner.active { display: flex; }
+    .import-banner-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .import-banner-info { flex: 1; }
+    .import-banner-info strong { display: block; font-size: 0.85rem; color: #0B1F3A; }
+    .import-banner-clear {
+      background: none; border: 1.5px solid #1565C0; border-radius: 6px;
+      padding: 4px 10px; color: #1565C0; font-size: 0.72rem; font-weight: 700;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .import-banner-clear:hover { background: #1565C0; color: #fff; }
+
+    /* ─── MODAL DE PROGRESSO DE IMPORTAÇÃO ─── */
+    .import-progress-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(11,31,58,0.45); z-index: 1100;
+      align-items: center; justify-content: center;
+    }
+    .import-progress-overlay.visible { display: flex; }
+    .import-progress-box {
+      background: #fff; border-radius: 16px; padding: 32px 36px;
+      max-width: 380px; width: 90%; text-align: center;
+      box-shadow: 0 20px 60px rgba(11,31,58,0.25);
+    }
+    .import-progress-icon { font-size: 2.8rem; margin-bottom: 12px; }
+    .import-progress-title { font-family: 'Outfit', sans-serif; font-weight: 800;
+      font-size: 1.05rem; color: #0B1F3A; margin-bottom: 6px; }
+    .import-progress-sub { font-size: 0.82rem; color: #5A6E85; margin-bottom: 18px; }
+    .import-progress-bar-wrap { background: #EDF1F7; border-radius: 999px;
+      height: 8px; overflow: hidden; margin-bottom: 8px; }
+    .import-progress-bar { height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #1565C0, #00A878);
+      transition: width 0.3s; width: 0%; }
+
     /* ─── PIX MODAL ─── */
     .pix-modal-overlay {
       position: fixed;
@@ -1000,12 +1069,46 @@
           <div class="filter-subtitle">Estado, município, perfil de atenção e formas de acolhimento</div>
         </div>
       </div>
-      <button class="filter-toggle-btn" id="filterToggleBtn">
-        <span>Expandir</span>
-        <span class="filter-toggle-arrow" id="filterArrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </span>
-      </button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="import-btn" onclick="document.getElementById('importFileInput').click()"
+                title="Importar unidades de uma planilha .xlsx">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Importar Planilha</span>
+        </button>
+        <input type="file" id="importFileInput" accept=".xlsx"
+               onchange="importarPlanilha(this)">
+        <button class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilter()">
+          <span>Expandir</span>
+          <span class="filter-toggle-arrow" id="filterArrow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Banner: planilha importada -->
+    <div class="import-banner" id="importBanner">
+      <span class="import-banner-icon">📊</span>
+      <div class="import-banner-info">
+        <strong id="importBannerTitle">Planilha importada</strong>
+        <span id="importBannerSub">0 unidades carregadas</span>
+      </div>
+      <button class="import-banner-clear" onclick="limparImportacao()">✕ Remover</button>
+    </div>
+
+    <!-- Modal progresso importação -->
+    <div class="import-progress-overlay" id="importProgressOverlay">
+      <div class="import-progress-box">
+        <div class="import-progress-icon">📊</div>
+        <div class="import-progress-title">Importando planilha…</div>
+        <div class="import-progress-sub" id="importProgressSub">Lendo colunas…</div>
+        <div class="import-progress-bar-wrap">
+          <div class="import-progress-bar" id="importProgressBar"></div>
+        </div>
+      </div>
     </div>
 
     <div class="filter-body" id="filterBody">
@@ -1299,6 +1402,7 @@ const NOME_REGEX_SUS = [
 
 let allUnits = [];
 let filteredUnits = [];
+let importedUnits = [];  // unidades carregadas via importação de planilha
 let currentGeoPosition = null;
 let estados = [];
 let municipiosPorEstado = {};
@@ -2090,7 +2194,8 @@ async function usarGeolocalizacao() {
                 });
                 units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
 
-                allUnits = units;
+                // Mescla unidades importadas via planilha com resultados OSM
+                allUnits = mesclarComImportados(units);
                 if (!buscaAtiva) return;
                 applyLocalFilters();
 
@@ -2243,7 +2348,8 @@ async function buscarPorMunicipio() {
             return;
         }
 
-        allUnits = units;
+        // Mescla unidades importadas via planilha com resultados OSM/CNES
+        allUnits = mesclarComImportados(units);
         if (!buscaAtiva) return;
         applyLocalFilters();
 
@@ -3464,6 +3570,299 @@ async function copiarChavePix() {
         btn.classList.remove('copied');
         btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar';
     }, 3000);
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+//  IMPORTAÇÃO DE PLANILHA (.xlsx) — MODO MANUAL
+//  Lê o arquivo via SheetJS (XLSX embutido) e converte cada linha em uma
+//  unidade compatível com o modelo interno do app.
+//  A planilha deve seguir o template oficial (SaudeBR_Importacao.xlsx).
+// ════════════════════════════════════════════════════════════════════════════
+
+// Mapa de cabeçalhos da planilha → campo interno
+const IMPORT_COL_MAP = {
+    'nome da unidade':          'nome',
+    'nome':                     'nome',
+    'tipo / perfil':            'perfil',
+    'tipo/perfil':              'perfil',
+    'perfil':                   'perfil',
+    'tipo':                     'perfil',
+    'nível de atenção':         'nivel',
+    'nivel de atencao':         'nivel',
+    'nivel':                    'nivel',
+    'tipo de acolhimento':      'acolhimento',
+    'acolhimento':              'acolhimento',
+    'esfera de gestão':         'gestao',
+    'esfera de gestao':         'gestao',
+    'gestão':                   'gestao',
+    'gestao':                   'gestao',
+    'logradouro':               'logradouro',
+    'número':                   'numero',
+    'numero':                   'numero',
+    'complemento':              'complemento',
+    'bairro / localidade':      'bairro',
+    'bairro/localidade':        'bairro',
+    'bairro':                   'bairro',
+    'localidade':               'bairro',
+    'município':                'cidade',
+    'municipio':                'cidade',
+    'cidade':                   'cidade',
+    'uf':                       'uf',
+    'estado':                   'uf',
+    'cep':                      'cep',
+    'telefone':                 'telefone',
+    'e-mail':                   'email',
+    'email':                    'email',
+    'website / redes sociais':  'website',
+    'website':                  'website',
+    'site':                     'website',
+    'código cnes':              'cnes',
+    'codigo cnes':              'cnes',
+    'cnes':                     'cnes',
+    'latitude':                 'lat',
+    'lat':                      'lat',
+    'longitude':                'lon',
+    'lon':                      'lon',
+    'lng':                      'lon',
+};
+
+// Normaliza o nível de atenção para o formato interno
+function normalizarNivel(val) {
+    const v = norm(val || '');
+    if (v.includes('prim') || v === 'primario' || v === '1' || v.includes('basica') || v.includes('basico')) return 'primaria';
+    if (v.includes('secund') || v === '2' || v.includes('media')) return 'secundaria';
+    if (v.includes('terciar') || v === '3' || v.includes('alta')) return 'terciaria';
+    return 'primaria'; // default
+}
+
+// Normaliza o tipo de acolhimento
+function normalizarAcolhimento(val) {
+    const v = norm(val || '');
+    if (v.includes('urgenc') || v.includes('emergenc') || v.includes('pronto') || v.includes('24h')) return 'urgencia';
+    if (v.includes('matern') || v.includes('parto') || v.includes('obstetr')) return 'maternidade';
+    if (v.includes('especializ') || v.includes('especialidade') || v.includes('referencia')) return 'especializado';
+    if (v.includes('samu') || v.includes('mobile') || v.includes('movel')) return 'samu';
+    return 'ambulatorial';
+}
+
+// Converte uma linha da planilha em objeto de unidade
+function linhaParaUnidade(row, colMap, fileName) {
+    const get = (field) => {
+        const idx = colMap[field];
+        if (idx === undefined) return '';
+        const val = row[idx];
+        return val != null ? String(val).trim() : '';
+    };
+
+    const nome = get('nome');
+    if (!nome) return null;
+
+    // Campos de nível e acolhimento — com fallback por nome se vazio
+    const nivelRaw      = get('nivel');
+    const acolhRaw      = get('acolhimento');
+    const nivel         = nivelRaw     ? normalizarNivel(nivelRaw)         : classificarNivel({}, nome).nivel || 'primaria';
+    const acolhimento   = acolhRaw     ? normalizarAcolhimento(acolhRaw)   : determinarAcolhimento({ nome, nivel, perfil: get('perfil') });
+
+    const logradouro  = get('logradouro');
+    const numero      = get('numero');
+    const complemento = get('complemento');
+    const bairro      = get('bairro');
+    const cidade      = get('cidade');
+    const uf          = get('uf').toUpperCase().slice(0, 2);
+    const cnes        = get('cnes').replace(/\D/g, '');
+
+    const endLine     = [logradouro, numero, complemento].filter(Boolean).join(', ');
+    const endCompleto = [endLine, bairro].filter(Boolean).join(' — ');
+
+    let lat = parseFloat(get('lat'));
+    let lon = parseFloat(get('lon'));
+    if (!isFinite(lat) || Math.abs(lat) < 0.0001) { lat = null; lon = null; }
+
+    let mapsLink = '';
+    if (lat && lon) {
+        mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
+    } else if (endCompleto) {
+        mapsLink = `https://www.google.com/maps/search/${encodeURIComponent(endCompleto + (cidade ? ', ' + cidade : ''))}`;
+    }
+
+    const gestao = (() => {
+        const g = norm(get('gestao'));
+        if (g.includes('federal')) return 'Federal';
+        if (g.includes('estadual')) return 'Estadual';
+        return 'Municipal';
+    })();
+
+    const tel = get('telefone').replace(/\s+/g, ' ').trim();
+
+    return {
+        id:               `import-${cnes || (nome + bairro).replace(/\s+/g, '-')}`,
+        nome,
+        perfil:           get('perfil') || (nivel === 'primaria' ? 'Unidade de Saúde' : 'Unidade de Saúde'),
+        nivel,
+        lat, lon,
+        bairro,
+        cidade,
+        uf,
+        cep:              get('cep'),
+        telefone:         tel,
+        telefoneFormatado: formatarTelefoneBR(tel),
+        email:            get('email').toLowerCase(),
+        website:          get('website'),
+        endereco:         endLine,
+        enderecoCompleto: endCompleto,
+        gestao,
+        cnes,
+        acolhimento,
+        distancia:        null,
+        osmId:            null,
+        osmType:          null,
+        mapsLink,
+        fonte:            'planilha',
+        arquivoFonte:     fileName,
+    };
+}
+
+// Lê o arquivo .xlsx e popula importedUnits
+async function importarPlanilha(input) {
+    const file = input.files[0];
+    if (!file) return;
+    input.value = ''; // reset para permitir reimportar o mesmo arquivo
+
+    // Mostra modal de progresso
+    const overlay = document.getElementById('importProgressOverlay');
+    const bar     = document.getElementById('importProgressBar');
+    const sub     = document.getElementById('importProgressSub');
+    overlay.classList.add('visible');
+    bar.style.width = '10%';
+    sub.textContent = 'Lendo arquivo…';
+
+    try {
+        // Verifica se SheetJS está disponível (carregado via CDN ou embutido)
+        if (typeof XLSX === 'undefined') {
+            throw new Error('Biblioteca XLSX não carregada. Recarregue a página e tente novamente.');
+        }
+
+        const buffer = await file.arrayBuffer();
+        bar.style.width = '30%';
+        sub.textContent = 'Decodificando planilha…';
+
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        // Usa a primeira aba ou a aba "Unidades" se existir
+        const sheetName = workbook.SheetNames.includes('Unidades')
+            ? 'Unidades'
+            : workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        bar.style.width = '50%';
+        sub.textContent = 'Processando linhas…';
+
+        // Converte para array de arrays (raw values)
+        const raw = XLSX.utils.sheet_to_json(sheet, {
+            header: 1,
+            defval: '',
+            raw: true,
+        });
+
+        // Localiza linha de cabeçalhos (primeira linha não vazia ou linha 3)
+        let headerRow = -1;
+        for (let i = 0; i < Math.min(raw.length, 6); i++) {
+            const r = raw[i];
+            // Linha de cabeçalho tem ao menos "nome" ou "nome da unidade"
+            const hasNome = r.some(c => {
+                const v = norm(String(c || ''));
+                return v === 'nome' || v === 'nome da unidade' || v.includes('unidade');
+            });
+            if (hasNome) { headerRow = i; break; }
+        }
+        if (headerRow === -1) {
+            throw new Error('Cabeçalhos não encontrados. Use o template oficial (linha de cabeçalho com "Nome da Unidade").');
+        }
+
+        // Mapeia coluna → índice de campo interno
+        const headers = raw[headerRow];
+        const colMap  = {};
+        headers.forEach((h, i) => {
+            const key = norm(String(h || '')).replace(/[*\s]+/g, ' ').trim();
+            const field = IMPORT_COL_MAP[key];
+            if (field) colMap[field] = i;
+        });
+
+        if (colMap['nome'] === undefined) {
+            throw new Error('Coluna "Nome da Unidade" não encontrada. Verifique os cabeçalhos.');
+        }
+
+        // Processa linhas de dados
+        const unidades = [];
+        const dataRows = raw.slice(headerRow + 1);
+        dataRows.forEach((row, idx) => {
+            // Ignora linhas completamente vazias
+            if (row.every(c => !c && c !== 0)) return;
+            const u = linhaParaUnidade(row, colMap, file.name);
+            if (u) unidades.push(u);
+        });
+
+        if (unidades.length === 0) {
+            throw new Error('Nenhuma unidade válida encontrada. Verifique se os dados estão a partir da linha após os cabeçalhos.');
+        }
+
+        bar.style.width = '90%';
+        sub.textContent = `${unidades.length} unidades processadas…`;
+        await new Promise(r => setTimeout(r, 300));
+
+        // Armazena e exibe
+        importedUnits = unidades;
+        bar.style.width = '100%';
+        overlay.classList.remove('visible');
+
+        // Atualiza banner
+        const banner = document.getElementById('importBanner');
+        document.getElementById('importBannerTitle').textContent = `📊 ${file.name}`;
+        document.getElementById('importBannerSub').textContent =
+            `${unidades.length} unidades carregadas — serão mescladas com os resultados da busca`;
+        banner.classList.add('active');
+
+        showNotification(`✅ ${unidades.length} unidades importadas de "${file.name}"`, 'success');
+
+        // Se já há resultados ativos, mescla imediatamente
+        if (allUnits.length > 0) {
+            allUnits = mesclarComImportados(allUnits.filter(u => u.fonte !== 'planilha'));
+            applyLocalFilters();
+        }
+
+    } catch (err) {
+        overlay.classList.remove('visible');
+        console.error('Erro ao importar planilha:', err);
+        showNotification('Erro ao importar: ' + (err.message || 'falha ao ler o arquivo'), 'error');
+    }
+}
+
+// Mescla unidades importadas com as do OSM/CNES (deduplicando por CNES ou nome+bairro)
+function mesclarComImportados(units) {
+    if (importedUnits.length === 0) return units;
+    return deduplicar([...units, ...importedUnits]);
+}
+
+// Remove a importação ativa
+function limparImportacao() {
+    importedUnits = [];
+    document.getElementById('importBanner').classList.remove('active');
+    if (allUnits.length > 0) {
+        allUnits = allUnits.filter(u => u.fonte !== 'planilha');
+        applyLocalFilters();
+    }
+    showNotification('Planilha removida', 'success');
+}
+
+// Também exibe importadas quando não há busca ativa (modo "só planilha")
+function mostrarSoPlanilha() {
+    if (importedUnits.length === 0) {
+        showNotification('Nenhuma planilha importada. Use o botão "Importar Planilha" primeiro.', 'error');
+        return;
+    }
+    allUnits = [...importedUnits];
+    applyLocalFilters();
+    showNotification(`${importedUnits.length} unidades da planilha exibidas`, 'success');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
