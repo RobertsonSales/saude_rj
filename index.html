@@ -889,8 +889,8 @@
       </svg>
     </div>
     <div class="header-titles">
-      <h1>Saúde(+)<span>BR</span> &mdash; Sua Saúde em Poucos Cliques</h1>
-      <p>Dados em tempo real: OpenStreetMap + Nominatim • Apenas unidades SUS</p>
+      <h1>Saúde(+)<span>BR</span> &mdash; Sua Saúde em poucos cliques</h1>
+      <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
 
     <button class="pix-btn" onclick="abrirModalPix()" title="Contribuir com o desenvolvedor via PIX">
@@ -1135,7 +1135,7 @@
       </div>
       <div class="pix-key-box">
         <span class="pix-key-label">Chave PIX</span>
-        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="186a777a7d6a6c7f6d717579587f75797174367b7775">[email&#160;protected]</a></span>
+        <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -1152,7 +1152,7 @@
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 // ════════════════════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO E CONSTANTES (mantido igual)
 // ════════════════════════════════════════════════════════════════════════════
@@ -2923,6 +2923,14 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
                 ${distancia}
                 <span class="pdf-unit-badge ${badgeClass}">${acolhimentoTexto}</span>
                 ${cnes}
+                <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;">
+                    ${u.mapsLink ? `<a href="${u.mapsLink}" style="display:inline-flex;align-items:center;gap:3px;font-size:0.58rem;font-weight:600;color:#EA4335;text-decoration:none;background:#FFF0EF;border-radius:5px;padding:3px 7px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EA4335"/><circle cx="12" cy="9" r="2.5" fill="white"/></svg>Maps</a>` : ''}
+                    ${u.telefone ? `<a href="tel:${u.telefone}" style="display:inline-flex;align-items:center;gap:3px;font-size:0.58rem;font-weight:600;color:#fff;text-decoration:none;background:#25D366;border-radius:5px;padding:3px 7px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z" fill="white"/></svg>Ligar</a>` : ''}
+                    ${u.website ? `<a href="${u.website}" style="display:inline-flex;align-items:center;gap:3px;font-size:0.58rem;font-weight:600;color:#4285F4;text-decoration:none;background:#E8F0FE;border-radius:5px;padding:3px 7px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4285F4" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 3c-2.5 3-4 5.5-4 9s1.5 6 4 9M12 3c2.5 3 4 5.5 4 9s-1.5 6-4 9M3 12h18"/></svg>Site</a>` : ''}
+                </div>
             </div>
         `;
     }).join('');
@@ -3207,4 +3215,15 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR Localizador de Unidades de Sa
+    console.log('Saúde-BR Localizador de Unidades de Saúde - SUS');
+});
+
+document.querySelectorAll('.modal-overlay').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('visible');
+    });
+});
+</script>
+
+</body>
+</html>
