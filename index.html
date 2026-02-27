@@ -137,7 +137,6 @@
       box-shadow: 0 6px 16px rgba(0,180,126,0.55);
     }
 
-
     /* ─── PIX MODAL ─── */
     .pix-modal-overlay {
       position: fixed;
@@ -989,8 +988,8 @@
 
   <!-- ─── FILTROS (modificado para exibição sequencial) ─── -->
   <div class="filter-section">
-    <div class="filter-header">
-      <div class="filter-header-left" onclick="toggleFilter()" style="cursor:pointer;flex:1;">
+    <div class="filter-header" onclick="toggleFilter()">
+      <div class="filter-header-left">
         <div class="filter-header-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
@@ -1001,7 +1000,7 @@
           <div class="filter-subtitle">Estado, município, perfil de atenção e formas de acolhimento</div>
         </div>
       </div>
-      <button class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilter()">
+      <button class="filter-toggle-btn" id="filterToggleBtn">
         <span>Expandir</span>
         <span class="filter-toggle-arrow" id="filterArrow">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1246,12 +1245,11 @@ const CONFIG = {
     IBGE:    'https://servicodados.ibge.gov.br/api/v1/localidades',
     OVERPASS:'https://overpass-api.de/api/interpreter',
     CNES: {
-        LIMIT:     50,      // registros por página
-        MAX_PAGES: 30,      // até 1500 por município (municípios grandes têm ~1200 unidades)
-        TIMEOUT:   28000,   // ms por requisição individual (cada tentativa)
-        // Estado de diagnóstico (atualizado em runtime)
-        ultimoEndpoint: null,
-        ultimoCodigo:   null,
+        // API pública do DATASUS — base oficial SUS com CORS habilitado
+        BASE:      'https://apidadosabertos.saude.gov.br/v1/cnes/estabelecimentos',
+        LIMIT:     50,
+        MAX_PAGES: 24,      // até 1200 registros por município
+        TIMEOUT:   30000    // ms por requisição
     }
 };
 
@@ -2343,337 +2341,218 @@ out center tags qt;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INTEGRAÇÃO CNES — CADASTRO NACIONAL DE ESTABELECIMENTOS DE SAÚDE
-//  Fonte oficial: Ministério da Saúde / DATASUS
-//  Estratégia multi-endpoint com retry automático, backoff exponencial e
-//  diagnóstico detalhado para facilitar depuração em produção.
+//  Fonte: Ministério da Saúde / DATASUS (apidadosabertos.saude.gov.br)
+//  Cobre todos os estabelecimentos SUS ativos em qualquer município brasileiro.
+//  Usada como FONTE PRIMÁRIA na busca por município; OSM complementa com
+//  coordenadas, telefone e outros dados geoespaciais.
 // ════════════════════════════════════════════════════════════════════════════
 
-// ── Endpoints em ordem de preferência ────────────────────────────────────────
-// 1. API primária DATASUS (REST, paginada, CORS habilitado)
-// 2. API v2 alternativa do DATASUS
-// 3. CNES Open Data via FHIR (padrão HL7, mais lento mas mais estável)
-const CNES_ENDPOINTS = [
-    {
-        id:    'datasus-v1',
-        label: 'CNES/DATASUS v1',
-        buildUrl: (cod, limit, offset) =>
-            `https://apidadosabertos.saude.gov.br/v1/cnes/estabelecimentos?co_municipio=${cod}&limit=${limit}&offset=${offset}`,
-        parseResp: (data) => ({
-            items: Array.isArray(data) ? data
-                 : (data.results ?? data.data ?? data.estabelecimentos ?? data.items ?? []),
-            total: data.count ?? data.total ?? data.quantidade ?? null,
-        }),
-    },
-    {
-        id:    'datasus-v2',
-        label: 'CNES/DATASUS v2',
-        buildUrl: (cod, limit, offset) =>
-            `https://apidadosabertos.saude.gov.br/v2/cnes/estabelecimentos?municipio=${cod}&_count=${limit}&_offset=${offset}`,
-        parseResp: (data) => ({
-            items: data.entry ? data.entry.map(e => e.resource ?? e) : (data.results ?? data.data ?? []),
-            total: data.total ?? data.count ?? null,
-        }),
-    },
-    {
-        id:    'cnes-opendata',
-        label: 'CNES OpenData',
-        buildUrl: (cod, limit, offset) =>
-            `https://cnes.datasus.gov.br/services/estabelecimentos?coMunicipio=${cod}&size=${limit}&page=${Math.floor(offset/limit)}`,
-        parseResp: (data) => ({
-            items: data.content ?? data.data ?? data.results ?? (Array.isArray(data) ? data : []),
-            total: data.totalElements ?? data.total ?? null,
-        }),
-    },
-];
-
-// ── Mapa tipo de unidade (co_tipo_unidade) → classificação interna ─────────
-const CNES_TIPO = {
-    '01': { nivel: 'primaria',   perfil: 'UBS'                     }, // Centro de Saúde/UBS
-    '02': { nivel: 'terciaria',  perfil: 'Hospital Geral'           }, // Hospital Geral
-    '04': { nivel: 'secundaria', perfil: 'Policlínica'              },
-    '05': { nivel: 'terciaria',  perfil: 'Hospital Especializado'   },
-    '07': { nivel: 'terciaria',  perfil: 'Hospital'                 }, // Hospital Dia
-    '15': { nivel: 'secundaria', perfil: 'UPA 24h'                  },
-    '20': { nivel: 'secundaria', perfil: 'Pronto Atendimento'       },
-    '21': { nivel: 'secundaria', perfil: 'Pronto Atendimento'       },
-    '22': { nivel: 'terciaria',  perfil: 'Pronto-Socorro'           },
-    '32': { nivel: 'primaria',   perfil: 'CAPS'                     },
-    '36': { nivel: 'primaria',   perfil: 'Clínica da Família'       },
-    '39': { nivel: 'secundaria', perfil: 'Unidade Mista'            },
-    '40': { nivel: 'primaria',   perfil: 'ESF/PSF'                  },
-    '43': { nivel: 'secundaria', perfil: 'Farmácia SUS'             },
-    '50': { nivel: 'secundaria', perfil: 'SAMU'                     },
-    '61': { nivel: 'terciaria',  perfil: 'Centro de Reabilitação'   },
-    '62': { nivel: 'primaria',   perfil: 'Consultório'              },
-    '64': { nivel: 'secundaria', perfil: 'Hemocentro'               },
-    '67': { nivel: 'terciaria',  perfil: 'Instituto Oncológico'     },
-    '68': { nivel: 'secundaria', perfil: 'Serviço de Diagnóstico'   },
-    '69': { nivel: 'secundaria', perfil: 'Laboratório'              },
-    '70': { nivel: 'primaria',   perfil: 'CEO'                      },
-    '71': { nivel: 'primaria',   perfil: 'UBS'                      },
-    '72': { nivel: 'primaria',   perfil: 'Unidade Móvel'            },
-    '73': { nivel: 'primaria',   perfil: 'UBS Fluvial'              },
-    '76': { nivel: 'secundaria', perfil: 'Central de Regulação'     },
-    '77': { nivel: 'primaria',   perfil: 'Atenção Domiciliar'       },
-    '78': { nivel: 'terciaria',  perfil: 'Maternidade'              },
-    '79': { nivel: 'secundaria', perfil: 'Oficina Ortopédica'       },
-    '81': { nivel: 'terciaria',  perfil: 'Hospital Universitário'   },
-    '83': { nivel: 'primaria',   perfil: 'Polo Academia da Saúde'   },
-    '85': { nivel: 'primaria',   perfil: 'CAPS'                     },
+// Códigos de tipo de unidade CNES → classificação interna do app
+const CNES_TIPO_MAP = {
+    // Atenção Primária
+    '01': { nivel: 'primaria',   perfil: 'UBS'               }, // Centro de Saúde/UBS
+    '02': { nivel: 'primaria',   perfil: 'Unidade de Saúde'  }, // Hospital Geral pequeno (<50 leitos → reclassificar)
+    '32': { nivel: 'primaria',   perfil: 'CAPS'              }, // Centro de Atenção Psicossocial
+    '36': { nivel: 'primaria',   perfil: 'Clínica da Família' }, // Clínica da Família (Rio)
+    '40': { nivel: 'primaria',   perfil: 'ESF/PSF'           }, // Equipe/Programa Saúde da Família
+    '62': { nivel: 'primaria',   perfil: 'Consultório'       }, // Consultório isolado
+    '70': { nivel: 'primaria',   perfil: 'Centro Odontológico' }, // Centro de Especialidades Odontológicas
+    '71': { nivel: 'primaria',   perfil: 'UBS'               }, // Centro de Saúde com PSF
+    '72': { nivel: 'primaria',   perfil: 'Unidade de Saúde'  }, // Unidade Móvel de Nível Pré-Hospitalar
+    '73': { nivel: 'primaria',   perfil: 'Unidade de Saúde'  }, // Unidade de Saúde da Família Fluvial
+    // Atenção Secundária
+    '04': { nivel: 'secundaria', perfil: 'Policlínica'       },
+    '05': { nivel: 'secundaria', perfil: 'Hospital'          }, // Hospital Especializado
+    '15': { nivel: 'secundaria', perfil: 'UPA 24h'           }, // Unidade de Pronto Atendimento
+    '20': { nivel: 'secundaria', perfil: 'Pronto Atendimento' }, // Pronto Atendimento
+    '21': { nivel: 'secundaria', perfil: 'Pronto Atendimento' }, // URM
+    '36': { nivel: 'secundaria', perfil: 'UPA 24h'           }, // UPA (alguns municípios)
+    '39': { nivel: 'secundaria', perfil: 'Unidade Mista'     }, // Unidade Mista
+    '43': { nivel: 'secundaria', perfil: 'Farmácia SUS'      }, // Farmácia SUS/Popular
+    '50': { nivel: 'secundaria', perfil: 'SAMU'              }, // Central SAMU
+    '64': { nivel: 'secundaria', perfil: 'Hemocentro'        }, // Banco de sangue
+    '68': { nivel: 'secundaria', perfil: 'Serviço de Diagnóstico' }, // Serviço diagnose
+    '69': { nivel: 'secundaria', perfil: 'Laboratório'       }, // Laboratório público
+    // Atenção Terciária
+    '02': { nivel: 'terciaria',  perfil: 'Hospital Geral'    }, // Hospital Geral
+    '05': { nivel: 'terciaria',  perfil: 'Hospital Especializado' },
+    '07': { nivel: 'terciaria',  perfil: 'Hospital'          }, // Hospital Dia / Isolado
+    '15': { nivel: 'terciaria',  perfil: 'Hospital'          }, // ver override por nome
+    '22': { nivel: 'terciaria',  perfil: 'Pronto-Socorro'    }, // Pronto-Socorro Geral
+    '36': { nivel: 'terciaria',  perfil: 'Hospital'          }, // Hospital Especializado
+    '61': { nivel: 'terciaria',  perfil: 'Centro de Reabilitação' },
+    '67': { nivel: 'terciaria',  perfil: 'Hospital'          }, // Instituto de Oncologia
+    '76': { nivel: 'terciaria',  perfil: 'Hospital'          }, // Central de Regulação
+    '77': { nivel: 'terciaria',  perfil: 'Hospital'          }, // Serviço de Atenção Domiciliar
+    '78': { nivel: 'terciaria',  perfil: 'Maternidade'       }, // Unidade de Saúde/Maternidade
+    '81': { nivel: 'terciaria',  perfil: 'Hospital'          }, // Hospital Universitário
 };
 
-// ── Extrai campo de nome do registro CNES (API v1/v2 têm nomes diferentes) ──
-function cnesNome(item) {
-    return (
-        item.no_fantasia           || item.noFantasia           ||
-        item.ds_nome_fantasia      || item.dsNomeFantasia        ||
-        item.no_razao_social       || item.noRazaoSocial         ||
-        item.ds_razao_social       || item.dsRazaoSocial         ||
-        item.name                  || item.nome                  || ''
-    ).trim().replace(/\s+/g, ' ');
-}
-
-function cnesStr(item, ...keys) {
-    for (const k of keys) {
-        const v = item[k];
-        if (v != null && v !== '') return String(v).trim();
-    }
-    return '';
-}
-
-function cnesNum(item, ...keys) {
-    for (const k of keys) {
-        const v = parseFloat(item[k]);
-        if (isFinite(v) && Math.abs(v) > 0.0001) return v;
-    }
-    return null;
-}
-
-// ── Converte um registro CNES em objeto de unidade interno ───────────────────
+// Converte um registro da API CNES em objeto do app
 function montarUnidadeCNES(item, uf, cidade) {
-    const nome = cnesNome(item);
+    // ── Nome ─────────────────────────────────────────────────────────────────
+    const nome = (
+        item.no_fantasia      || item.ds_nome_fantasia   ||
+        item.no_razao_social  || item.ds_razao_social    || ''
+    ).trim();
     if (!nome) return null;
 
-    // Filtra sem vínculo SUS (tp_gestao='S' = sem gestão = privado sem SUS)
-    const tpGestao = cnesStr(item,
-        'tp_gestao', 'tpGestao', 'co_gestao', 'coGestao', 'gestao'
-    ).toUpperCase();
-    if (tpGestao === 'S') return null;
+    // ── Filtros de exclusão ───────────────────────────────────────────────────
+    // tp_gestao: M=Municipal E=Estadual F=Federal D=Dupla S=Sem gestão SUS
+    const tpGestao = (item.tp_gestao || item.co_gestao || '').toUpperCase().trim();
+    if (tpGestao === 'S') return null; // Sem gestão SUS = não é SUS
 
-    // Filtra desativados
-    const dtDesativacao = cnesStr(item,
-        'dt_desativacao', 'dtDesativacao', 'co_data_desativacao', 'dataDesativacao'
-    );
-    if (dtDesativacao && dtDesativacao !== '0' && dtDesativacao !== 'null') return null;
+    // Exclui estabelecimentos desativados
+    const dtDesativacao = item.dt_desativacao || item.co_data_desativacao || '';
+    if (dtDesativacao) return null;
 
-    // Coordenadas
-    const lat = cnesNum(item, 'nu_latitude',  'nuLatitude',  'co_latitude',  'latitude',  'lat');
-    const lon = cnesNum(item, 'nu_longitude', 'nuLongitude', 'co_longitude', 'longitude', 'lng', 'lon');
+    // ── Coordenadas ───────────────────────────────────────────────────────────
+    let lat = parseFloat(item.nu_latitude  || item.co_latitude  || 0);
+    let lon = parseFloat(item.nu_longitude || item.co_longitude || 0);
+    if (!isFinite(lat) || Math.abs(lat) < 0.0001) { lat = null; lon = null; }
+    if (!isFinite(lon) || Math.abs(lon) < 0.0001) { lat = null; lon = null; }
 
-    // Endereço
-    const logr  = cnesStr(item, 'no_logradouro',  'noLogradouro',  'ds_logradouro',  'logradouro');
-    const num   = cnesStr(item, 'nu_endereco',    'nuEndereco',    'no_numero',       'numero');
-    const compl = cnesStr(item, 'no_complemento', 'noComplemento', 'ds_complemento',  'complemento');
-    const bairro= cnesStr(item, 'no_bairro',      'noBairro',      'ds_bairro',       'bairro');
+    // ── Endereço ──────────────────────────────────────────────────────────────
+    const logr    = (item.no_logradouro  || item.ds_logradouro  || '').trim();
+    const num     = (item.nu_endereco    || item.no_numero       || '').trim();
+    const compl   = (item.no_complemento || item.ds_complemento  || '').trim();
+    const bairro  = (item.no_bairro      || item.ds_bairro       || '').trim();
     const endLine = [logr, num, compl].filter(Boolean).join(', ');
+    const endCompleto = [endLine, bairro].filter(Boolean).join(' — ');
 
-    // Contato
-    const telRaw = cnesStr(item, 'nu_telefone', 'nuTelefone', 'no_telefone', 'telefone', 'phone').replace(/\D/g, '');
-    const email  = cnesStr(item, 'no_email', 'noEmail', 'ds_email', 'email').toLowerCase();
-    const cnes   = cnesStr(item, 'co_cnes', 'coCnes', 'nu_cnes', 'cnes').replace(/\D/g, '');
+    // ── Contato ───────────────────────────────────────────────────────────────
+    const tel   = (item.nu_telefone || item.no_telefone || '').replace(/\D/g, '');
+    const email = (item.no_email    || item.ds_email    || '').trim().toLowerCase();
+    const cnes  = String(item.co_cnes || item.nu_cnes   || '').trim();
 
-    // Tipo e classificação — prioridade: nome > código de tipo > fallback
-    const coTipo = cnesStr(item, 'co_tipo_unidade', 'coTipoUnidade', 'tp_unidade', 'tipoUnidade').padStart(2, '0');
-    const dsTipo = cnesStr(item, 'ds_tipo_unidade', 'dsTipoUnidade', 'no_tipo_unidade', 'tipoUnidade').toLowerCase();
-    const nNorm  = norm(nome);
+    // ── Tipo/Classificação ────────────────────────────────────────────────────
+    const coTipo  = String(item.co_tipo_unidade || item.tp_unidade || '').padStart(2, '0');
+    const dsTipo  = (item.ds_tipo_unidade || item.no_tipo_unidade || '').toLowerCase();
+    const nNorm   = norm(nome);
 
-    // Classificação pelo nome (mais precisa que o código)
+    // Classificação prioritária pelo nome (mais confiável que o código de tipo)
     let classif = classificarNivel({}, nome);
-    const classifByNome = (classif.nivel !== 'primaria' || classif.perfil !== 'Unidade de Saúde');
 
-    // Se nome não foi conclusivo, usa código de tipo CNES
-    if (!classifByNome && CNES_TIPO[coTipo]) {
-        classif = CNES_TIPO[coTipo];
-    } else if (!classifByNome) {
-        // Inferência por texto do tipo
-        if (/^hospital/.test(dsTipo))                      classif = { nivel: 'terciaria',  perfil: 'Hospital Geral' };
-        else if (/upa|pronto atend/.test(dsTipo))          classif = { nivel: 'secundaria', perfil: 'UPA 24h' };
-        else if (/clinica da familia|clínica da família/.test(dsTipo)) classif = { nivel: 'primaria', perfil: 'Clínica da Família' };
-        else if (/policlinica|policlínica/.test(dsTipo))   classif = { nivel: 'secundaria', perfil: 'Policlínica' };
-        else if (/caps/.test(dsTipo))                      classif = { nivel: 'primaria',   perfil: 'CAPS' };
-        else if (/maternidade/.test(dsTipo))               classif = { nivel: 'terciaria',  perfil: 'Maternidade' };
-        else if (/samu/.test(dsTipo))                      classif = { nivel: 'secundaria', perfil: 'SAMU' };
-        else if (/reabilita/.test(dsTipo))                 classif = { nivel: 'terciaria',  perfil: 'Centro de Reabilitação' };
-        else if (/unidade basica|ubs/.test(dsTipo))        classif = { nivel: 'primaria',   perfil: 'UBS' };
+    // Override por código CNES quando o nome não é conclusivo
+    if ((classif.nivel === 'primaria' && classif.perfil === 'Unidade de Saúde') ||
+        !classif.nivel) {
+        if (CNES_TIPO_MAP[coTipo]) {
+            classif = CNES_TIPO_MAP[coTipo];
+        } else if (/hospital/.test(dsTipo)) {
+            classif = { nivel: 'terciaria', perfil: 'Hospital Geral' };
+        } else if (/upa|pronto atendimento/.test(dsTipo)) {
+            classif = { nivel: 'secundaria', perfil: 'UPA 24h' };
+        } else if (/clinica da familia|\\bcf\\b/.test(dsTipo)) {
+            classif = { nivel: 'primaria', perfil: 'Clínica da Família' };
+        } else if (/policlinica/.test(dsTipo)) {
+            classif = { nivel: 'secundaria', perfil: 'Policlínica' };
+        }
     }
 
-    // Esfera de gestão
-    let gestao = 'Municipal';
-    if      (tpGestao === 'F')                      gestao = 'Federal';
-    else if (tpGestao === 'E' || tpGestao === 'D')  gestao = 'Estadual';
-    else                                            gestao = determinarGestao({}, nome);
+    // ── Gestão (esfera) ───────────────────────────────────────────────────────
+    let gestao = 'Municipal'; // padrão
+    if (tpGestao === 'F') gestao = 'Federal';
+    else if (tpGestao === 'E' || tpGestao === 'D') gestao = 'Estadual';
+    else gestao = determinarGestao({}, nome); // fallback por nome
 
-    // Link para mapa
+    // ── Maps link ─────────────────────────────────────────────────────────────
     let mapsLink = '';
-    if (lat && lon)      mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
-    else if (endLine)    mapsLink = `https://www.google.com/maps/search/${encodeURIComponent(endLine + (bairro ? ', ' + bairro : '') + (cidade ? ', ' + cidade : ''))}`;
+    if (lat && lon) {
+        mapsLink = `https://www.google.com/maps?q=${lat},${lon}`;
+    } else if (endLine) {
+        mapsLink = `https://www.google.com/maps/search/${encodeURIComponent(endLine + ', ' + cidade)}`;
+    }
 
     const unit = {
-        id:               `cnes-${cnes || nome.slice(0,40).replace(/\s+/g,'-')}`,
+        id:               `cnes-${cnes || nome.replace(/\s+/g, '-')}`,
         nome,
         perfil:           classif.perfil || 'Unidade de Saúde',
         nivel:            classif.nivel  || 'primaria',
-        lat,
-        lon,
+        lat, lon,
         bairro,
         cidade,
         uf,
-        telefone:         telRaw,
-        telefoneFormatado: formatarTelefoneBR(telRaw),
-        email,
-        website:          '',
-        endereco:         endLine,
-        enderecoCompleto: [endLine, bairro].filter(Boolean).join(' — '),
+        telefone:          tel,
+        telefoneFormatado: formatarTelefoneBR(tel),
+        endereco:          endLine,
+        enderecoCompleto:  endCompleto,
         gestao,
         cnes,
-        acolhimento:      null,
-        distancia:        null,
-        osmId:            null,
-        osmType:          null,
+        email,
+        acolhimento:       null,
+        distancia:         null,
+        osmId:             null,
+        osmType:           null,
+        website:           '',
         mapsLink,
-        fonte:            'cnes',
+        fonte:             'cnes'
     };
     unit.acolhimento = determinarAcolhimento(unit);
     return unit;
 }
 
-// ── Fetch com timeout e retry (backoff exponencial) ──────────────────────────
-async function fetchComRetry(url, opts = {}, maxTentativas = 3, baseDelayMs = 800) {
-    let ultimoErro;
-    for (let t = 0; t < maxTentativas; t++) {
-        const ctrl  = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), opts.timeout || 28000);
-        try {
-            const resp = await fetch(url, {
-                headers: { Accept: 'application/json', ...opts.headers },
-                signal:  ctrl.signal,
-            });
-            clearTimeout(timer);
-            return resp;
-        } catch (e) {
-            clearTimeout(timer);
-            ultimoErro = e;
-            if (t < maxTentativas - 1) {
-                const delay = baseDelayMs * Math.pow(2, t) + Math.random() * 400;
-                console.warn(`[CNES] Tentativa ${t+1} falhou (${e.message}), aguardando ${Math.round(delay)}ms…`);
-                await sleep(delay);
-            }
-        }
-    }
-    throw ultimoErro;
-}
-
-// ── Testa se um endpoint responde e retorna estrutura da resposta ─────────────
-async function testarEndpointCNES(endpoint, codigoMunicipio) {
-    const url = endpoint.buildUrl(codigoMunicipio, 2, 0);
-    try {
-        const resp = await fetchComRetry(url, { timeout: 12000 }, 1);
-        if (!resp.ok) return { ok: false, status: resp.status };
-        const data = await resp.json();
-        const { items, total } = endpoint.parseResp(data);
-        if (!Array.isArray(items)) return { ok: false, motivo: 'items não é array' };
-        return { ok: true, total, amostra: items[0] };
-    } catch (e) {
-        return { ok: false, motivo: e.message };
-    }
-}
-
-// ── Busca paginada num único endpoint ────────────────────────────────────────
-async function buscarPaginado(endpoint, codigoMun, nomeMunicipio, uf, onProgress, sinal) {
-    const LIMIT     = CONFIG.CNES.LIMIT;
-    const MAX_PAGES = CONFIG.CNES.MAX_PAGES;
-    const resultados = [];
-    let offset = 0, total = null, pag = 0;
-
-    while (pag < MAX_PAGES) {
-        if (sinal?.aborted) break;
-
-        const url  = endpoint.buildUrl(codigoMun, LIMIT, offset);
-        const resp = await fetchComRetry(url, { timeout: 28000 }, 3);
-
-        if (!resp.ok) {
-            if (resp.status === 400 || resp.status === 404 || resp.status === 422) break;
-            throw new Error(`HTTP ${resp.status}`);
-        }
-
-        let data;
-        try { data = await resp.json(); } catch { break; }
-
-        const { items, total: tot } = endpoint.parseResp(data);
-        if (tot !== null && total === null) total = tot;
-        if (!Array.isArray(items) || items.length === 0) break;
-
-        for (const item of items) {
-            const u = montarUnidadeCNES(item, uf, nomeMunicipio);
-            if (u) resultados.push(u);
-        }
-
-        if (onProgress) onProgress(resultados.length, total);
-
-        offset += LIMIT;
-        pag++;
-        if (total !== null && offset >= total) break;
-        if (items.length < LIMIT) break;
-        await sleep(80); // pausa gentil para não sobrecarregar o servidor
-    }
-
-    return resultados;
-}
-
-// ── Função pública: busca CNES com fallback automático entre endpoints ────────
+// Busca paginada no CNES para um município
 async function buscarCNESMunicipio(codigoIBGE, nomeMunicipio, uf, onProgress) {
-    // IBGE: 7 dígitos (com DV) ou 6 dígitos (sem DV) — CNES aceita ambos
+    const { BASE, LIMIT, MAX_PAGES, TIMEOUT } = CONFIG.CNES;
+    // IBGE usa 7 dígitos; CNES aceita 6 (sem DV) ou 7 dígitos
     const cod7 = String(codigoIBGE).replace(/\D/g, '').padStart(7, '0');
     const cod6 = cod7.slice(0, 6);
-    const codigos = [cod7, cod6];
 
-    for (const endpoint of CNES_ENDPOINTS) {
-        for (const cod of codigos) {
-            try {
-                console.log(`[CNES] Tentando ${endpoint.label} com código ${cod}…`);
+    for (const cod of [cod7, cod6]) {
+        const resultados = [];
+        let offset = 0, total = null, pag = 0;
+        try {
+            while (pag < MAX_PAGES) {
+                const url = `${BASE}?co_municipio=${cod}&limit=${LIMIT}&offset=${offset}`;
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
+                let resp;
+                try {
+                    resp = await fetch(url, {
+                        headers: { Accept: 'application/json' },
+                        signal: ctrl.signal
+                    });
+                } finally { clearTimeout(timer); }
 
-                // Teste rápido de conectividade (evita esperar timeout completo se inativo)
-                const probe = await testarEndpointCNES(endpoint, cod);
-                if (!probe.ok) {
-                    console.warn(`[CNES] ${endpoint.label}/${cod}: ${probe.motivo || `HTTP ${probe.status}`}`);
-                    continue;
+                if (!resp.ok) {
+                    if (resp.status === 400 || resp.status === 404) break;
+                    throw new Error(`CNES HTTP ${resp.status}`);
                 }
 
-                // Busca completa paginada
-                const resultados = await buscarPaginado(
-                    endpoint, cod, nomeMunicipio, uf, onProgress
-                );
+                let data;
+                try { data = await resp.json(); } catch { break; }
 
-                if (resultados.length > 0) {
-                    console.log(`[CNES] ✓ ${endpoint.label}/${cod}: ${resultados.length} unidades SUS em ${nomeMunicipio}`);
-                    return resultados;
+                // Suporte a diferentes layouts da resposta
+                if (total === null) {
+                    total = data.count ?? data.total ?? data.quantidade ?? null;
                 }
+                const items = Array.isArray(data) ? data
+                    : (data.results ?? data.data ?? data.estabelecimentos ?? []);
+                if (!Array.isArray(items) || items.length === 0) break;
 
-                // Endpoint respondeu mas zero resultados — tenta próximo código
-                console.warn(`[CNES] ${endpoint.label}/${cod}: zero resultados, tentando próxima variante…`);
+                for (const item of items) {
+                    const u = montarUnidadeCNES(item, uf, nomeMunicipio);
+                    if (u) resultados.push(u);
+                }
+                if (onProgress) onProgress(resultados.length, total || '?');
 
-            } catch (e) {
-                console.warn(`[CNES] ${endpoint.label}/${cod} falhou: ${e.message}`);
+                offset += LIMIT;
+                pag++;
+                if (total !== null && offset >= total) break;
+                if (items.length < LIMIT) break;
+                await sleep(100);
             }
+            if (resultados.length > 0) {
+                console.log(`[CNES] ${cod}: ${resultados.length} unidades SUS em ${nomeMunicipio}`);
+                return resultados;
+            }
+        } catch (e) {
+            console.warn(`[CNES] Código ${cod} falhou: ${e.message || e}`);
         }
     }
-
-    // Todos os endpoints falharam
-    console.warn('[CNES] Todos os endpoints indisponíveis — usando apenas OSM/planilha.');
+    console.warn('[CNES] Sem dados — usando apenas OSM');
     return [];
 }
-
-
 
 // Deduplicação inteligente CNES + OSM
 function deduplicarCNES_OSM(cnesUnits, osmUnits) {
@@ -2724,39 +2603,26 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
     const cnesDisponivel = !!(municipio.id);
 
     if (cnesDisponivel) {
-        updateSearchProgress(10, 'Consultando CNES/DATASUS…',
-            `Base oficial Ministério da Saúde — ${municipio.nome}`);
+        updateSearchProgress(12, 'Consultando CNES/DATASUS...', `Base oficial — ${municipio.nome}`);
         try {
             unidadesCNES = await buscarCNESMunicipio(
                 municipio.id, municipio.nome, uf,
                 (obtidos, total) => {
-                    const pct = typeof total === 'number' && total > 0
-                        ? Math.min(10 + Math.round((obtidos / total) * 40), 50)
-                        : 28;
-                    const totalStr = typeof total === 'number' && total > 0
-                        ? `de ${total} registros`
-                        : 'verificando total…';
+                    const pct = typeof total === 'number'
+                        ? Math.min(12 + Math.round((obtidos / total) * 38), 50)
+                        : 30;
                     updateSearchProgress(pct,
-                        `CNES: ${obtidos} unidades SUS carregadas`, totalStr);
+                        `CNES: ${obtidos} unidades carregadas`,
+                        typeof total === 'number' ? `de ${total} registros` : 'paginando...');
                 }
             );
         } catch (e) {
             console.warn('[CNES] Indisponível:', e.message);
         }
-
-        if (unidadesCNES.length > 0) {
-            updateSearchProgress(52,
-                `✓ CNES: ${unidadesCNES.length} unidades oficiais`,
-                'Complementando com dados do OpenStreetMap…');
-        } else {
-            updateSearchProgress(30,
-                '⚠️ CNES indisponível no momento',
-                'Usando apenas OpenStreetMap — pode haver menos resultados');
-            showNotification(
-                'CNES/DATASUS indisponível. Resultados podem estar incompletos. Tente novamente em instantes.',
-                'error'
-            );
-        }
+        const src = unidadesCNES.length > 0
+            ? `${unidadesCNES.length} unidades — complementando via OSM`
+            : 'CNES indisponível — usando apenas OSM';
+        updateSearchProgress(52, 'CNES concluído', src);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -3010,16 +2876,6 @@ function renderResults() {
                     Resultados
                     <span class="results-count">${filteredUnits.length}</span>
                 </h2>
-                ${(() => {
-                    const cnesCount = filteredUnits.filter(u => u.fonte === 'cnes').length;
-                    const osmCount  = filteredUnits.filter(u => u.fonte !== 'cnes' && u.fonte !== 'planilha').length;
-                    const impCount  = filteredUnits.filter(u => u.fonte === 'planilha').length;
-                    const parts = [];
-                    if (cnesCount > 0) parts.push(`<span style="background:#E8F8F3;color:#00A878;border:1px solid #00A87840;border-radius:6px;padding:2px 8px;font-size:0.65rem;font-weight:700;">✓ CNES ${cnesCount}</span>`);
-                    if (osmCount  > 0) parts.push(`<span style="background:#E8F0FE;color:#1565C0;border:1px solid #1565C040;border-radius:6px;padding:2px 8px;font-size:0.65rem;font-weight:700;">OSM ${osmCount}</span>`);
-                    if (impCount  > 0) parts.push(`<span style="background:#FFF8EC;color:#C07A00;border:1px solid #F5A62340;border-radius:6px;padding:2px 8px;font-size:0.65rem;font-weight:700;">📊 Planilha ${impCount}</span>`);
-                    return parts.length ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;">${parts.join('')}</div>` : '';
-                })()}
             </div>
             <div class="export-row">
                 <button class="btn btn-amber btn-sm" onclick="exportToExcel()">
@@ -3609,8 +3465,6 @@ async function copiarChavePix() {
         btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar';
     }, 3000);
 }
-
-
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INICIALIZAÇÃO
