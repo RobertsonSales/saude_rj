@@ -823,7 +823,7 @@
       </div>
       <div class="pix-key-box">
         <span class="pix-key-label">Chave PIX</span>
-        <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
+        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3b4954595e494f5c4e52565a7b5c565a525715585456">[email&#160;protected]</a></span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           Copiar
@@ -838,7 +838,7 @@
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO E CONSTANTES
 // ════════════════════════════════════════════════════════════════════════════
@@ -1065,6 +1065,11 @@ function isVinculadoSUS(tags, nome) {
         /\bpam\b/,   // Posto de Assistência Médica
         /\bscm\b/,   // Santa Casa de Misericórdia (forma abreviada no OSM)
         /\bcf\b/,    // Clínica da Família (forma abreviada usada no Rio)
+        /\bnasf\b/,  // Núcleo de Apoio à Saúde da Família
+        /\bcras\b/,  // Centro de Referência de Assistência Social (conveniado)
+        /\bhupe\b/,  // Hospital Universitário Pedro Ernesto
+        /\bhuap\b/,  // Hospital Universitário Antônio Pedro
+        /\bcnes\b/,  // CNES no nome
     ];
     for (const r of siglasRegex) { if (r.test(nomeNorm)) return true; }
 
@@ -1077,6 +1082,11 @@ function isVinculadoSUS(tags, nome) {
         'clinica da familia', 'clinica de familia',
         'clinica familia',           // sem "da/de" (variante de digitação)
         'clinica municipal de saude',
+        'clinica popular de saude',  // Clínica Popular SUS
+        'clinica popular',           // variante
+        'nucleo de atencao',         // NAI / NAF
+        'nasf',                      // Núcleo de Apoio à Saúde da Família
+        'nafs',
         'centro de saude', 'centro municipal de saude',
         'equipe de saude da familia', 'saude da familia',
         'estrategia de saude da familia',
@@ -1139,13 +1149,27 @@ function isVinculadoSUS(tags, nome) {
     // Maternidade sem qualificador privado + operador identificável → aceita
     if (nomeNorm.startsWith('maternidade') && op && !op.includes('privado')) return true;
 
-    // ── H: FALLBACK — hospital sem marcadores privados ────────────────────
-    // amenity=hospital e healthcare=hospital são usados no OSM brasileiro
-    // predominantemente para hospitais públicos e filantrópicos SUS.
-    // Hospitais privados relevantes foram excluídos na etapa B acima.
-    // Esta regra captura Santas Casas, Beneficências e hospitais municipais
-    // que não têm operador ou CNES explicitamente registrado no OSM.
-    if (amenityTag === 'hospital' || healthcareTag === 'hospital') return true;
+    // ── H: FALLBACK — unidades presumidas como SUS pela tag OSM ─────────
+    // amenity=hospital / healthcare=hospital → esmagadoramente públicos/filantrópicos no OSM BR
+    // amenity=health_post / healthcare=health_post → exclusivamente SUS no Brasil
+    // amenity=health_centre / healthcare=health_centre|centre → quase sempre SUS no Brasil
+    // amenity=primary_healthcare → atenção primária pública
+    // Unidades privadas foram excluídas na etapa B; estas tags raramente são
+    // usadas por privados. Captura Santas Casas, Beneficências, UBSs, Clínicas
+    // da Família e Postos de Saúde sem operador/CNES explícito no OSM.
+    if (amenityTag === 'hospital'          || healthcareTag === 'hospital')         return true;
+    if (amenityTag === 'health_post'       || healthcareTag === 'health_post')      return true;
+    if (amenityTag === 'health_centre'     || healthcareTag === 'health_centre' ||
+        amenityTag === 'primary_healthcare'|| healthcareTag === 'centre')           return true;
+    // clinic / doctors com tags de atenção primária → aceitar se sem marcador privado
+    if ((amenityTag === 'clinic' || healthcareTag === 'clinic') &&
+        (healthcareTag === 'clinic' || amenityTag === 'clinic') &&
+        !op.includes('privado') && !op.includes('particular')) {
+        // Aceitar apenas se também houver algum indicador de atenção pública
+        // (operador, funding ou nome genérico público já foram verificados acima)
+        // Clínicas da Família frequentemente só têm amenity=clinic → aceitar
+        if (!op || op.length < 2) return true;  // sem operador: presume SUS (filtrado pelo nome acima)
+    }
 
     // ── Sem prova positiva → rejeita ──────────────────────────────────────
     return false;
@@ -1201,13 +1225,17 @@ function classificarNivel(tags, nome) {
     const ehPosto      = n.includes('posto de saude') || n.includes('posto saude');
     // 'cf ' prefix: Clínica da Família Rio de Janeiro usa "CF NomeBairro"
     const ehClinicaFam = n.includes('clinica da familia') || n.includes('clinica de familia') ||
-                          n.includes('clinica familia') ||
-                          nomeN.startsWith('cf ') || nomeN === 'cf';
-    const ehESF        = nomeN.startsWith('esf ') || nomeN === 'esf' || n.includes(' esf ') || n.includes('saude da familia') || n.includes('equipe de saude da familia') || n.includes('estrategia de saude da familia');
-    const ehPSF        = nomeN.startsWith('psf ') || nomeN === 'psf' || n.includes(' psf ') || n.includes('programa saude da familia');
+                          n.includes('clinica familia') || n.includes('clinica popular de saude') ||
+                          nomeN.startsWith('cf ') || nomeN === 'cf' ||
+                          /\bcf\b/.test(nomeN) ||   // captura "CF" em qualquer posição no nome
+                          (healthcare === 'clinic' && (n.includes('familia') || n.includes('popular'))) ||
+                          healthcare === 'health_centre' ||  // Centro de Saúde da Família via tag
+                          healthcare === 'primary_healthcare';
+    const ehESF        = nomeN.startsWith('esf ') || nomeN === 'esf' || / esf[ /]/.test(nomeN) || n.includes('saude da familia') || n.includes('equipe de saude da familia') || n.includes('estrategia de saude da familia') || /\bnasf\b/.test(nomeN);
+    const ehPSF        = nomeN.startsWith('psf ') || nomeN === 'psf' || / psf[ /]/.test(nomeN) || n.includes('programa saude da familia');
     const ehCAPSAD     = n.includes('caps-ad') || n.includes('caps ad') || n.includes('centro de atencao psicossocial alcool') || n.includes('caps ad ii') || n.includes('caps ad iii');
     const ehCAPS       = !ehCAPSAD && (nomeN.startsWith('caps ') || nomeN === 'caps' || / caps[ /-]/.test(nomeN) || n.includes('centro de atencao psicossocial'));
-    const ehCentroSaude = n.includes('centro de saude') || n.includes('centro municipal de saude');
+    const ehCentroSaude = n.includes('centro de saude') || n.includes('centro municipal de saude') || (healthcare === 'health_centre' && !n.includes('familia'));
     const ehCMS        = nomeN.startsWith('cms ') || nomeN === 'cms' || / cms[ /]/.test(nomeN);
     const ehCAFS       = n.includes('cafs');
 
@@ -1285,10 +1313,22 @@ function classificarNivel(tags, nome) {
 
     const ehHospitalOSM        = healthcare === 'hospital';
     const nomeComeçaHospital   = nomeN.startsWith('hospital');
-    const ehSantaCasa          = n.includes('santa casa') || n.includes('misericordia');
+    // Santa Casa: nome contém 'santa casa' OU 'misericordia' OU abreviatura SCM
+    const ehSantaCasa          = n.includes('santa casa') || n.includes('misericordia') ||
+                                   /\bscm\b/.test(nomeN) ||
+                                   (n.includes('irmandade') && (n.includes('misericordia') || n.includes('santa')));
 
     // Entidades filantrópicas/beneficentes SUS
-    const ehBeneficencia       = n.includes('beneficencia portuguesa') || n.includes('hospital de beneficencia') || n.includes('hospital beneficente') || n.includes('irmandade da santa casa') || n.includes('irmandade de misericordia') || (n.includes('irmandade') && n.includes('hospital')) || (n.includes('beneficencia') && n.includes('hospital'));
+    const ehBeneficencia       = n.includes('beneficencia portuguesa') ||
+                                   n.includes('hospital de beneficencia') ||
+                                   n.includes('hospital beneficente') ||
+                                   n.includes('irmandade da santa casa') ||
+                                   n.includes('irmandade de misericordia') ||
+                                   (n.includes('irmandade') && n.includes('hospital')) ||
+                                   (n.includes('beneficencia') && n.includes('hospital')) ||
+                                   // Beneficência Portuguesa sem palavra "hospital" no nome
+                                   nomeN.startsWith('beneficencia portuguesa') ||
+                                   (nomeN.startsWith('beneficencia') && !nomeN.includes('privad') && !nomeN.includes('particular'));
 
     const ehHospEspecializado  =
         n.includes('hospital geral')           || n.includes('hospital universitario')  ||
@@ -1547,12 +1587,14 @@ async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const R = raioKm * 1000;
     const around = `around:${R},${lat},${lon}`;
     const query = `
-[out:json][timeout:45];
+[out:json][timeout:60];
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
+  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
+  relation["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
 );
 out center tags qt;
     `.trim();
@@ -1572,7 +1614,7 @@ out center tags qt;
             if (!elLat || !elLon) continue;
             const distancia = calcularDistancia(lat, lon, elLat, elLon);
             if (distancia > raioKm) continue;
-            const u = montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : 'way', uf, cidade, distancia);
+            const u = montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : (el.type === 'relation' ? 'relation' : 'way'), uf, cidade, distancia);
             if (u) unidades.push(u);
             if (i % 10 === 0) {
                 const pct = 60 + Math.round((i + 1) / elementos.length * 25);
@@ -1710,13 +1752,15 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
 
 function buildHealthQuery(escopo, areaVar) {
     return `
-[out:json][timeout:45];
+[out:json][timeout:60];
 ${escopo}
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
+  relation["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
+  relation["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
 );
 out center tags qt;
     `.trim();
@@ -1781,7 +1825,12 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
                 const dist = calcularDistancia(municipio.latitude, municipio.longitude, elLat, elLon);
                 if (dist > raioAceitacaoKm) return null;
                 const addrCity = norm(tags['addr:city'] || '');
-                if (addrCity && addrCity !== norm(municipio.nome)) return null;
+                const normMunNome = norm(municipio.nome);
+                // Comparação flexível: rejeita apenas se addr:city for claramente de outra cidade
+                if (addrCity && addrCity.length >= 4 &&
+                    !addrCity.includes(normMunNome) &&
+                    !normMunNome.includes(addrCity) &&
+                    !addrCity.startsWith(normMunNome.substring(0, Math.min(8, normMunNome.length)))) return null;
             }
             return montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : (el.type === 'relation' ? 'relation' : 'way'), uf, municipio.nome);
         });
