@@ -864,17 +864,13 @@ const CONFIG = {
 };
 
 // ── INCLUIR_TIPOS: valores de amenity= e healthcare= buscados no Overpass ──
-// Ampliados para capturar PAMs, Clínicas da Família (amenity=doctors), centros
-// comunitários e filantrópicos SUS (Santas Casas, Beneficências).
-// 'doctors' é essencial: muitas Clínicas da Família e Postos de Saúde em OSM
-// usam esse valor. A filtragem de privados é feita em isVinculadoSUS().
 const INCLUIR_TIPOS = [
     'hospital', 'clinic', 'health_post', 'health_centre',
     'polyclinic', 'birthing_center', 'maternity',
     'urgent_care', 'emergency_ward', 'health_center', 'health_station',
     'primary_healthcare', 'community_health_worker', 'phc',
     'centre', 'outpatient',
-    'doctors', 'doctor',          // CFs e Postos frequentemente usam estes valores
+    'doctors', 'doctor',
 ].filter((v, i, a) => a.indexOf(v) === i).join('|');
 
 // ── EXCLUIR_TIPOS: valores de healthcare= explicitamente não-SUS ───────────
@@ -893,12 +889,11 @@ let reverseGeocodeCache = new Map();
 // ════════════════════════════════════════════════════════════════════════════
 function norm(str) {
     if (!str) return '';
-    // Remove diacritics, normalize hyphens to spaces, collapse whitespace
     return str.toLowerCase()
               .normalize('NFD')
               .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[-_]/g, ' ')        // hífens e underscores → espaço
-              .replace(/\s+/g, ' ')         // múltiplos espaços → um
+              .replace(/[-_]/g, ' ')
+              .replace(/\s+/g, ' ')
               .trim();
 }
 
@@ -1001,70 +996,64 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS — lógica aprimorada para incluir entidades filantrópicas
-//  (Santas Casas, Beneficências, Irmandades, etc.)
+//  VÍNCULO SUS — lógica aprimorada: inclui filantrópicas, exclui militares e veterinárias
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
-    // ── A: CNES é registro exclusivo do sistema público brasileiro ─────────
-    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
-
+    // Normalizações úteis
     const nomeNorm   = norm(nome);
     const op         = norm(tags.operator || '');
     const brand      = norm(tags.brand    || '');
     const funding    = norm(tags.funding  || tags['healthcare:funding'] || '');
     const desc       = norm(tags.description || '');
-    const amenityTag    = (tags.amenity    || '').toLowerCase().trim();
-    const healthcareTag = (tags.healthcare || '').toLowerCase().trim();
+    const amenity    = (tags.amenity    || '').toLowerCase().trim();
+    const healthcare = (tags.healthcare || '').toLowerCase().trim();
 
-    // ── B: ACEITAÇÃO INCONDICIONAL — nomes que identificam ────────────────
-    //    instituições EXCLUSIVAMENTE SUS no Brasil.
-    //    Esta etapa vem ANTES da checagem de operadores privados para garantir
-    //    que "Santa Casa", "Clínica da Família" e "Beneficência Portuguesa"
-    //    nunca sejam descartadas por ausência de tag explícita de operador.
+    // ========== 1. EXCLUSÕES IMEDIATAS ==========
+    // 1.1 Veterinárias (atendimento animal)
+    if (healthcare === 'veterinary' || amenity === 'veterinary') return false;
+    const vetWords = ['veterinario', 'veterinária', 'pet', 'animal', 'bicho', 'cachorro', 'gato'];
+    for (let w of vetWords) {
+        if (nomeNorm.includes(w) || op.includes(w) || desc.includes(w)) return false;
+    }
 
-    // Clínicas da Família — exclusivas do SUS municipal
-    if (nomeNorm.startsWith('cf ') || nomeNorm === 'cf')        return true; // "CF Lins de Vasconcelos"
-    if (nomeNorm.includes('clinica da familia'))                  return true;
-    if (nomeNorm.includes('clinica de familia'))                  return true;
-    if (nomeNorm.includes('clinica familia'))                     return true; // variante sem "da/de"
-    if (nomeNorm.includes('clinica municipal de saude'))          return true;
+    // 1.2 Militares (não atendem população civil em geral)
+    const militares = [
+        'exercito', 'marinha', 'aeronautica', 'forças armadas', 'forca aerea',
+        'policia militar', 'bombeiro militar', 'hospital militar', 'policial'
+    ];
+    for (let m of militares) {
+        if (op.includes(m) || nomeNorm.includes(m) || (tags['operator:type'] === 'military')) return false;
+    }
+    if (tags.military || tags['military:service'] || tags['operator:type'] === 'military') return false;
 
-    // Santas Casas e Misericórdias — sempre filantrópicas SUS no Brasil
-    if (nomeNorm.includes('santa casa'))                          return true;
-    if (nomeNorm.includes('misericordia'))                        return true; // "Hospital da Misericórdia de X"
-    if (/\bscm\b/.test(nomeNorm))                                return true; // "SCM Campinas"
-    if (nomeNorm.startsWith('irmandade'))                         return true; // "Irmandade de X"
+    // ========== 2. INCLUSÕES INCONDICIONAIS (filantrópicas) ==========
+    // Santas Casas, Misericórdias, Irmandades, Beneficências
+    if (nomeNorm.includes('santa casa') ||
+        nomeNorm.includes('misericordia') ||
+        /\bscm\b/.test(nomeNorm) ||
+        nomeNorm.includes('irmandade') ||
+        nomeNorm.includes('beneficencia portuguesa') ||
+        nomeNorm.includes('hospital beneficente') ||
+        nomeNorm.includes('hospital filantropico') ||
+        nomeNorm.includes('fundacao beneficente') ||
+        nomeNorm.includes('associacao beneficente') ||
+        nomeNorm.includes('sociedade beneficente') ||
+        nomeNorm.includes('entidade beneficente')) return true;
 
-    // Beneficência Portuguesa e congêneres — filantrópicas SUS
-    if (nomeNorm.includes('beneficencia portuguesa'))             return true;
-    // Agora aceita qualquer nome que contenha "beneficencia" (desde que não contenha palavras privadas)
-    if (nomeNorm.includes('beneficencia') && !nomeNorm.includes('privad') && !nomeNorm.includes('particular')) return true;
+    // Tags OSM que indicam filantropia
+    if (tags['operator:type'] === 'charitable' ||
+        tags['operator:type'] === 'nonprofit' ||
+        tags['operator:type'] === 'ngo' ||
+        tags['charity'] === 'yes' ||
+        tags['nonprofit'] === 'yes' ||
+        funding === 'charitable') return true;
 
-    // Unidades com nomes não-ambíguos
-    if (nomeNorm.includes('posto de saude'))                      return true;
-    if (nomeNorm.includes('unidade basica de saude'))             return true;
-    if (nomeNorm.includes('pronto atendimento municipal'))        return true;
-    if (nomeNorm.includes('hospital beneficente'))                return true;
-    if (nomeNorm.includes('hospital filantropico'))               return true;
-    if (nomeNorm.includes('fundacao beneficente'))                return true;
-    if (nomeNorm.includes('associacao beneficente'))              return true;
-    if (nomeNorm.includes('sociedade beneficente'))               return true;
-    if (nomeNorm.includes('entidade beneficente'))                return true;
-    if (nomeNorm.includes('hospital de beneficencia') ||
-        nomeNorm.includes('hospital beneficencia'))               return true;
+    // ========== 3. CNES ==========
+    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
 
-    // ── C: TAGS OSM EXPLÍCITAS DE CARÁTER FILANTRÓPICO ─────────────────────
-    if (tags['operator:type'] === 'nonprofit'   ||
-        tags['operator:type'] === 'charitable'  ||
-        tags['operator:type'] === 'religious'   ||
-        tags['operator:type'] === 'ngo'         ||
-        tags['charity'] === 'yes'                ||
-        tags['nonprofit'] === 'yes'               ||
-        tags['healthcare:funding'] === 'charitable') return true;
-
-    // ── D: Exclusão — marcadores inequívocos de serviço privado ──────────
-    const marcadoresPrivados = [
-        'unimed', 'amil', 'bradesco saude', 'sulamerica saude', 'notredame',
+    // ========== 4. EXCLUSÃO DE PRIVADOS NÃO-SUS ==========
+    const privados = [
+        'unimed', 'amil', 'bradesco saude', 'sulamerica', 'notredame',
         'hapvida', 'prevent senior', 'clinipam', 'golden cross', 'mediservice',
         'sompo', 'care plus', 'assim saude', 'omint', 'saude caixa', 'cassi',
         'postal saude', 'petrobras saude', 'eletros',
@@ -1077,45 +1066,29 @@ function isVinculadoSUS(tags, nome) {
         'hospital alemao oswaldo cruz', 'hospital santa catarina',
         'hospital pro matre', 'hospital sao camilo',
     ];
-    for (const p of marcadoresPrivados) {
+    for (let p of privados) {
         if (op.includes(p) || nomeNorm.includes(p) || brand.includes(p) || funding.includes(p)) return false;
     }
     if (funding === 'private' || funding === 'privado') return false;
 
-    // ── E: Tags OSM explícitas de operador público ────────────────────────
+    // ========== 5. OPERADOR PÚBLICO EXPLÍCITO ==========
     if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
     if (tags.ownership === 'public' || tags.government) return true;
     if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
 
-    // ── F: Operador contém nome de entidade pública ou filantrópica ───────
-    // Inclui abreviações comuns no OSM brasileiro (SMS, SES, SESAB, etc.)
-    const opPublico = [
+    const operadorPublico = [
         'prefeitura', 'secretaria', 'ministerio',
         'governo do estado', 'governo municipal', 'governo federal',
-        'governo do ', 'governo estadual', 'governo de ', 'governo da ',
-        'municipio de', 'municipio do', 'municipio da',
-        'estado de', 'estado do', 'estado da',
-        'autarquia', 'fundacao', 'sus', 'datasus', 'ebserh',
-        // filantrópicas
-        'irmandade', 'misericordia', 'beneficencia', 'santa casa',
-        'associacao beneficente', 'fundacao beneficente',
-        'hospital beneficente', 'hospital filantr',
-        // siglas de secretarias de saúde comuns no OSM
-        'sms', 'ses ', 'sesab', 'sesa ', 'sesap', 'sesau',
+        'municipio de', 'estado de', 'autarquia', 'fundacao', 'sus', 'datasus', 'ebserh',
+        'sms', 'ses', 'sesab', 'sesa', 'sesap', 'sesau'
     ];
-    for (const p of opPublico) { if (op.includes(p)) return true; }
+    for (let p of operadorPublico) { if (op.includes(p)) return true; }
     if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
 
-    // ── G: Siglas SUS com fronteira de palavra ────────────────────────────
-    const siglasRegex = [
-        /\bubs\b/,   /\bupa\b/,  /\bcaps\b/, /\bcms\b/,
-        /\besf\b/,   /\bpsf\b/,  /\bceo\b/,  /\bcer\b/,
-        /\bame\b/,   /\bsamu\b/, /\bcafs\b/, /\bpam\b/,
-        /\bscm\b/,   /\bnasf\b/, /\bnafs\b/,
-    ];
-    for (const r of siglasRegex) { if (r.test(nomeNorm)) return true; }
+    // ========== 6. SIGLAS E EXPRESSÕES SUS ==========
+    const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/];
+    for (let r of siglas) { if (r.test(nomeNorm)) return true; }
 
-    // ── H: Expressões compostas SUS ────────────────────────────────────────
     const nomesPublicos = [
         'unidade basica', 'centro de saude', 'centro municipal de saude',
         'equipe de saude da familia', 'saude da familia',
@@ -1135,38 +1108,29 @@ function isVinculadoSUS(tags, nome) {
         'hospital infantil', 'hospital pediatrico',
         'hospital oncologico', 'hospital cardiologico', 'hospital especializado',
         'hospital de urgencia', 'hospital de emergencia',
-        'associacao beneficente', 'fundacao beneficente',
         'centro de reabilitacao',
         'maternidade municipal', 'maternidade estadual', 'maternidade federal',
         'maternidade escola',
         'instituto nacional de cancer', 'inca', 'into',
-        'instituto nacional de traumatologia', 'instituto nacional de cardiologia',
         'hospital das forcas armadas',
         'hupe', 'huap', 'husm', 'hucff', 'hucam', 'ebserh',
         'clinica popular de saude', 'clinica popular',
         'nasf', 'nafs', 'nucleo de atencao',
     ];
-    for (const p of nomesPublicos) {
-        if (nomeNorm.includes(p) || desc.includes(p)) return true;
-    }
+    for (let p of nomesPublicos) { if (nomeNorm.includes(p) || desc.includes(p)) return true; }
 
-    // ── I: Maternidade sem qualificador privado ────────────────────────────
-    if (nomeNorm.startsWith('maternidade') && !op.includes('privado')) return true;
+    // ========== 7. FALLBACK PARA HOSPITAIS ==========
+    // No Brasil, a maioria dos hospitais mapeados no OSM são públicos/filantrópicos
+    if (amenity === 'hospital' || healthcare === 'hospital') return true;
+    if (amenity === 'health_post' || healthcare === 'health_post') return true;
+    if (amenity === 'health_centre' || healthcare === 'health_centre') return true;
+    if (amenity === 'primary_healthcare' || healthcare === 'primary_healthcare') return true;
 
-    // ── J: FALLBACK por tag OSM ────────────────────────────────────────────
-    // amenity/healthcare=hospital → esmagadoramente SUS no OSM brasileiro
-    if (amenityTag === 'hospital'           || healthcareTag === 'hospital')          return true;
-    // health_post / health_centre → exclusivamente SUS no Brasil
-    if (amenityTag === 'health_post'        || healthcareTag === 'health_post')        return true;
-    if (amenityTag === 'health_centre'      || healthcareTag === 'health_centre')      return true;
-    if (amenityTag === 'primary_healthcare' || healthcareTag === 'primary_healthcare') return true;
-
-    // ── Sem prova positiva → rejeita ──────────────────────────────────────
     return false;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DETERMINAR ESFERA DE GESTÃO
+//  DETERMINAR ESFERA DE GESTÃO (idêntico ao original)
 // ════════════════════════════════════════════════════════════════════════════
 function determinarGestao(tags, nome) {
     const op       = norm(tags.operator || '');
@@ -1191,41 +1155,29 @@ function determinarGestao(tags, nome) {
         tags['government'] === 'state';
     if (isEstadual) return 'Estadual';
 
-    // Entidades filantrópicas/beneficentes conveniadas: Municipal por padrão
     return 'Municipal';
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CLASSIFICAÇÃO DE NÍVEL E PERFIL
-//
-//  ORDEM DE PRIORIDADE (nome ANTES das tags OSM):
-//  1. Primário  — UBS, Postos, Clínicas da Família, ESF/PSF, CAPS/CAPS-AD
-//  2. Secundário — UPAs, PAMs, AME, CEO, Policlínicas, Unidades Mistas, CER
-//  3. Terciário — Hospitais, Santas Casas, Beneficências, Especializados
+//  CLASSIFICAÇÃO DE NÍVEL E PERFIL (idêntico ao original)
 // ════════════════════════════════════════════════════════════════════════════
 function classificarNivel(tags, nome) {
     const n    = norm(nome + ' ' + (tags.description || ''));
     const nomeN = norm(nome);
     const healthcare = (tags.healthcare || tags.amenity || '').toLowerCase();
 
-    // ════════════════════════════════════════════════
-    //  PASSO 1 — PRIMÁRIO
-    // ════════════════════════════════════════════════
+    // Primária
     const ehUBS        = nomeN.startsWith('ubs') || n.includes('unidade basica de saude') || n.includes('unidade basica');
     const ehPosto      = n.includes('posto de saude') || n.includes('posto saude');
-    // Clínica da Família: múltiplas variantes de grafia e abreviatura
-    // "CF NomeBairro" é a forma oficial usada pelo Rio de Janeiro
     const ehClinicaFam =
         n.includes('clinica da familia')     ||
         n.includes('clinica de familia')     ||
-        n.includes('clinica familia')        ||   // variante sem "da/de"
+        n.includes('clinica familia')        ||
         n.includes('clinica popular de saude') ||
         n.includes('clinica municipal de saude') ||
-        nomeN.startsWith('cf ')              ||   // "CF Lins de Vasconcelos"
+        nomeN.startsWith('cf ')              ||
         nomeN === 'cf'                       ||
-        // "CF-Bairro" e variantes com hífen
         (nomeN.length >= 3 && nomeN.startsWith('cf-')) ||
-        // healthcare/amenity = primary_healthcare ou health_centre → atenção primária
         healthcare === 'primary_healthcare'  ||
         (healthcare === 'health_centre' && !n.includes('especialidade') && !n.includes('hospital'));
     const ehESF        = nomeN.startsWith('esf ') || nomeN === 'esf' || n.includes(' esf ') || n.includes('saude da familia') || n.includes('equipe de saude da familia') || n.includes('estrategia de saude da familia');
@@ -1251,39 +1203,16 @@ function classificarNivel(tags, nome) {
         return { nivel: 'primaria', perfil };
     }
 
-    // ════════════════════════════════════════════════
-    //  PASSO 2 — SECUNDÁRIO
-    //  UPAs · PAMs · AME · CEO · Policlínicas · CER · SAMU
-    // ════════════════════════════════════════════════
-
-    // UPA — Unidade de Pronto Atendimento
+    // Secundária
     const ehUPA = nomeN.startsWith('upa ') || nomeN === 'upa' || nomeN.endsWith(' upa') || / upa[ /]/.test(nomeN) || n.includes('unidade de pronto atendimento') || n.includes('unidade pronto atendimento') || healthcare === 'urgent_care';
-
-    // PAM — Posto de Assistência Médica (serviço ambulatorial especializado SUS)
     const ehPAM = nomeN.startsWith('pam ') || nomeN === 'pam' || nomeN.endsWith(' pam') || / pam[ /-]/.test(nomeN) || n.includes('posto de assistencia medica') || n.includes('posto assistencia medica');
-
-    // AME — Ambulatório Médico de Especialidades
     const ehAME = nomeN.startsWith('ame ') || nomeN === 'ame' || / ame[ /]/.test(nomeN) || n.includes('ambulatorio medico de especialidades');
-
-    // CEO — Centro de Especialidades Odontológicas
     const ehCEO = nomeN.startsWith('ceo ') || nomeN === 'ceo' || / ceo[ /]/.test(nomeN) || n.includes('centro de especialidades odontologicas');
-
-    // Unidade Mista
     const ehUnidadeMista = n.includes('unidade mista de saude') || n.includes('unidade mista');
-
-    // Policlínica
     const ehPoliclinica = n.includes('policlinica') || healthcare === 'polyclinic';
-
-    // CER
     const ehCER = nomeN.startsWith('cer ') || nomeN === 'cer' || nomeN.endsWith(' cer') || n.includes('coordenacao regional de emergencia') || n.includes('coordenacao de emergencia regional');
-
-    // SAMU
     const ehSAMU = n.includes('samu') || n.includes('servico de atendimento movel de urgencia');
-
-    // Pronto-Atendimento independente (não hospitalar)
     const ehProntoAtendimento = (n.includes('pronto atendimento') || n.includes('pronto-atendimento')) && !nomeN.startsWith('hospital');
-
-    // Clínica de Especialidades via OSM
     const ehClinicaEspecialidades = healthcare === 'clinic' && (n.includes('especialidades') || n.includes('ambulatorio de referencia'));
 
     const ehSecundaria = ehUPA || ehPAM || ehAME || ehCEO || ehUnidadeMista || ehPoliclinica || ehCER || ehSAMU || ehProntoAtendimento || ehClinicaEspecialidades;
@@ -1302,12 +1231,7 @@ function classificarNivel(tags, nome) {
         return { nivel: 'secundaria', perfil };
     }
 
-    // ════════════════════════════════════════════════
-    //  PASSO 3 — TERCIÁRIO (Alta Complexidade)
-    //  Inclui: Hospitais · Santas Casas · Beneficências ·
-    //  Irmandades · Especializados · Reabilitação
-    // ════════════════════════════════════════════════
-
+    // Terciária
     const ehHospitalOSM        = healthcare === 'hospital';
     const nomeComeçaHospital   = nomeN.startsWith('hospital');
     const ehSantaCasa =
@@ -1316,8 +1240,6 @@ function classificarNivel(tags, nome) {
         /\bscm\b/.test(nomeN)         ||
         nomeN.startsWith('irmandade')  ||
         (n.includes('irmandade') && (n.includes('misericordia') || n.includes('santa')));
-
-    // Entidades filantrópicas/beneficentes SUS
     const ehBeneficencia =
         n.includes('beneficencia portuguesa')    ||
         n.includes('hospital de beneficencia')   ||
@@ -1328,7 +1250,6 @@ function classificarNivel(tags, nome) {
         nomeN.startsWith('irmandade')            ||
         nomeN.startsWith('beneficencia')         ||
         (n.includes('beneficencia') && !n.includes('privad') && !n.includes('particular'));
-
     const ehHospEspecializado  =
         n.includes('hospital geral')           || n.includes('hospital universitario')  ||
         n.includes('hospital de ensino')        || n.includes('hospital escola')          ||
@@ -1340,7 +1261,6 @@ function classificarNivel(tags, nome) {
         n.includes('hospital de urgencia')      || n.includes('hospital de emergencia')   ||
         n.includes('hospital beneficencia')     || n.includes('hospital oncologico')      ||
         n.includes('hospital cardiologico')     || n.includes('hospital especializado');
-
     const ehInstituto = n.includes('instituto') && (
         n.includes('oncologia') || n.includes('cancer')         ||
         n.includes('cardiologia')|| n.includes('cardiovascular') ||
@@ -1349,7 +1269,6 @@ function classificarNivel(tags, nome) {
         n.includes('medicina')   || n.includes('pediatria')     ||
         n.includes('materno')    || n.includes('saude publica')
     );
-
     const ehOncologico   = n.includes('oncologico') || n.includes('hospital do cancer') || n.includes('inca') || n.includes('into');
     const ehCardiologico = n.includes('cardiologico') || n.includes('cardiovascular');
     const ehMaternidade  = nomeN.startsWith('maternidade') || (n.includes('maternidade') && !n.includes('posto') && !n.includes('ubs'));
@@ -1374,9 +1293,7 @@ function classificarNivel(tags, nome) {
         return { nivel: 'terciaria', perfil };
     }
 
-    // ════════════════════════════════════════════════
-    //  PASSO 4 — FALLBACK: Primário genérico via tags OSM
-    // ════════════════════════════════════════════════
+    // Fallback
     let perfil = 'Unidade de Saúde';
     if      (healthcare === 'health_post')   perfil = 'Posto de Saúde';
     else if (healthcare === 'health_centre') perfil = 'Centro de Saúde';
@@ -1386,7 +1303,7 @@ function classificarNivel(tags, nome) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DETERMINAR ACOLHIMENTO
+//  DETERMINAR ACOLHIMENTO (idêntico ao original)
 // ════════════════════════════════════════════════════════════════════════════
 function determinarAcolhimento(unit) {
     const n = norm(unit.nome + ' ' + unit.perfil);
@@ -1399,7 +1316,6 @@ function determinarAcolhimento(unit) {
 
     if (n.includes('maternidade') || n.includes('obstetricia') || n.includes('parto')) return 'maternidade';
 
-    // PAMs e AMEs → atendimento ambulatorial especializado
     if (unit.perfil === 'PAM' || unit.perfil === 'AME') return 'ambulatorial';
 
     if (n.includes('ortopedia')   || n.includes('cardiologia') || n.includes('oncologia') ||
@@ -1425,7 +1341,7 @@ function getTextoAcolhimento(acolhimento) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FORMATAR TELEFONE
+//  FORMATAR TELEFONE (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 function formatarTelefoneBR(telefone) {
     if (!telefone) return '';
@@ -1446,7 +1362,7 @@ function limparNumeroParaLigacao(telefone) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  LINK WHATSAPP
+//  LINK WHATSAPP (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 function gerarLinkCompartilhamentoWhatsApp(unit) {
     const mapsLink = unit.mapsLink || `https://www.google.com/maps?q=${unit.lat},${unit.lon}`;
@@ -1464,7 +1380,7 @@ function gerarLinkCompartilhamentoWhatsApp(unit) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CNES ESTÁTICO
+//  CNES ESTÁTICO (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 function montarUnidadeCNESEstatico(u, cidade, uf) {
     const tel = u.tel || '';
@@ -1498,7 +1414,7 @@ async function buscarCNESEstatico(uf, ibge7, cidade) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  MONTAR UNIDADE (OSM)
+//  MONTAR UNIDADE (OSM) - usa a nova isVinculadoSUS
 // ════════════════════════════════════════════════════════════════════════════
 function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade = null, distancia = null) {
     const nome = (tags.name || tags['name:pt'] || '').trim();
@@ -1526,7 +1442,7 @@ function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade = null,
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  GEOLOCALIZAÇÃO
+//  GEOLOCALIZAÇÃO (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 async function usarGeolocalizacao() {
     if (!navigator.geolocation) { showNotification('Geolocalização não suportada pelo navegador', 'error'); return; }
@@ -1646,7 +1562,7 @@ async function reverseGeocode(lat, lon) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  BUSCA POR MUNICÍPIO
+//  BUSCA POR MUNICÍPIO (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 async function buscarPorMunicipio() {
     const uf = document.getElementById('selectEstado').value;
@@ -1834,7 +1750,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  INTERFACE - FILTROS
+//  INTERFACE - FILTROS (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 function toggleFilter() {
     const body  = document.getElementById('filterBody');
@@ -1943,7 +1859,7 @@ function applyLocalFilters() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  RENDERIZAÇÃO COM LAZY LOADING
+//  RENDERIZAÇÃO COM LAZY LOADING (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 const RENDER_BATCH = 20;
 const RENDER_MORE  = 20;
@@ -2185,7 +2101,7 @@ function updateDashboard() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  EXPORTAÇÃO EXCEL
+//  EXPORTAÇÃO EXCEL (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 function exportToExcel() {
     if (filteredUnits.length === 0) { showNotification('Nenhuma unidade para exportar', 'error'); return; }
@@ -2208,8 +2124,7 @@ function exportToExcel() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PDF — cards sem ícones de ação (Maps, Telefone, WhatsApp, E-mail, Web)
-//  Documento impresso não suporta interatividade; apenas dados textuais.
+//  PDF (idêntico)
 // ════════════════════════════════════════════════════════════════════════════
 function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual, totalPaginas, totalUnidades, dataAtual) {
     const cardsHTML = units.map(u => {
@@ -2220,15 +2135,11 @@ function gerarPaginaHTML(units, tituloNivel, iconeNivel, corClasse, paginaAtual,
         const distancia   = u.distancia        ? `<div class="pdf-unit-detail"><span>🧭</span> <span>${u.distancia.toFixed(1)} km</span></div>` : '';
         const cnesTag     = u.cnes             ? `<div style="font-size:0.52rem;color:#8EA2B8;margin-top:2px;font-family:'Outfit',sans-serif;">CNES: ${u.cnes}</div>` : '';
 
-        // Mapeia acolhimento para classe de badge
         let badgeClass = 'ambulatorial';
         if      (u.acolhimento === 'urgencia')     badgeClass = 'urgente';
         else if (u.acolhimento === 'maternidade')   badgeClass = 'maternidade';
         else if (u.acolhimento === 'especializado') badgeClass = 'especializado';
 
-        // ── IMPORTANTE: nenhum link/botão de ação no PDF ──────────────────
-        // O documento impresso não pode executar links de telefone, WhatsApp,
-        // Maps ou e-mail. Apenas texto informativo é exibido.
         return `
             <div class="pdf-unit-card">
                 <div class="pdf-unit-name">${u.nome}</div>
