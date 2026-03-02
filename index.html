@@ -61,9 +61,16 @@
       max-width: 1440px;
       margin: 0 auto;
       padding: 18px 28px;
-      display: flex;
-      align-items: center;
+      display: grid;
+      grid-template-columns: auto 1fr;
       gap: 20px;
+      align-items: stretch;
+    }
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      gap: 8px;
     }
     .logo-mark {
       width: 48px; height: 48px;
@@ -482,6 +489,7 @@
       color: #fff; font-family: 'Outfit', sans-serif; font-weight: 700;
       font-size: 0.82rem; cursor: pointer; flex-shrink: 0;
       box-shadow: 0 3px 12px rgba(0,180,126,0.45); transition: all 0.2s; letter-spacing: 0.3px;
+      margin-top: auto; /* empurra para o fundo no header-left */
     }
     .pix-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,180,126,0.55); }
 
@@ -561,7 +569,9 @@
     /* ─── RESPONSIVE ─── */
     @media (max-width: 640px) {
       .main-wrapper { padding: 16px 14px 40px; }
-      .header-inner { padding: 14px 16px; }
+      .header-inner { padding: 14px 16px; grid-template-columns: 1fr; gap: 12px; }
+      .header-left { flex-direction: row; align-items: center; justify-content: space-between; }
+      .pix-btn { margin-top: 0; } /* em telas pequenas, o botão fica ao lado da logo */
       .header-titles h1 { font-size: 1.2rem; }
       .dashboard { grid-template-columns: repeat(2, 1fr); }
       .cards-grid { grid-template-columns: 1fr; }
@@ -580,20 +590,22 @@
 <!-- ═══ HEADER ═══ -->
 <header>
   <div class="header-inner">
-    <div class="logo-mark">
-      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M14 4v20M4 14h20" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-        <circle cx="14" cy="14" r="12" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-      </svg>
+    <div class="header-left">
+      <div class="logo-mark">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 4v20M4 14h20" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="14" cy="14" r="12" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+        </svg>
+      </div>
+      <button class="pix-btn" onclick="abrirModalPix()" title="Contribuir com o desenvolvedor via PIX">
+        <svg width="18" height="18" viewBox="0 0 512 512" fill="currentColor"><path d="M389.6 315.9c-14.9 0-28.9-5.8-39.4-16.4l-81.5-81.5c-5.5-5.5-14.4-5.5-19.8 0l-81.9 81.9c-10.5 10.5-24.5 16.4-39.4 16.4h-15.3l103.4 103.4c21.8 21.8 57.2 21.8 79.1 0l103.7-103.7h-9.9zm0 0M127.6 196.1c14.9 0 28.9 5.8 39.4 16.4l81.9 81.9c5.5 5.5 14.4 5.5 19.8 0l81.5-81.5c10.5-10.5 24.5-16.4 39.4-16.4h9.9L296.2 92.7c-21.8-21.8-57.2-21.8-79.1 0L113.5 196.1h14.1zm0 0"/><path d="M467.5 220.9l-56.7-56.7h-21.2c-9.7 0-19.1 3.9-26 10.8l-81.5 81.5c-8.1 8.1-18.8 12.5-30.2 12.5s-22.1-4.4-30.2-12.5l-81.9-81.9c-6.9-6.9-16.2-10.8-26-10.8H92.3l-56.7 56.7c-21.8 21.8-21.8 57.2 0 79.1l56.7 56.7h22c9.7 0 19.1-3.9 26-10.8l81.9-81.9c8.1-8.1 18.8-12.5 30.2-12.5s22.1 4.4 30.2 12.5l81.5 81.5c6.9 6.9 16.2 10.8 26 10.8h21.2l56.7-56.7c21.9-21.9 21.9-57.3.1-79.1zm0 0"/></svg>
+        Apoiar Via PIX
+      </button>
     </div>
     <div class="header-titles">
       <h1>Saúde(+)<span>BR</span> &mdash; Sua Saúde em poucos cliques</h1>
       <p>Dados em tempo real via OpenStreetMap + Nominatim • Apenas unidades vinculadas ao SUS</p>
     </div>
-    <button class="pix-btn" onclick="abrirModalPix()" title="Contribuir com o desenvolvedor via PIX">
-      <svg width="18" height="18" viewBox="0 0 512 512" fill="currentColor"><path d="M389.6 315.9c-14.9 0-28.9-5.8-39.4-16.4l-81.5-81.5c-5.5-5.5-14.4-5.5-19.8 0l-81.9 81.9c-10.5 10.5-24.5 16.4-39.4 16.4h-15.3l103.4 103.4c21.8 21.8 57.2 21.8 79.1 0l103.7-103.7h-9.9zm0 0M127.6 196.1c14.9 0 28.9 5.8 39.4 16.4l81.9 81.9c5.5 5.5 14.4 5.5 19.8 0l81.5-81.5c10.5-10.5 24.5-16.4 39.4-16.4h9.9L296.2 92.7c-21.8-21.8-57.2-21.8-79.1 0L113.5 196.1h14.1zm0 0"/><path d="M467.5 220.9l-56.7-56.7h-21.2c-9.7 0-19.1 3.9-26 10.8l-81.5 81.5c-8.1 8.1-18.8 12.5-30.2 12.5s-22.1-4.4-30.2-12.5l-81.9-81.9c-6.9-6.9-16.2-10.8-26-10.8H92.3l-56.7 56.7c-21.8 21.8-21.8 57.2 0 79.1l56.7 56.7h22c9.7 0 19.1-3.9 26-10.8l81.9-81.9c8.1-8.1 18.8-12.5 30.2-12.5s22.1 4.4 30.2 12.5l81.5 81.5c6.9 6.9 16.2 10.8 26 10.8h21.2l56.7-56.7c21.9-21.9 21.9-57.3.1-79.1zm0 0"/></svg>
-      Apoiar Via PIX
-    </button>
   </div>
 </header>
 
@@ -822,7 +834,7 @@
         <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=robertguima%40gmail.com&bgcolor=ffffff&color=0B1F3A&margin=8" alt="QR Code PIX — robertguima@gmail.com" loading="lazy" onerror="this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=robertguima%40gmail.com&choe=UTF-8'">
       </div>
       <div class="pix-key-box">
-        <span class="pix-key-label">Chave PIX</span>
+        <span class="pix-key-label">PIX: </span>
         <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -856,10 +868,6 @@ const CONFIG = {
 // comunitários e filantrópicos SUS (Santas Casas, Beneficências).
 // 'doctors' é essencial: muitas Clínicas da Família e Postos de Saúde em OSM
 // usam esse valor. A filtragem de privados é feita em isVinculadoSUS().
-// ── INCLUIR_TIPOS: amenity= e healthcare= buscados no Overpass ───────────
-// 'doctors' e 'doctor' (singular e plural) são essenciais: Clínicas da
-// Família em OSM frequentemente usam esses valores.
-// A filtragem de privados é feita em isVinculadoSUS().
 const INCLUIR_TIPOS = [
     'hospital', 'clinic', 'health_post', 'health_centre',
     'polyclinic', 'birthing_center', 'maternity',
@@ -993,19 +1001,8 @@ function showNotification(message, type = 'info') {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS — lógica em camadas com fallback de hospital
-//
-//  Ordem:
-//  A) CNES tag → aceita imediatamente
-//  B) Marcadores privados → rejeita
-//  C) Tags OSM explícitas de operador público → aceita
-//  D) Operador contém nome de entidade pública/filantrópica → aceita
-//  E) Sigla SUS com fronteira de palavra → aceita
-//  F) Nome / descrição contém expressão SUS conhecida → aceita
-//  G) Entidade filantrópica pelo nome → aceita
-//  H) FALLBACK: amenity=hospital ou healthcare=hospital sem marcadores
-//     privados → presume SUS (hospitais no OSM brasileiro são
-//     esmagadoramente públicos/filantrópicos SUS)
+//  VÍNCULO SUS — lógica aprimorada para incluir entidades filantrópicas
+//  (Santas Casas, Beneficências, Irmandades, etc.)
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
     // ── A: CNES é registro exclusivo do sistema público brasileiro ─────────
@@ -1040,18 +1037,32 @@ function isVinculadoSUS(tags, nome) {
 
     // Beneficência Portuguesa e congêneres — filantrópicas SUS
     if (nomeNorm.includes('beneficencia portuguesa'))             return true;
-    if (nomeNorm.startsWith('beneficencia') &&
-        !nomeNorm.includes('privad') && !nomeNorm.includes('particular')) return true;
+    // Agora aceita qualquer nome que contenha "beneficencia" (desde que não contenha palavras privadas)
+    if (nomeNorm.includes('beneficencia') && !nomeNorm.includes('privad') && !nomeNorm.includes('particular')) return true;
 
     // Unidades com nomes não-ambíguos
     if (nomeNorm.includes('posto de saude'))                      return true;
     if (nomeNorm.includes('unidade basica de saude'))             return true;
     if (nomeNorm.includes('pronto atendimento municipal'))        return true;
-    if (nomeNorm.includes('hospital beneficente') ||
-        nomeNorm.includes('hospital de beneficencia') ||
+    if (nomeNorm.includes('hospital beneficente'))                return true;
+    if (nomeNorm.includes('hospital filantropico'))               return true;
+    if (nomeNorm.includes('fundacao beneficente'))                return true;
+    if (nomeNorm.includes('associacao beneficente'))              return true;
+    if (nomeNorm.includes('sociedade beneficente'))               return true;
+    if (nomeNorm.includes('entidade beneficente'))                return true;
+    if (nomeNorm.includes('hospital de beneficencia') ||
         nomeNorm.includes('hospital beneficencia'))               return true;
 
-    // ── C: Exclusão — marcadores inequívocos de serviço privado ──────────
+    // ── C: TAGS OSM EXPLÍCITAS DE CARÁTER FILANTRÓPICO ─────────────────────
+    if (tags['operator:type'] === 'nonprofit'   ||
+        tags['operator:type'] === 'charitable'  ||
+        tags['operator:type'] === 'religious'   ||
+        tags['operator:type'] === 'ngo'         ||
+        tags['charity'] === 'yes'                ||
+        tags['nonprofit'] === 'yes'               ||
+        tags['healthcare:funding'] === 'charitable') return true;
+
+    // ── D: Exclusão — marcadores inequívocos de serviço privado ──────────
     const marcadoresPrivados = [
         'unimed', 'amil', 'bradesco saude', 'sulamerica saude', 'notredame',
         'hapvida', 'prevent senior', 'clinipam', 'golden cross', 'mediservice',
@@ -1071,12 +1082,12 @@ function isVinculadoSUS(tags, nome) {
     }
     if (funding === 'private' || funding === 'privado') return false;
 
-    // ── D: Tags OSM explícitas de operador público ────────────────────────
+    // ── E: Tags OSM explícitas de operador público ────────────────────────
     if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
     if (tags.ownership === 'public' || tags.government) return true;
     if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
 
-    // ── E: Operador contém nome de entidade pública ou filantrópica ───────
+    // ── F: Operador contém nome de entidade pública ou filantrópica ───────
     // Inclui abreviações comuns no OSM brasileiro (SMS, SES, SESAB, etc.)
     const opPublico = [
         'prefeitura', 'secretaria', 'ministerio',
@@ -1095,7 +1106,7 @@ function isVinculadoSUS(tags, nome) {
     for (const p of opPublico) { if (op.includes(p)) return true; }
     if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
 
-    // ── F: Siglas SUS com fronteira de palavra ────────────────────────────
+    // ── G: Siglas SUS com fronteira de palavra ────────────────────────────
     const siglasRegex = [
         /\bubs\b/,   /\bupa\b/,  /\bcaps\b/, /\bcms\b/,
         /\besf\b/,   /\bpsf\b/,  /\bceo\b/,  /\bcer\b/,
@@ -1104,7 +1115,7 @@ function isVinculadoSUS(tags, nome) {
     ];
     for (const r of siglasRegex) { if (r.test(nomeNorm)) return true; }
 
-    // ── G: Expressões compostas SUS ────────────────────────────────────────
+    // ── H: Expressões compostas SUS ────────────────────────────────────────
     const nomesPublicos = [
         'unidade basica', 'centro de saude', 'centro municipal de saude',
         'equipe de saude da familia', 'saude da familia',
@@ -1139,10 +1150,10 @@ function isVinculadoSUS(tags, nome) {
         if (nomeNorm.includes(p) || desc.includes(p)) return true;
     }
 
-    // ── H: Maternidade sem qualificador privado ────────────────────────────
+    // ── I: Maternidade sem qualificador privado ────────────────────────────
     if (nomeNorm.startsWith('maternidade') && !op.includes('privado')) return true;
 
-    // ── I: FALLBACK por tag OSM ────────────────────────────────────────────
+    // ── J: FALLBACK por tag OSM ────────────────────────────────────────────
     // amenity/healthcare=hospital → esmagadoramente SUS no OSM brasileiro
     if (amenityTag === 'hospital'           || healthcareTag === 'hospital')          return true;
     // health_post / health_centre → exclusivamente SUS no Brasil
