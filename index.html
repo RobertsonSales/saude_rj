@@ -850,7 +850,7 @@
       </div>
       <div class="pix-key-box">
         <span class="pix-key-label">PIX: </span>
-        <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
+        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a1d3cec3c4d3d5c6d4c8ccc0e1c6ccc0c8cd8fc2cecc">[email&#160;protected]</a></span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           Copiar
@@ -865,7 +865,7 @@
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO E CONSTANTES
 // ════════════════════════════════════════════════════════════════════════════
@@ -967,27 +967,41 @@ const OVERPASS_MIRRORS = [
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
 ];
 
-async function consultarOverpass(query, timeoutMs = 60000) { // Aumentado para 60s
+async function consultarOverpass(query, timeoutMs = 120000) {
     if (_overpassCache.has(query)) return _overpassCache.get(query);
     let lastErr;
     for (const endpoint of OVERPASS_MIRRORS) {
+        // Cada mirror recebe o timeout completo; se um falhar, tenta o proximo
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            const resp = await fetch(endpoint, { method: 'POST', body: query, signal: controller.signal, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                body: `data=${encodeURIComponent(query)}`,
+                signal: controller.signal,
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
             clearTimeout(timer);
             if (resp.ok) {
                 const json = await resp.json();
                 _overpassCache.set(query, json);
                 return json;
             }
-            const txt = await resp.text().catch(() => resp.status);
-            lastErr = new Error(`HTTP ${resp.status}: ${String(txt).slice(0, 120)}`);
+            // Rate-limited (429) ou erro de servidor — tenta proximo mirror
+            const txt = await resp.text().catch(() => String(resp.status));
+            lastErr = new Error(`HTTP ${resp.status}: ${txt.slice(0, 120)}`);
+            console.warn(`Overpass ${endpoint} HTTP ${resp.status}`);
         } catch (e) {
             clearTimeout(timer);
             lastErr = e;
-            console.warn(`Overpass ${endpoint} falhou:`, e.message || e);
+            if (e.name === 'AbortError') {
+                console.warn(`Overpass ${endpoint} timeout (${timeoutMs}ms)`);
+            } else {
+                console.warn(`Overpass ${endpoint} falhou:`, e.message || e);
+            }
         }
+        // Pausa curta antes de tentar o proximo mirror
+        await new Promise(r => setTimeout(r, 500));
     }
     throw lastErr || new Error('Todos os servidores Overpass falharam');
 }
@@ -1540,25 +1554,12 @@ async function usarGeolocalizacao() {
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const R = raioKm * 1000;
     const around = `around:${R},${lat},${lon}`;
-    const query = `
-[out:json][timeout:55];
-(
-  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
-  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
-  node["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
-  way["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
-  node["name"~"${FILANTROPICAS_REGEX}",i](${around});
-  way["name"~"${FILANTROPICAS_REGEX}",i](${around});
-  node["operator"~"${FILANTROPICAS_REGEX}",i](${around});
-  way["operator"~"${FILANTROPICAS_REGEX}",i](${around});
-  node["operator:type"~"^(charitable|nonprofit|ngo|religious)$"](${around});
-  way["operator:type"~"^(charitable|nonprofit|ngo|religious)$"](${around});
-);
-out center tags qt;
-    `.trim();
-    updateSearchProgress(40, 'Consultando OpenStreetMap...', 'Buscando unidades de saúde');
+    // Usa buildHealthQuery para manter consistencia e evitar queries com regex
+    // em name/operator que causavam timeout e aborto da busca por proximidade.
+    const query = buildHealthQuery('', around);
+    updateSearchProgress(40, 'Consultando OpenStreetMap...', 'Buscando unidades de saude');
     try {
-        const dados = await consultarOverpass(query, 60000); // timeout 60s
+        const dados = await consultarOverpass(query, 120000); // timeout 120s
         const elementos = dados.elements || [];
         if (!buscaAtiva) return [];
         updateSearchProgress(60, 'Processando resultados...', `${elementos.length} candidatos encontrados`);
@@ -1709,18 +1710,19 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
 }
 
 function buildHealthQuery(escopo, areaVar) {
+    // Queries usando apenas tags indexadas (healthcare, amenity, operator:type).
+    // As clausulas name~ e operator~ foram removidas: faziam varredura de texto
+    // completo em todos nos/ways da area, causando lentidao severa e aborto por
+    // timeout. Unidades filantropicas com tags healthcare/amenity corretas ja sao
+    // capturadas; as demais sao filtradas pela isVinculadoSUS().
     return `
-[out:json][timeout:55];
+[out:json][timeout:90];
 ${escopo}
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${areaVar});
-  node["name"~"${FILANTROPICAS_REGEX}",i](${areaVar});
-  way["name"~"${FILANTROPICAS_REGEX}",i](${areaVar});
-  node["operator"~"${FILANTROPICAS_REGEX}",i](${areaVar});
-  way["operator"~"${FILANTROPICAS_REGEX}",i](${areaVar});
   node["operator:type"~"^(charitable|nonprofit|ngo|religious)$"](${areaVar});
   way["operator:type"~"^(charitable|nonprofit|ngo|religious)$"](${areaVar});
 );
@@ -1738,7 +1740,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         updateSearchProgress(30, 'Consultando área municipal...', `Relação OSM #${osmIdNum}`);
         const queryArea = buildHealthQuery(`area(${areaId})->.a;`, 'area.a');
         try {
-            const dados = await consultarOverpass(queryArea, 60000);
+            const dados = await consultarOverpass(queryArea, 120000);
             elementos    = dados.elements || [];
             usandoArea   = elementos.length > 0;
             if (usandoArea) updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
@@ -1762,7 +1764,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         const bboxStr  = `${sul},${oeste},${norte},${leste}`;
         const queryBbox = buildHealthQuery('', bboxStr);
         try {
-            const dados = await consultarOverpass(queryBbox, 60000);
+            const dados = await consultarOverpass(queryBbox, 120000);
             elementos    = dados.elements || [];
             if (elementos.length > 0) updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
         } catch (e) { console.warn('Overpass bbox falhou:', e.message || e); }
@@ -2449,11 +2451,7 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR - Localizador de Unidades de Saúde - SUS');
-});
-
-document.querySelectorAll('.modal-overlay').forEach(modal => {
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('visible'); });
+    console.log('Saúde-BR - Localizador de Unidades de Saúde Pública v4.5 — iniciado com sucesso');
 });
 </script>
 </body>
