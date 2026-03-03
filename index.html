@@ -850,7 +850,7 @@
       </div>
       <div class="pix-key-box">
         <span class="pix-key-label">PIX: </span>
-        <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
+        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d8aab7babdaaacbfadb1b5b998bfb5b9b1b4f6bbb7b5">[email&#160;protected]</a></span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           Copiar
@@ -865,7 +865,7 @@
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO E CONSTANTES
 // ════════════════════════════════════════════════════════════════════════════
@@ -1481,67 +1481,127 @@ function montarUnidade(tags, lat, lon, osmId, osmType, uf = null, cidade = null,
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  GEOLOCALIZAÇÃO (idêntico)
+//  VALIDAÇÃO: verifica se coordenadas estão dentro do Brasil
+// ════════════════════════════════════════════════════════════════════════════
+function coordenadasNoBrasil(lat, lon) {
+    return lat >= -34.0 && lat <= 5.5 && lon >= -74.0 && lon <= -28.0;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  GEOLOCALIZAÇÃO POR IP — fallback quando GPS não está disponível
+// ════════════════════════════════════════════════════════════════════════════
+async function geolocalizacaoPorIP() {
+    const fontes = [
+        async () => {
+            const r = await fetch('https://ipwho.is/', { signal: AbortSignal.timeout(5000) });
+            const d = await r.json();
+            if (d.success && d.latitude) return { lat: d.latitude, lon: d.longitude, fonte: 'IP (ipwho.is)', cidade: d.city };
+            return null;
+        },
+        async () => {
+            const r = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) });
+            const d = await r.json();
+            if (d.latitude) return { lat: d.latitude, lon: d.longitude, fonte: 'IP (ipapi.co)', cidade: d.city };
+            return null;
+        },
+        async () => {
+            const r = await fetch('https://ipinfo.io/json', { signal: AbortSignal.timeout(5000) });
+            const d = await r.json();
+            if (d.loc) {
+                const [lat, lon] = d.loc.split(',').map(parseFloat);
+                return { lat, lon, fonte: 'IP (ipinfo.io)', cidade: d.city };
+            }
+            return null;
+        }
+    ];
+    for (const fn of fontes) {
+        try {
+            const pos = await fn();
+            if (pos && coordenadasNoBrasil(pos.lat, pos.lon)) return pos;
+        } catch (_) {}
+    }
+    return null;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  GEOLOCALIZAÇÃO
 // ════════════════════════════════════════════════════════════════════════════
 async function usarGeolocalizacao() {
-    if (!navigator.geolocation) { showNotification('Geolocalização não suportada pelo navegador', 'error'); return; }
     showSearchProgress(true);
-    updateSearchProgress(10, 'Obtendo sua localização...', 'Aguarde autorização GPS');
+    updateSearchProgress(5, 'Obtendo sua localização...', 'Verificando GPS e IP');
     buscaAtiva = true;
 
-    navigator.geolocation.getCurrentPosition(
-        async (position) => {
-            try {
-                if (!buscaAtiva) return;
-                currentGeoPosition = { lat: position.coords.latitude, lon: position.coords.longitude };
-                updateSearchProgress(20, 'Localização obtida!', `Lat: ${currentGeoPosition.lat.toFixed(4)}, Lon: ${currentGeoPosition.lon.toFixed(4)}`);
-                const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
-                updateSearchProgress(30, 'Buscando unidades e município...', 'Consultas em paralelo');
-                const [units, location] = await Promise.all([
-                    buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio, '', ''),
-                    reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon).catch(() => null)
-                ]);
-                if (!buscaAtiva) return;
-                const cidade = location?.cidade || 'sua localização';
-                const uf     = location?.uf     || '';
-                if (cidade && cidade !== 'sua localização') {
-                    units.forEach(u => { if (!u.cidade) u.cidade = cidade; if (!u.uf) u.uf = uf; });
-                }
-                units.forEach(u => { if (u.lat && u.lon) { u.distancia = calcularDistancia(currentGeoPosition.lat, currentGeoPosition.lon, u.lat, u.lon); } });
-                units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
-                allUnits = units;
-                if (!buscaAtiva) return;
-                applyLocalFilters();
-                updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades no raio de ${raio}km`);
-                setTimeout(() => {
-                    showSearchProgress(false);
-                    showNotification(`${allUnits.length} unidades encontradas próximas a você`, 'success');
-                    document.getElementById('geoStatus').textContent = `📍 Sua localização: ${cidade} • ${allUnits.length} unidades no raio de ${raio}km`;
-                }, 800);
-            } catch (err) {
-                console.error('Erro na busca por proximidade:', err);
-                buscaAtiva = false;
-                showSearchProgress(false);
-                showNotification('Erro ao buscar unidades próximas: ' + (err.message || 'falha na conexão'), 'error');
-            }
-        },
-        (error) => {
+    // Tenta obter GPS com timeout generoso
+    let posicaoGPS = null;
+    if (navigator.geolocation) {
+        posicaoGPS = await new Promise(resolve => {
+            navigator.geolocation.getCurrentPosition(
+                pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, fonte: 'GPS' }),
+                ()  => resolve(null),
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 180000 }
+            );
+        });
+        // Valida se as coordenadas realmente estão no Brasil
+        if (posicaoGPS && !coordenadasNoBrasil(posicaoGPS.lat, posicaoGPS.lon)) {
+            console.warn('GPS retornou coordenadas fora do Brasil:', posicaoGPS);
+            posicaoGPS = null;
+        }
+    }
+
+    // Se GPS falhou ou retornou fora do BR, usa geolocalização por IP
+    let posicao = posicaoGPS;
+    if (!posicao) {
+        updateSearchProgress(15, 'GPS indisponível — usando localização por IP...', 'Consultando serviço de geolocalização');
+        posicao = await geolocalizacaoPorIP();
+    }
+
+    if (!posicao) {
+        showSearchProgress(false);
+        buscaAtiva = false;
+        showNotification('Não foi possível determinar sua localização. Ative o GPS ou use a busca por município.', 'error');
+        return;
+    }
+
+    try {
+        if (!buscaAtiva) return;
+        currentGeoPosition = { lat: posicao.lat, lon: posicao.lon };
+        updateSearchProgress(20, `Localização obtida (${posicao.fonte})!`, `Lat: ${currentGeoPosition.lat.toFixed(4)}, Lon: ${currentGeoPosition.lon.toFixed(4)}`);
+        const raio = parseFloat(document.getElementById('geoRaio').value) || 6;
+        updateSearchProgress(30, 'Buscando unidades e município...', 'Consultas em paralelo');
+        const [units, location] = await Promise.all([
+            buscarUnidadesProximas(currentGeoPosition.lat, currentGeoPosition.lon, raio, '', ''),
+            reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon).catch(() => null)
+        ]);
+        if (!buscaAtiva) return;
+        const cidade = location?.cidade || posicao.cidade || 'sua localização';
+        const uf     = location?.uf     || '';
+        if (cidade && cidade !== 'sua localização') {
+            units.forEach(u => { if (!u.cidade) u.cidade = cidade; if (!u.uf) u.uf = uf; });
+        }
+        units.forEach(u => { if (u.lat && u.lon) { u.distancia = calcularDistancia(currentGeoPosition.lat, currentGeoPosition.lon, u.lat, u.lon); } });
+        units.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
+        allUnits = units;
+        if (!buscaAtiva) return;
+        applyLocalFilters();
+        updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades no raio de ${raio}km`);
+        setTimeout(() => {
             showSearchProgress(false);
-            let msg = 'Erro ao obter localização';
-            if (error.code === error.PERMISSION_DENIED) msg = 'Permissão de localização negada';
-            else if (error.code === error.POSITION_UNAVAILABLE) msg = 'Localização indisponível';
-            else if (error.code === error.TIMEOUT) msg = 'Tempo esgotado ao obter localização';
-            showNotification(msg, 'error');
-        },
-        { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 }
-    );
+            showNotification(`${allUnits.length} unidades encontradas próximas a você`, allUnits.length > 0 ? 'success' : 'info');
+            document.getElementById('geoStatus').textContent = `📍 Sua localização: ${cidade} • ${allUnits.length} unidades no raio de ${raio}km`;
+        }, 800);
+    } catch (err) {
+        console.error('Erro na busca por proximidade:', err);
+        buscaAtiva = false;
+        showSearchProgress(false);
+        showNotification('Erro ao buscar unidades próximas: ' + (err.message || 'falha na conexão'), 'error');
+    }
 }
 
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const R = raioKm * 1000;
     const around = `around:${R},${lat},${lon}`;
     const query = `
-[out:json][timeout:55];
+[out:json][timeout:30];
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
@@ -1710,7 +1770,7 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
 
 function buildHealthQuery(escopo, areaVar) {
     return `
-[out:json][timeout:55];
+[out:json][timeout:30];
 ${escopo}
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${areaVar});
@@ -1732,40 +1792,52 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
     let elementos = [];
     let usandoArea = false;
 
+    // Monta bbox antecipadamente
+    const lat = municipio.latitude;
+    const lon = municipio.longitude;
+    let sul, norte, oeste, leste;
+    if (municipio.bbox && municipio.bbox.length === 4) {
+        [sul, norte, oeste, leste] = municipio.bbox;
+    } else {
+        const raio = 25;
+        const dLat = raio / 111;
+        const dLon = raio / (111 * Math.cos(lat * Math.PI / 180));
+        sul   = (lat - dLat).toFixed(6); norte = (lat + dLat).toFixed(6);
+        oeste = (lon - dLon).toFixed(6); leste = (lon + dLon).toFixed(6);
+    }
+    const bboxStr   = `${sul},${oeste},${norte},${leste}`;
+    const queryBbox = buildHealthQuery('', bboxStr);
+
+    // Dispara relação e bbox em PARALELO — usa o que responder primeiro com dados
+    updateSearchProgress(30, 'Consultando OpenStreetMap (paralelo)...', 'Relação municipal + bounding box simultâneos');
+
+    const promessaBbox = consultarOverpass(queryBbox, 45000).catch(e => { console.warn('Bbox falhou:', e.message); return { elements: [] }; });
+
+    let promessaArea = null;
     if (municipio.osmId && municipio.osmType === 'relation') {
         const osmIdNum = parseInt(municipio.osmId, 10);
         const areaId   = 3600000000 + osmIdNum;
-        updateSearchProgress(30, 'Consultando área municipal...', `Relação OSM #${osmIdNum}`);
         const queryArea = buildHealthQuery(`area(${areaId})->.a;`, 'area.a');
-        try {
-            const dados = await consultarOverpass(queryArea, 60000);
-            elementos    = dados.elements || [];
-            usandoArea   = elementos.length > 0;
-            if (usandoArea) updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
-        } catch (e) { console.warn('Falha na relação administrativa:', e.message || e); }
+        promessaArea = consultarOverpass(queryArea, 45000).catch(e => { console.warn('Relação falhou:', e.message); return { elements: [] }; });
     }
 
-    if (elementos.length === 0) {
-        updateSearchProgress(35, 'Usando bounding box...', 'Calculando área do município');
-        const lat = municipio.latitude;
-        const lon = municipio.longitude;
-        let sul, norte, oeste, leste;
-        if (municipio.bbox && municipio.bbox.length === 4) {
-            [sul, norte, oeste, leste] = municipio.bbox;
-        } else {
-            const raio = 25;
-            const dLat = raio / 111;
-            const dLon = raio / (111 * Math.cos(lat * Math.PI / 180));
-            sul   = (lat - dLat).toFixed(6); norte = (lat + dLat).toFixed(6);
-            oeste = (lon - dLon).toFixed(6); leste = (lon + dLon).toFixed(6);
-        }
-        const bboxStr  = `${sul},${oeste},${norte},${leste}`;
-        const queryBbox = buildHealthQuery('', bboxStr);
-        try {
-            const dados = await consultarOverpass(queryBbox, 60000);
-            elementos    = dados.elements || [];
-            if (elementos.length > 0) updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
-        } catch (e) { console.warn('Overpass bbox falhou:', e.message || e); }
+    // Aguarda ambas e escolhe a que trouxer mais elementos
+    const [dadosBbox, dadosArea] = await Promise.all([
+        promessaBbox,
+        promessaArea || Promise.resolve({ elements: [] })
+    ]);
+
+    const elemArea = dadosArea?.elements || [];
+    const elemBbox = dadosBbox?.elements || [];
+
+    if (elemArea.length >= elemBbox.length && elemArea.length > 0) {
+        elementos   = elemArea;
+        usandoArea  = true;
+        updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
+    } else if (elemBbox.length > 0) {
+        elementos   = elemBbox;
+        usandoArea  = false;
+        updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
     }
 
     if (elementos.length === 0) return [];
