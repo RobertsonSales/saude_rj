@@ -890,7 +890,7 @@
     </div>
     <div class="header-titles">
       <h1>Saúde(+)<span>BR</span> &mdash; Sua Saúde em Poucos Cliques</h1>
-      <p>Dados em tempo real: OpenStreetMap + Nominatim • Apenas unidades SUS</p>
+      <p>Dados em tempo real: OpenStreetMap + Nominatim • SUS · Filantrópicas · Associações · Clínicas da Família</p>
     </div>
 
     <button class="pix-btn" onclick="abrirModalPix()" title="Contribuir com o desenvolvedor via PIX">
@@ -1025,7 +1025,7 @@
       <div class="stat-card-icon" style="background: #E8F8F3; color: #00A878;">🏠</div>
       <div class="stat-card-value" id="statPrimaria">—</div>
       <div class="stat-card-label">Atenção Primária</div>
-      <div class="stat-card-sublabel">UBS, Postos, ESF/PSF, CAPS</div>
+      <div class="stat-card-sublabel">UBS, Postos, CF, ESF/PSF, CAPS, Assoc.</div>
     </div>
     <div class="stat-card" style="--card-accent: var(--blue);">
       <div class="stat-card-icon" style="background: var(--blue-pale); color: var(--blue);">🔬</div>
@@ -1037,7 +1037,7 @@
       <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🏨</div>
       <div class="stat-card-value" id="statTerciaria">—</div>
       <div class="stat-card-label">Atenção Terciária</div>
-      <div class="stat-card-sublabel">Hospitais de referência</div>
+      <div class="stat-card-sublabel">Hospitais, Santas Casas, Beneficências</div>
     </div>
     <div class="stat-card" style="--card-accent: var(--red);">
       <div class="stat-card-icon" style="background: var(--red-pale); color: var(--red);">🚨</div>
@@ -1131,7 +1131,7 @@
         >
       </div>
       <div class="pix-key-box">
-        <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
+        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="1c6e737e796e687b6975717d5c7b717d7570327f7371">[email&#160;protected]</a></span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -1145,12 +1145,12 @@
 </div>
 
 <footer class="footer">
-  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS (v5.1 Ampliada)
+  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (versão 5.1 Ampliada com ampliação de tipos)
+//  CONFIGURAÇÃO E CONSTANTES (versão otimizada com ampliação de tipos)
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1170,11 +1170,17 @@ const INCLUIR_TIPOS = [
     'centre', 'outpatient', 'doctors', 'doctor', 'nursing_home',
     'hospice', 'rehabilitation', 'physiotherapy', 'mental_health',
     'occupational_medicine', 'public_health', 'child_health',
-    'midwife', 'clinic_abortion', 'blood_donation', 'health_visitor', 'social_facility', 'welfare', 'care_facility', 'charitable_organization', 'family_clinic', 'community_clinic', 'beneficent_association', 'social_facility', 'welfare', 'care_facility', 'charitable_organization', 'family_clinic', 'community_clinic', 'beneficent_association'
+    'midwife', 'clinic_abortion', 'blood_donation', 'health_visitor',
+    // Tipos adicionados — V+
+    'family_practice', 'family_health', 'community_centre',
+    'social_facility', 'charitable', 'ngo',
+    'dialysis', 'sample_collection_centre', 'health_care',
+    'women_health', 'sexual_health', 'geriatric',
+    'palliative', 'wound_care', 'addiction', 'dentist'
 ].filter((v, i, a) => a.indexOf(v) === i).join('|');
 
 // ── EXCLUIR_TIPOS: valores explicitamente não-SUS (apenas privados/veterinários)
-const EXCLUIR_TIPOS = 'pharmacy|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|blood_donation|veterinary|cosmetics|beauty';
+const EXCLUIR_TIPOS = 'pharmacy|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|veterinary|cosmetics|beauty';
 
 let allUnits = [];
 let filteredUnits = [];
@@ -1324,7 +1330,7 @@ function isVinculadoSUS(tags, nome) {
     const amenity    = (tags.amenity    || '').toLowerCase().trim();
     const healthcare = (tags.healthcare || '').toLowerCase().trim();
 
-    // 1. INCLUSÕES INCONDICIONAIS (filantrópicas)
+    // 1. INCLUSÕES INCONDICIONAIS (filantrópicas, associações e clínicas da família)
     const filantropiasNome = [
         'santa casa', 'misericordia', 'irmandade', 'beneficencia portuguesa',
         'beneficencia', 'beneficente', 'filantropico', 'filantrofico',
@@ -1332,14 +1338,25 @@ function isVinculadoSUS(tags, nome) {
         'ordem terceira', 'fundacao beneficente', 'fundacao hospitalar',
         'associacao beneficente', 'sociedade beneficente', 'entidade beneficente',
         'casa santa', 'santa casa de misericordia', 'irmandade da santa casa',
-        'irmandade de misericordia', 'beneficencia portuguesa'
+        'irmandade de misericordia', 'beneficencia portuguesa',
+        // Associações beneficentes — V+
+        'associacao de assistencia', 'associacao de saude', 'associacao comunitaria de saude',
+        'associacao de beneficencia', 'liga beneficente', 'liga de saude', 'liga da saude',
+        'liga de combate', 'obra social', 'obras sociais', 'instituto beneficente',
+        'instituto de assistencia', 'fundacao assistencial', 'fundacao de saude',
+        'fundacao de assistencia', 'fundacao de beneficencia',
+        'centro de assistencia', 'nucleo de saude', 'associacao medica beneficente',
+        'fraternidade', 'caritativa', 'caritativo', 'caritas', 'pastoral da saude',
+        'hospital das obras', 'hospital comunitario', 'hospital popular',
+        // Clínicas da Família (Rio de Janeiro) — V+
         'clinica da familia', 'clinica de familia', 'clinica familia',
-        'associacao beneficente', 'associacao de beneficencia'
-        'clinica da familia', 'clinica de familia', 'clinica familia',
-        'associacao beneficente', 'associacao de beneficencia'
+        'clinica popular de saude', 'clinica municipal de saude',
+        'nucleo de saude da familia', 'nucleo de atencao a saude da familia',
     ];
-    for (let fw of filantropiasNome) { if (nomeNorm.includes(fw) || op.includes(fw)) return true; }
+    for (let fw of filantropiasNome) { if (nomeNorm.includes(fw) || op.includes(fw) || desc.includes(fw)) return true; }
     if (/\bscm\b/.test(nomeNorm) || /\bscm\b/.test(op)) return true;
+    // CF (Clínica da Família — sigla Rio de Janeiro)
+    if (/^cf[\s\-_\/]/.test(nomeNorm) || /[\s\-\/]cf[\s\-_\/0-9]/.test(nomeNorm) || nomeNorm === 'cf') return true;
 
     if (tags['operator:type'] === 'charitable' ||
         tags['operator:type'] === 'nonprofit' ||
@@ -1420,7 +1437,8 @@ function isVinculadoSUS(tags, nome) {
     if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
 
     // 5. SIGLAS E EXPRESSÕES SUS
-    const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/, /\bcf\b/, /\bcf\b/];
+    const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/,
+        /\bcf\b/, /\bnasf\b/, /\bnucleo\b.*\bsaude\b/, /\bpacs\b/, /\bcras\b.*\bsaude\b/];
     for (let r of siglas) { if (r.test(nomeNorm)) return true; }
 
     const nomesPublicos = [
@@ -1450,6 +1468,29 @@ function isVinculadoSUS(tags, nome) {
         'hupe', 'huap', 'husm', 'hucff', 'hucam', 'ebserh',
         'clinica popular de saude', 'clinica popular',
         'nasf', 'nafs', 'nucleo de atencao',
+        // V+ adições
+        'clinica da familia', 'clinica de familia', 'clinica familia',
+        'nucleo de saude da familia', 'nucleo de atencao a saude da familia',
+        'associacao beneficente', 'associacao de saude', 'associacao de assistencia',
+        'beneficencia portuguesa', 'liga de saude', 'liga beneficente',
+        'obra social de saude', 'obras sociais', 'pastoral da saude',
+        'hospital comunitario', 'hospital popular', 'hospital das obras',
+        'centro de saude comunitario', 'centro de saude da familia',
+        'posto medico', 'posto de atendimento medico',
+        'ambulatorio de saude', 'ambulatorio municipal', 'ambulatorio estadual',
+        'ambulatorio do sus', 'ambulatorio sus',
+        'unidade de saude da familia', 'unidade saude da familia',
+        'pronto socorro municipal', 'pronto socorro estadual',
+        'upas', 'upa 24', 'unidade de urgencia',
+        'servico de urgencia', 'servico de emergencia',
+        'centro especializado em reabilitacao',
+        'centro de especialidades medicas', 'centro de especialidades',
+        'policlinica municipal', 'policlinica estadual',
+        'laboratorio municipal de saude', 'laboratorio de saude publica',
+        'banco de sangue municipal', 'hemocentro',
+        'central de regulacao', 'complexo hospitalar',
+        'hospital geral do sus', 'pronto atendimento sus',
+        'unidade de referencia', 'unidade de media complexidade',
     ];
     for (let p of nomesPublicos) { if (nomeNorm.includes(p) || desc.includes(p)) return true; }
 
@@ -1503,15 +1544,21 @@ function classificarNivel(tags, nome) {
     const ehUBS        = nomeN.startsWith('ubs') || n.includes('unidade basica de saude') || n.includes('unidade basica');
     const ehPosto      = n.includes('posto de saude') || n.includes('posto saude');
     const ehClinicaFam =
-        n.includes('clinica da familia')     ||
-        n.includes('clinica de familia')     ||
-        n.includes('clinica familia')        ||
-        n.includes('clinica popular de saude') ||
-        n.includes('clinica municipal de saude') ||
-        nomeN.startsWith('cf ')              ||
-        nomeN === 'cf'                       ||
-        (nomeN.length >= 3 && nomeN.startsWith('cf-')) ||
-        healthcare === 'primary_healthcare'  ||
+        n.includes('clinica da familia')      ||
+        n.includes('clinica de familia')      ||
+        n.includes('clinica familia')         ||
+        n.includes('clinica popular de saude')||
+        n.includes('clinica municipal de saude')||
+        n.includes('nucleo de saude da familia')||
+        n.includes('nucleo de atencao a saude da familia')||
+        nomeN.startsWith('cf ')               ||
+        nomeN === 'cf'                        ||
+        /^cf[\-_\/\d]/.test(nomeN)         ||
+        /\scf\s/.test(nomeN)                ||
+        /\scf$/.test(nomeN)                  ||
+        healthcare === 'primary_healthcare'   ||
+        healthcare === 'family_practice'      ||
+        healthcare === 'family_health'        ||
         (healthcare === 'health_centre' && !n.includes('especialidade') && !n.includes('hospital'));
     const ehESF        = nomeN.startsWith('esf ') || nomeN === 'esf' || n.includes(' esf ') || n.includes('saude da familia') || n.includes('equipe de saude da familia') || n.includes('estrategia de saude da familia');
     const ehPSF        = nomeN.startsWith('psf ') || nomeN === 'psf' || n.includes(' psf ') || n.includes('programa saude da familia');
@@ -1582,7 +1629,14 @@ function classificarNivel(tags, nome) {
         n.includes('irmandade de misericordia')  ||
         nomeN.startsWith('irmandade')            ||
         nomeN.startsWith('beneficencia')         ||
-        (n.includes('beneficencia') && !n.includes('privad') && !n.includes('particular'));
+        n.includes('liga de saude')              ||
+        n.includes('obra social')                ||
+        n.includes('pastoral da saude')          ||
+        n.includes('hospital das obras')         ||
+        n.includes('hospital comunitario')       ||
+        n.includes('hospital popular')           ||
+        (n.includes('beneficencia') && !n.includes('privad') && !n.includes('particular')) ||
+        (n.includes('associacao beneficente') && (n.includes('hospital') || n.includes('clinica')));
     const ehHospEspecializado  =
         n.includes('hospital geral')           || n.includes('hospital universitario')  ||
         n.includes('hospital de ensino')        || n.includes('hospital escola')          ||
@@ -1626,11 +1680,21 @@ function classificarNivel(tags, nome) {
         return { nivel: 'terciaria', perfil };
     }
 
+    // Associação Beneficente sem hospital no nome → Atenção Primária / Clínica
+    const ehAssocBenef =
+        (n.includes('associacao beneficente') || n.includes('associacao de saude') ||
+         n.includes('liga beneficente') || n.includes('liga de saude') ||
+         n.includes('obra social') || n.includes('pastoral da saude')) &&
+        !n.includes('hospital');
+    if (ehAssocBenef) return { nivel: 'primaria', perfil: 'Associação Beneficente' };
+
     // Fallback
     let perfil = 'Unidade de Saúde';
     if      (healthcare === 'health_post')   perfil = 'Posto de Saúde';
     else if (healthcare === 'health_centre') perfil = 'Centro de Saúde';
     else if (healthcare === 'doctors')       perfil = 'Consultório/Clínica';
+    else if (healthcare === 'dentist' || healthcare === 'dental') perfil = 'Odontológico';
+    else if (healthcare === 'dialysis')      perfil = 'Clínica de Diálise';
 
     return { nivel: 'primaria', perfil };
 }
@@ -1910,51 +1974,54 @@ async function usarGeolocalizacao() {
 }
 
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
-    const R = raioKm * 1000;
-    const around = `around:${R},${lat},${lon}`;
-    // Query otimizada: apenas amenity e healthcare (sem buscas textuais pesadas)
-    const query = `
-[out:json][timeout:45];
-(
-  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
-  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${around});
-  node["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
-  way["amenity"~"^(${INCLUIR_TIPOS})$"](${around});
-);
-out center tags qt;
-    `.trim();
-    
-    updateSearchProgress(40, 'Consultando OpenStreetMap...', 'Buscando unidades de saúde');
+    const around = `around:${raioKm * 1000},${lat},${lon}`;
 
+    // Query principal (tags padrão) e auxiliar (nome/operador) em paralelo
+    const queryPrincipal = buildHealthQuery('', around);
+    const queryAuxiliar  = buildHealthQueryAuxiliar('', around);
+
+    updateSearchProgress(40, 'Consultando OpenStreetMap (dupla busca)...', 'Queries em paralelo');
+
+    let elementosPrincipal = [], elementosAux = [];
     try {
-        const dados = await consultarOverpass(query, 45000);
-        const elementos = dados.elements || [];
-        if (!buscaAtiva) return [];
-        
-        updateSearchProgress(60, 'Processando resultados...', `${elementos.length} candidatos encontrados`);
-
-        const unidades = [];
-        for (let i = 0; i < elementos.length; i++) {
-            if (!buscaAtiva) return unidades;
-            const el = elementos[i];
-            const tags = el.tags || {};
-            const elLat = el.lat ?? el.center?.lat;
-            const elLon = el.lon ?? el.center?.lon;
-            if (!elLat || !elLon) continue;
-            const distancia = calcularDistancia(lat, lon, elLat, elLon);
-            if (distancia > raioKm) continue;
-            const u = montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : 'way', uf, cidade, distancia);
-            if (u) unidades.push(u);
-            if (i % 10 === 0) {
-                const pct = 60 + Math.round((i + 1) / elementos.length * 25);
-                updateSearchProgress(pct, 'Processando...', `${unidades.length} unidades válidas encontradas`);
-            }
-        }
-        return deduplicar(unidades);
+        const [dadosPrincipal, dadosAux] = await Promise.allSettled([
+            consultarOverpass(queryPrincipal, 45000),
+            consultarOverpass(queryAuxiliar,  45000)
+        ]);
+        if (dadosPrincipal.status === 'fulfilled') elementosPrincipal = dadosPrincipal.value.elements || [];
+        if (dadosAux.status === 'fulfilled')       elementosAux       = dadosAux.value.elements       || [];
     } catch (error) {
         console.error('Erro no Overpass:', error);
         throw error;
     }
+
+    if (!buscaAtiva) return [];
+
+    // Mesclar (eliminando duplicatas por osmId)
+    const idsVistos = new Set(elementosPrincipal.map(e => `${e.type}_${e.id}`));
+    const elementosNovos = elementosAux.filter(e => !idsVistos.has(`${e.type}_${e.id}`));
+    const todosElementos = [...elementosPrincipal, ...elementosNovos];
+
+    updateSearchProgress(60, 'Processando resultados...', `${todosElementos.length} candidatos (principal + auxiliar)`);
+
+    const unidades = [];
+    for (let i = 0; i < todosElementos.length; i++) {
+        if (!buscaAtiva) return unidades;
+        const el = todosElementos[i];
+        const tags = el.tags || {};
+        const elLat = el.lat ?? el.center?.lat;
+        const elLon = el.lon ?? el.center?.lon;
+        if (!elLat || !elLon) continue;
+        const distancia = calcularDistancia(lat, lon, elLat, elLon);
+        if (distancia > raioKm) continue;
+        const u = montarUnidade(tags, elLat, elLon, el.id, el.type === 'node' ? 'node' : 'way', uf, cidade, distancia);
+        if (u) unidades.push(u);
+        if (i % 10 === 0) {
+            const pct = 60 + Math.round((i + 1) / todosElementos.length * 25);
+            updateSearchProgress(pct, 'Processando...', `${unidades.length} unidades SUS válidas encontradas`);
+        }
+    }
+    return deduplicar(unidades);
 }
 
 async function reverseGeocode(lat, lon) {
@@ -2126,27 +2193,89 @@ out center tags qt;
     `.trim();
 }
 
+// ── Query auxiliar: busca por nome/operador para unidades não tagueadas padrão
+//    Captura: Associações Beneficentes, Clínicas da Família, Beneficências Portuguesas,
+//    unidades SUS com tags não convencionais, mas com nomes reconhecíveis.
+const NOME_REGEX_AUX = [
+    'clinica.da.familia', 'clinica.de.familia', 'clinica.familia',
+    'beneficencia.portuguesa', 'beneficencia', 'beneficente',
+    'associacao.beneficente', 'associacao.de.saude', 'associacao.assistencia',
+    'liga.de.saude', 'liga.beneficente', 'obra.social',
+    'pastoral.da.saude', 'santa.casa', 'misericordia', 'irmandade',
+    'hospital.comunitario', 'hospital.popular', 'unidade.de.saude',
+    'nucleo.de.saude', 'centro.de.saude', 'posto.de.saude',
+    'policlinica', 'pronto.atendimento', 'pronto.socorro',
+    'hemocentro', 'banco.de.sangue', 'ambulatorio'
+].join('|');
+
+function buildHealthQueryAuxiliar(escopo, areaVar) {
+    return `
+[out:json][timeout:45];
+${escopo}
+(
+  node["name"~"(${NOME_REGEX_AUX})",i](${areaVar});
+  way["name"~"(${NOME_REGEX_AUX})",i](${areaVar});
+  node["operator"~"(beneficente|beneficencia|santa.casa|misericordia|irmandade|prefeitura|secretaria|municipal|estadual|federal|sus|ebserh)",i](${areaVar});
+  way["operator"~"(beneficente|beneficencia|santa.casa|misericordia|irmandade|prefeitura|secretaria|municipal|estadual|federal|sus|ebserh)",i](${areaVar});
+);
+out center tags qt;
+    `.trim();
+}
+
+function processarElementosOSM(elementos, uf, cidade, refLat, refLon, raioMaxKm, usandoArea) {
+    const unidades = [];
+    for (const el of elementos) {
+        const tags = el.tags || {};
+        const elLat = el.lat ?? el.center?.lat;
+        const elLon = el.lon ?? el.center?.lon;
+        if (!elLat || !elLon) continue;
+        if (refLat !== null && refLon !== null) {
+            const dist = calcularDistancia(refLat, refLon, elLat, elLon);
+            if (dist > raioMaxKm) continue;
+            if (!usandoArea) {
+                const addrCity = norm(tags['addr:city'] || '');
+                if (addrCity && cidade && addrCity !== norm(cidade)) continue;
+            }
+        }
+        const u = montarUnidade(tags, elLat, elLon, el.id,
+            el.type === 'node' ? 'node' : (el.type === 'relation' ? 'relation' : 'way'),
+            uf, cidade);
+        if (u) unidades.push(u);
+    }
+    return unidades;
+}
+
 async function buscarUnidadesNoMunicipio(municipio, uf) {
     let elementos = [];
     let usandoArea = false;
 
+    // ── Fase 1: busca por área OSM relation (se disponível) ────────────────────
     if (municipio.osmId && municipio.osmType === 'relation') {
         const osmIdNum = parseInt(municipio.osmId, 10);
         const areaId   = 3600000000 + osmIdNum;
-        updateSearchProgress(30, 'Consultando área municipal...', `Relação OSM #${osmIdNum}`);
-        const queryArea = buildHealthQuery(`area(${areaId})->.a;`, 'area.a');
+        updateSearchProgress(28, 'Consultando área municipal (dupla query)...', `Relação OSM #${osmIdNum}`);
+        const qPrinc = buildHealthQuery(`area(${areaId})->.a;`, 'area.a');
+        const qAux   = buildHealthQueryAuxiliar(`area(${areaId})->.a;`, 'area.a');
         try {
-            const dados = await consultarOverpass(queryArea, 45000);
-            elementos    = dados.elements || [];
-            usandoArea   = elementos.length > 0;
-            if (usandoArea) updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
+            const [rP, rA] = await Promise.allSettled([
+                consultarOverpass(qPrinc, 45000),
+                consultarOverpass(qAux,   45000)
+            ]);
+            const elP = rP.status === 'fulfilled' ? (rP.value.elements || []) : [];
+            const elA = rA.status === 'fulfilled' ? (rA.value.elements || []) : [];
+            const idsP = new Set(elP.map(e => `${e.type}_${e.id}`));
+            const elAux = elA.filter(e => !idsP.has(`${e.type}_${e.id}`));
+            elementos  = [...elP, ...elAux];
+            usandoArea = elementos.length > 0;
+            if (usandoArea) updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos (principal + auxiliar)`);
         } catch (e) {
             console.warn('Falha na relação administrativa:', e.message || e);
         }
     }
 
+    // ── Fase 2: fallback bounding box (com dupla query também) ──────────────
     if (elementos.length === 0) {
-        updateSearchProgress(35, 'Usando bounding box...', 'Calculando área do município');
+        updateSearchProgress(35, 'Usando bounding box (dupla query)...', 'Calculando área do município');
         const lat = municipio.latitude;
         const lon = municipio.longitude;
         let sul, norte, oeste, leste;
@@ -2162,11 +2291,19 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
             leste = (lon + dLon).toFixed(6);
         }
         const bboxStr  = `${sul},${oeste},${norte},${leste}`;
-        const queryBbox = buildHealthQuery('', bboxStr);
+        const qPrinc   = buildHealthQuery('', bboxStr);
+        const qAux     = buildHealthQueryAuxiliar('', bboxStr);
         try {
-            const dados = await consultarOverpass(queryBbox, 45000);
-            elementos    = dados.elements || [];
-            if (elementos.length > 0) updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
+            const [rP, rA] = await Promise.allSettled([
+                consultarOverpass(qPrinc, 45000),
+                consultarOverpass(qAux,   45000)
+            ]);
+            const elP  = rP.status === 'fulfilled' ? (rP.value.elements || []) : [];
+            const elA  = rA.status === 'fulfilled' ? (rA.value.elements || []) : [];
+            const idsP = new Set(elP.map(e => `${e.type}_${e.id}`));
+            const elAux = elA.filter(e => !idsP.has(`${e.type}_${e.id}`));
+            elementos   = [...elP, ...elAux];
+            if (elementos.length > 0) updateSearchProgress(50, 'Candidatos encontrados (bbox dupla)', `${elementos.length} itens`);
         } catch (e) {
             console.warn('Overpass bbox falhou:', e.message || e);
         }
@@ -2408,11 +2545,11 @@ function renderResults() {
 
     const groupConfigs = [
         { key: 'primaria',   label: 'Atenção Primária',   color: '#00A878', icon: '🏠',
-          desc: 'UBS · Postos de Saúde · Clínicas da Família · ESF/PSF · CAPS/CAPS-AD' },
+          desc: 'UBS · Postos de Saúde · Clínicas da Família (CF) · ESF/PSF · CAPS · Assoc. Beneficentes' },
         { key: 'secundaria', label: 'Atenção Secundária',  color: '#1565C0', icon: '🔬',
           desc: 'UPAs 24h · AME · CEO · Policlínicas · Unidades Mistas · CER' },
         { key: 'terciaria',  label: 'Atenção Terciária',   color: '#E53935', icon: '🏨',
-          desc: 'Hospitais Gerais · Universitários · Santas Casas · Especializados · Reabilitação' }
+          desc: 'Hospitais Gerais · Universitários · Santas Casas · Beneficências Portuguesas · Especializados · Reabilitação' }
     ];
 
     _lazyObserver = new IntersectionObserver((entries) => {
@@ -3042,7 +3179,7 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR Localizador de Unidades de Saúde (versão 5.1 Ampliada) iniciado.');
+    console.log('Saúde-BR Localizador de Unidades de Saúde (versão V+ — dupla query, CF, Assoc. Beneficentes, Beneficências) iniciado.');
 });
 
 document.querySelectorAll('.modal-overlay').forEach(modal => {
