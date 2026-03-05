@@ -1183,22 +1183,22 @@ const INCLUIR_TIPOS = [
 ].filter((v, i, a) => a.indexOf(v) === i).join('|');
 
 // Exclusões (não-SUS)
-const EXCLUIR_TIPOS = 'pharmacy|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|veterinary|cosmetics|beauty';
+const EXCLUIR_TIPOS = 'cemetery|pharmacy|school|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|veterinary|cosmetics|beauty';
 
 // Regex para nomes/operadores de unidades filantrópicas/públicas (busca auxiliar)
 const NOME_REGEX_AUX = [
     'clinica.da.familia', 'clinica.de.familia', 'clinica.familia',
     'beneficencia.portuguesa', 'beneficencia', 'beneficente',
-    'associacao.beneficente', 'associacao.de.saude', 'associacao.assistencia',
+    'associacao.brasileira.beneficente', 'associacao.de.saude', 'associacao.assistencia',
     'liga.de.saude', 'liga.beneficente', 'obra.social',
-    'pastoral.da.saude', 'santa.casa', 'misericordia', 'irmandade',
+    'pastoral.da.saude', 'santa.casa.de', 'misericordia', 'irmandade',
     'hospital.comunitario', 'hospital.popular', 'unidade.de.saude',
     'nucleo.de.saude', 'centro.de.saude', 'posto.de.saude',
     'policlinica', 'pronto.atendimento', 'pronto.socorro',
     'hemocentro', 'banco.de.sangue', 'ambulatorio'
 ].join('|');
 
-const OPERADOR_REGEX = '(beneficente|beneficencia|santa.casa|misericordia|irmandade|prefeitura|secretaria|municipal|estadual|federal|sus|ebserh)';
+const OPERADOR_REGEX = '(beneficente|beneficencia|santa.casa.de|misericordia|irmandade|prefeitura|secretaria|municipal|estadual|federal|sus|ebserh)';
 
 // Lista de tipos de saúde para verificação rápida
 const HEALTH_TAGS = INCLUIR_TIPOS.split('|');
@@ -1282,7 +1282,7 @@ function sleep(ms) {
 // ════════════════════════════════════════════════════════════════════════════
 //  CONSULTA OVERPASS UNIFICADA (com cache e fallback)
 // ════════════════════════════════════════════════════════════════════════════
-async function consultarOverpass(query, timeoutMs = 20000) {
+async function consultarOverpass(query, timeoutMs = 30000) {
     // Cache simples
     if (overpassCache.has(query)) {
         return overpassCache.get(query);
@@ -1319,10 +1319,11 @@ async function consultarOverpass(query, timeoutMs = 20000) {
 /**
  * Gera uma única query Overpass que combina busca por tags healthcare/amenity,
  * por nome (regex) e por operador (regex).
+ * Para proximidade (around), deve-se passar o parâmetro aroundStr no formato "around:Raio,lat,lon".
  */
 function buildUnifiedQuery(areaCondition) {
     // areaCondition pode ser: área administrativa (ex: "area(3600000000)->.a;") ou bbox (ex: "sul,oeste,norte,leste")
-    // ou vazio para busca por around (proximidade)
+    // ou uma string "around:Raio,lat,lon" para proximidade
     let escopo = '';
     let filtroArea = areaCondition;
     if (areaCondition.startsWith('area(')) {
@@ -1330,11 +1331,8 @@ function buildUnifiedQuery(areaCondition) {
         escopo = `${areaCondition}->.a;\n`;
         filtroArea = 'area.a';
     } else if (areaCondition.includes(',')) {
-        // É um bbox, usar diretamente
+        // É um bbox ou around, usar diretamente
         filtroArea = areaCondition;
-    } else if (areaCondition === '') {
-        // Para around, usaremos a variável {{around}} no lugar (não substituir aqui)
-        filtroArea = '{{around}}';
     } else {
         filtroArea = areaCondition; // fallback
     }
@@ -2002,13 +2000,13 @@ async function usarGeolocalizacao() {
 
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const around = `around:${Math.round(raioKm * 1000)},${lat},${lon}`;
-    let query = buildUnifiedQuery('').replace('{{around}}', around); // substitui o placeholder
+    const query = buildUnifiedQuery(around); // agora passamos diretamente o around
 
     updateSearchProgress(40, 'Consultando OpenStreetMap (query unificada)...', 'Aguarde');
 
     let elementos = [];
     try {
-        const dados = await consultarOverpass(query, 25000);
+        const dados = await consultarOverpass(query, 30000);
         elementos = dados.elements || [];
     } catch (error) {
         console.error('Erro no Overpass:', error);
