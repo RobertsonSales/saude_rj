@@ -992,7 +992,7 @@
     </div>
     <div class="geo-radius-row">
       <span class="geo-radius-label">Raio (km):</span>
-      <input type="number" class="geo-radius-input form-control" id="geoRaio" value="10" min="0.5" max="50" step="0.5">
+      <input type="number" class="geo-radius-input form-control" id="geoRaio" value="6" min="0.5" max="50" step="0.5">
     </div>
     <button class="btn btn-geo" onclick="usarGeolocalizacao()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>
@@ -1187,7 +1187,7 @@ const EXCLUIR_TIPOS = 'cemetery|pharmacy|school|optometrist|laboratory|sample_co
 
 // Regex para nomes/operadores de unidades filantrópicas/públicas (busca auxiliar)
 const NOME_REGEX_AUX = [
-    'clinica.da.familia', 'clinica.de.familia', 'clinica.familia',
+    'clinica.da.familia', 'clinica.de.familia', 'familia',
     'beneficencia.portuguesa', 'beneficencia', 'beneficente',
     'associacao.brasileira.beneficente', 'associacao.de.saude', 'associacao.assistencia',
     'liga.de.saude', 'liga.beneficente', 'obra.social',
@@ -1280,9 +1280,9 @@ function sleep(ms) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CONSULTA OVERPASS UNIFICADA (com cache e fallback)
+//  CONSULTA OVERPASS UNIFICADA (com cache e fallback) - VERSÃO OTIMIZADA
 // ════════════════════════════════════════════════════════════════════════════
-async function consultarOverpass(query, timeoutMs = 30000) {
+async function consultarOverpass(query, timeoutMs = 45000) { // timeout aumentado para 45s
     // Cache simples
     if (overpassCache.has(query)) {
         return overpassCache.get(query);
@@ -1318,7 +1318,8 @@ async function consultarOverpass(query, timeoutMs = 30000) {
 
 /**
  * Gera uma única query Overpass que combina busca por tags healthcare/amenity,
- * por nome (regex) e por operador (regex).
+ * SEM as cláusulas de regex em nome e operador (que eram extremamente lentas).
+ * A filtragem por nome/operador será feita no cliente.
  * Para proximidade (around), deve-se passar o parâmetro aroundStr no formato "around:Raio,lat,lon".
  */
 function buildUnifiedQuery(areaCondition) {
@@ -1338,7 +1339,7 @@ function buildUnifiedQuery(areaCondition) {
     }
 
     const query = `
-[out:json][timeout:30];
+[out:json][timeout:30][maxsize:10000000];
 ${escopo}
 (
   // healthcare tags (excluindo tipos indesejados)
@@ -1348,16 +1349,8 @@ ${escopo}
   // amenity tags (tipos inclusos)
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
-
-  // nome com regex (filantrópicas, clínicas da família, etc.)
-  node["name"~"${NOME_REGEX_AUX}",i](${filtroArea});
-  way["name"~"${NOME_REGEX_AUX}",i](${filtroArea});
-
-  // operador com regex (público/filantrópico)
-  node["operator"~"${OPERADOR_REGEX}",i](${filtroArea});
-  way["operator"~"${OPERADOR_REGEX}",i](${filtroArea});
 );
-out center tags qt;
+out center qt 5000;  // limitar a 5000 resultados para evitar respostas gigantescas
     `.trim();
 
     return query;
@@ -2006,7 +1999,7 @@ async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
 
     let elementos = [];
     try {
-        const dados = await consultarOverpass(query, 30000);
+        const dados = await consultarOverpass(query, 45000); // timeout de 45s
         elementos = dados.elements || [];
     } catch (error) {
         console.error('Erro no Overpass:', error);
@@ -2192,7 +2185,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         const query = buildUnifiedQuery(`area(${areaId})`);
         updateSearchProgress(28, 'Consultando área municipal...', `Relação OSM #${osmIdNum}`);
         try {
-            const dados = await consultarOverpass(query, 30000);
+            const dados = await consultarOverpass(query, 45000);
             elementos = dados.elements || [];
             if (elementos.length > 0) {
                 updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
@@ -2222,7 +2215,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         const bboxStr = `${sul},${oeste},${norte},${leste}`;
         const query = buildUnifiedQuery(bboxStr);
         try {
-            const dados = await consultarOverpass(query, 30000);
+            const dados = await consultarOverpass(query, 45000);
             elementos = dados.elements || [];
             if (elementos.length > 0) {
                 updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
