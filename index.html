@@ -3248,4 +3248,15 @@ async function copiarChavePix() {
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INICIALIZAÇÃO
-// ═══════════════════════════════════════════════════════════════ 
+// ════════════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    carregarEstados();
+    console.log('Saúde-BR - Localizador de Unidades de Saúde SUS');
+});
+
+document.querySelectorAll('.modal-overlay').forEach(modal => {
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('visible'); });
+});
+</script>
+</body>
+</html>
