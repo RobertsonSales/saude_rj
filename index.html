@@ -1145,12 +1145,12 @@
 </div>
 
 <footer class="footer">
-  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
+  Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS (v5.1 Ampliada)
 </footer>
 
 <script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (versão otimizada com ampliação de tipos)
+//  CONFIGURAÇÃO E CONSTANTES (versão 5.1 Ampliada com ampliação de tipos)
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1170,7 +1170,7 @@ const INCLUIR_TIPOS = [
     'centre', 'outpatient', 'doctors', 'doctor', 'nursing_home',
     'hospice', 'rehabilitation', 'physiotherapy', 'mental_health',
     'occupational_medicine', 'public_health', 'child_health',
-    'midwife', 'clinic_abortion', 'blood_donation', 'health_visitor'
+    'midwife', 'clinic_abortion', 'blood_donation', 'health_visitor', 'social_facility', 'welfare', 'care_facility', 'charitable_organization', 'family_clinic', 'community_clinic', 'beneficent_association', 'social_facility', 'welfare', 'care_facility', 'charitable_organization', 'family_clinic', 'community_clinic', 'beneficent_association'
 ].filter((v, i, a) => a.indexOf(v) === i).join('|');
 
 // ── EXCLUIR_TIPOS: valores explicitamente não-SUS (apenas privados/veterinários)
@@ -1333,6 +1333,10 @@ function isVinculadoSUS(tags, nome) {
         'associacao beneficente', 'sociedade beneficente', 'entidade beneficente',
         'casa santa', 'santa casa de misericordia', 'irmandade da santa casa',
         'irmandade de misericordia', 'beneficencia portuguesa'
+        'clinica da familia', 'clinica de familia', 'clinica familia',
+        'associacao beneficente', 'associacao de beneficencia'
+        'clinica da familia', 'clinica de familia', 'clinica familia',
+        'associacao beneficente', 'associacao de beneficencia'
     ];
     for (let fw of filantropiasNome) { if (nomeNorm.includes(fw) || op.includes(fw)) return true; }
     if (/\bscm\b/.test(nomeNorm) || /\bscm\b/.test(op)) return true;
@@ -1416,7 +1420,7 @@ function isVinculadoSUS(tags, nome) {
     if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
 
     // 5. SIGLAS E EXPRESSÕES SUS
-    const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/];
+    const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/, /\bcf\b/, /\bcf\b/];
     for (let r of siglas) { if (r.test(nomeNorm)) return true; }
 
     const nomesPublicos = [
@@ -3038,7 +3042,7 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR Localizador de Unidades de Saúde (versão otimizada) iniciado.');
+    console.log('Saúde-BR Localizador de Unidades de Saúde (versão 5.1 Ampliada) iniciado.');
 });
 
 document.querySelectorAll('.modal-overlay').forEach(modal => {
