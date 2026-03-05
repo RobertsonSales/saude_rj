@@ -1148,7 +1148,7 @@
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO E CONSTANTES (versão otimizada com ampliação de tipos)
 // ════════════════════════════════════════════════════════════════════════════
@@ -1438,6 +1438,8 @@ function isVinculadoSUS(tags, nome) {
         /\bnucleo\b.*\bsaude\b/,
         // CF — Clínica da Família (Rio de Janeiro): "CF 123", "CF-Lapa", "CF/Bangu" etc.
         /^cf[\s\-\/\d]/, /^cf\d/, /\scf[\s\-\/\d]/, /\scf\d/, /\scf$/,
+        // AME isolado (Ambulatório Médico de Especialidades)
+        /^ame[\s\-\/\d]/, /\same[\s\-\/\d]/, /\same$/,
     ];
     for (const r of siglasSUS) { if (r.test(nomeNorm)) return true; }
 
@@ -1478,13 +1480,19 @@ function isVinculadoSUS(tags, nome) {
         'centro de especialidades medicas','centro de especialidades',
         'unidade de referencia','unidade de media complexidade',
         'posto medico municipal','posto de atendimento medico',
+        // Padrões OSM comuns no Brasil que faltavam
+        'posto de saude','posto saude','unidade de saude','unidade saude',
+        'casa de saude','casa saude',
         // Abreviações e siglas por extenso
         'instituto nacional de cancer','inca ','into ','hupe','huap','husm','hucff','hucam',
         'ebserh','hospital das forcas armadas',
     ];
-    for (const p of nomesSUS) { if (nomeNorm.startsWith(p) || nomeNorm.includes(' ' + p) || nomeNorm === p) return true; }
+    for (const p of nomesSUS) {
+        if (nomeNorm.startsWith(p) || nomeNorm === p ||
+            nomeNorm.includes(' ' + p) || nomeNorm.includes(p + ' ')) return true;
+    }
     // Descrição também pode confirmar
-    for (const p of nomesSUS) { if (desc.includes(p)) return true; }
+    for (const p of nomesSUS) { if (desc.startsWith(p) || desc.includes(' ' + p)) return true; }
 
     // ── 4. FILANTRÓPICO RECONHECIDO + TAG DE SAÚDE ──────────────────────────
     // Termos que identificam entidade filantrópica / beneficente de saúde no Brasil.
@@ -1562,15 +1570,57 @@ function isVinculadoSUS(tags, nome) {
         if (op.includes(p) && temTagSaude) return true;
     }
 
-    // ── 6. FALLBACK CONSERVADOR ──────────────────────────────────────────────
+    // ── 6. FALLBACK ──────────────────────────────────────────────────────────
     // Chegou aqui: sem CNES, sem nome/sigla SUS, sem filantrópico confirmado,
-    // sem operador de saúde pública. Só aceita tags que indicam hospital/posto
-    // de nível que no Brasil raramente é 100% privado sem as marcações acima.
-    // clinic=, doctors=, dentist= sozinhos NÃO entram → são muito comuns em privados.
-    const tagsFallbackSUS = ['hospital','health_post','health_centre',
-                              'urgent_care','emergency_ward','polyclinic',
-                              'birthing_center','maternity','rehabilitation'];
-    if (tagsFallbackSUS.includes(healthcare) || tagsFallbackSUS.includes(amenity)) return true;
+    // sem operador especificamente de saúde pública.
+    //
+    // NÍVEL A — tags de alto comprometimento público: aceitar diretamente.
+    //   hospital, health_post, health_centre, urgent_care, polyclinic, maternity,
+    //   rehabilitation, emergency_ward, birthing_center
+    //   → No Brasil, elementos com essas tags raramente são privados sem outras marcações.
+    //
+    // NÍVEL B — tags ambíguas (clinic, doctors, dentist, primary_healthcare…):
+    //   aceitar SOMENTE se o nome ou operador contiver ao menos um indício
+    //   inequivocamente público ("municipal", "estadual", "sus", "prefeitura"…).
+    //   Sem esse indício → rejeitar (provável clínica/consultório privado).
+    //
+    // Todos os bloqueios anteriores (privados, não-saúde, veterinários) já foram
+    // aplicados antes deste ponto.
+
+    const tagsFallbackA = ['hospital','health_post','health_centre',
+                            'urgent_care','emergency_ward','polyclinic',
+                            'birthing_center','maternity','rehabilitation'];
+    if (tagsFallbackA.includes(healthcare) || tagsFallbackA.includes(amenity)) return true;
+
+    // Nível B: clinic / doctors / dentist com indício público
+    const tagsFallbackB = ['clinic','doctors','doctor','dentist',
+                            'primary_healthcare','family_practice','family_health',
+                            'health_station','blood_donation','dialysis','mental_health'];
+    if (tagsFallbackB.includes(healthcare) || tagsFallbackB.includes(amenity)) {
+        // Indícios no nome ou operador que apontam para caráter público/SUS
+        const indPublico = [
+            'municipal','estadual','federal','publico','publica',
+            '\bsus\b', 'saude publica','posto saude','posto de saude',
+            'unidade saude','unidade de saude',
+            'prefeitura','secretaria','ministerio',
+            'sms','\bses\b','ebserh',
+        ];
+        const temIndicio = indPublico.some(p => new RegExp(p).test(nomeNorm) || new RegExp(p).test(op));
+        if (temIndicio) return true;
+    }
+
+    // healthcare= com qualquer outro valor não bloqueado: aceitar com cautela
+    // (ex.: healthcare=rehabilitation_service, healthcare=dialysis sem amenity)
+    if (tags.healthcare &&
+        !tagsFallbackA.includes(healthcare) &&
+        !tagsFallbackB.includes(healthcare) &&
+        !['veterinary','pharmacy','optometrist','laboratory','alternative',
+          'medical_imaging','physiotherapist','psychotherapist','audiologist',
+          'sample_collection','optical','tattoo','beauty','cosmetics'].includes(healthcare)) {
+        // Só aceita se tiver ao menos tag de saúde E não for explicitamente privado
+        // (privados já foram bloqueados; chegou aqui = potencialmente público)
+        return true;
+    }
 
     return false;
 }
