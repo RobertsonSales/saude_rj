@@ -3228,4 +3228,12 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR Localizador de Unidades de Saúde (versão V+ — dupla query, CF, Assoc. Beneficentes, Be
+    console.log('Saúde-BR Localizador de Unidades de Saúde - SUS');
+});
+
+document.querySelectorAll('.modal-overlay').forEach(modal => {
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('visible'); });
+});
+</script>
+</body>
+</html>
