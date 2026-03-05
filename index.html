@@ -1148,7 +1148,7 @@
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO E CONSTANTES (versão otimizada com ampliação de tipos)
 // ════════════════════════════════════════════════════════════════════════════
@@ -1412,23 +1412,77 @@ function isVinculadoSUS(tags, nome) {
     }
     if (funding === 'private' || funding === 'privado') return false;
 
-    // 4. OPERADOR PÚBLICO EXPLÍCITO
-    if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
-    if (tags.ownership === 'public' || tags.government) return true;
-    if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
+    // 3b. EXCLUSÃO: estabelecimentos NÃO-SAÚDE que podem ter operator:type=public/government
+    //     ou operadores municipais/estaduais mas que NÃO são unidades SUS.
+    const naoSaude = [
+        'escola', 'colegio', 'colegio estadual', 'colegio municipal', 'colegio federal',
+        'instituto federal', 'instituto estadual', 'liceu', 'creche', 'pre escola',
+        'educacao', 'ensino', 'aprendizado', 'pedagogico', 'pedagogica',
+        'biblioteca', 'biblioteca publica', 'arquivo', 'museu', 'teatro', 'galeria',
+        'parque', 'praca', 'jardim zoologico', 'zoologico', 'botanico',
+        'piscina', 'academia municipal', 'centro esportivo', 'arena',
+        'forum', 'tribunal', 'cartorio', 'delegacia', 'presideo', 'penitenciaria',
+        'bombeiro', 'quartel', 'policia civil', 'policia federal', 'detran',
+        'agencia de correio', 'correios', 'caixa economica',
+        'mercado municipal', 'feira', 'abatedouro', 'cemiterio', 'necroteria',
+        'assistencia social', 'cras ', 'crea ', 'conselho tutelar',
+        'posto de gasolina', 'posto combustivel', 'supermercado', 'farmacia',
+    ];
+    for (let w of naoSaude) {
+        if (nomeNorm.includes(w) || op.includes(w) || desc.includes(w)) return false;
+    }
+    // amenity de não-saúde
+    if (['school','kindergarten','university','college','library','fire_station',
+         'police','prison','courthouse','social_facility','community_centre',
+         'place_of_worship','fuel','supermarket','pharmacy','marketplace'].includes(amenity)) return false;
 
-    const operadorPublico = [
-        'prefeitura', 'secretaria', 'ministerio',
+    // 4. OPERADOR PÚBLICO EXPLÍCITO
+    // operator:type=public/government sozinho NÃO basta — pode ser escola, biblioteca etc.
+    // Exige também: tag de saúde presente OU operador inequivocamente de saúde pública.
+    const temTagSaude = !!(tags.healthcare || tags['ref:CNES'] || tags['ref:cnes'] ||
+        ['hospital','clinic','health_post','health_centre','polyclinic','doctors','doctor',
+         'birthing_center','maternity','urgent_care','emergency_ward','rehabilitation',
+         'blood_donation','dialysis','mental_health','dentist'].includes(amenity));
+
+    const opSaude = ['sms','ses','sesab','sesap','sesau','sesa','ebserh','sus','datasus',
+                     'secretaria.*saude','secretaria municipal de saude',
+                     'secretaria estadual de saude','ministerio da saude'];
+    const temOpSaude = opSaude.some(p => new RegExp(p).test(op));
+
+    if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') {
+        if (temTagSaude || temOpSaude) return true;
+        // Sem tag de saúde nem operador de saúde → deixa cair no passo 5 (nome)
+    }
+    if (tags.ownership === 'public' || tags.government) {
+        if (temTagSaude || temOpSaude) return true;
+    }
+    if (funding === 'public' || funding === 'government' || funding === 'sus') {
+        if (temTagSaude || temOpSaude) return true;
+    }
+
+    // Operadores ESPECÍFICOS de saúde pública (não genéricos como "municipal")
+    const operadorPublicoSaude = [
+        'ministerio da saude', 'secretaria de saude', 'secretaria municipal de saude',
+        'secretaria estadual de saude', 'secretaria da saude',
         'governo do estado', 'governo municipal', 'governo federal',
-        'municipio de', 'estado de', 'autarquia', 'fundacao', 'sus', 'datasus', 'ebserh',
+        'fundacao', 'sus', 'datasus', 'ebserh',
         'sms', 'ses', 'sesab', 'sesa', 'sesap', 'sesau'
     ];
-    for (let p of operadorPublico) { if (op.includes(p)) return true; }
-    if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
+    for (let p of operadorPublicoSaude) { if (op.includes(p)) return true; }
+    // "prefeitura" e "municipio de" sozinhos → exige tag de saúde
+    if ((op.includes('prefeitura') || op.includes('municipio de') || op.includes('estado de')) && temTagSaude) return true;
 
     // 5. SIGLAS E EXPRESSÕES SUS
-    const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/,
-        /\bcf\b/, /\bnasf\b/, /\bnucleo\b.*\bsaude\b/, /\bpacs\b/, /\bcras\b.*\bsaude\b/];
+    // Nota: /\bcf\b/ removido (falso positivo com "café") — CF é capturado pelo
+    // regex específico /^cf[\s\-\/\d]/ e pelos nomesPublicos abaixo.
+    const siglas = [
+        /\bubs\b/, /\bupa\b/, /\bupas\b/, /\bcaps\b/, /\bcms\b/,
+        /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/,
+        /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/,
+        /\bpacs\b/, /\bnucleo\b.*\bsaude\b/,
+        // CF — Clínica da Família (Rio de Janeiro): nome começa com "cf " ou "cf-" ou "cf/"
+        /^cf[\s\-\/]/, /^cf\d/, /\scf\s/, /\scf$/
+    ];
     for (let r of siglas) { if (r.test(nomeNorm)) return true; }
 
     const nomesPublicos = [
@@ -1484,11 +1538,16 @@ function isVinculadoSUS(tags, nome) {
     ];
     for (let p of nomesPublicos) { if (nomeNorm.includes(p) || desc.includes(p)) return true; }
 
-    // 6. FALLBACK PARA HOSPITAIS
-    if (amenity === 'hospital' || healthcare === 'hospital') return true;
-    if (amenity === 'health_post' || healthcare === 'health_post') return true;
-    if (amenity === 'health_centre' || healthcare === 'health_centre') return true;
-    if (amenity === 'primary_healthcare' || healthcare === 'primary_healthcare') return true;
+    // 6. FALLBACK PARA TAGS DE SAÚDE (últimas verificações antes de rejeitar)
+    // Chegou aqui: sem operador público confirmado, sem nome reconhecido.
+    // Só aceita se tiver tag healthcare= de saúde pública ou amenity de saúde.
+    const amenitiesSUS = ['hospital','clinic','health_post','health_centre','polyclinic',
+        'birthing_center','maternity','urgent_care','emergency_ward','rehabilitation',
+        'blood_donation','dialysis','mental_health','doctors','dentist','doctor',
+        'primary_healthcare','family_practice','family_health'];
+    if (amenitiesSUS.includes(amenity) || amenitiesSUS.includes(healthcare)) return true;
+    // healthcare= qualquer valor (exceto os explicitamente excluídos no passo 3)
+    if (tags.healthcare && !['veterinary','pharmacy','optometrist'].includes(healthcare)) return true;
 
     return false;
 }
@@ -2185,17 +2244,29 @@ ${escopo}
 out center tags qt;`.trim();
 }
 
-// ── Query auxiliar: busca por operator:type e funding para capturar unidades públicas/
-//    filantrópicas sem tags healthcare/amenity padrão.
-//    Removida a busca por name~ (regex lenta no Overpass para áreas grandes).
-//    A identificação por nome é feita no cliente via isVinculadoSUS().
+// ── Query auxiliar: captura filantrópicas e CF sem tags healthcare/amenity padrão.
+//
+// ESTRATÉGIA DE PRECISÃO:
+//  1. operator:type = charitable|nonprofit|ngo|religious  →  filantrópicas (Santa Casa,
+//     Beneficências, Associações). No Brasil, estes valores quase nunca aparecem em
+//     escolas ou outros serviços não-saúde.
+//
+//  2. operator~ (somente secretarias de saúde e gestores SUS conhecidos)  →  evita
+//     apanhar Secretarias de Educação, prefeituras-sede, etc.
+//
+//  3. name~ com 6 termos ULTRA-ESPECÍFICOS de saúde  →  Clínicas da Família (CF),
+//     Beneficências Portuguesas, Santas Casas e Misericórdias.
+//     Estes termos JAMAIS aparecem em escolas ou outros estabelecimentos.
+//     Regex compacta = impacto mínimo no Overpass.
+//
+// A filtragem final (privados, militares, veterinários) fica em isVinculadoSUS().
 function buildHealthQueryAuxiliar(escopo, areaVar) {
     return `[out:json][timeout:35];
 ${escopo}
 (
-  nwr["operator:type"~"^(public|government|charitable|nonprofit|ngo|religious)$"](${areaVar});
-  nwr["funding"~"^(public|sus|government|charitable|nonprofit)$"](${areaVar});
-  nwr["operator"~"(prefeitura|secretaria|sus|ebserh)",i](${areaVar});
+  nwr["operator:type"~"^(charitable|nonprofit|ngo|religious)$"](${areaVar});
+  nwr["operator"~"(secretaria.*saude|secretaria municipal de saude|secretaria estadual de saude|\bsms\b|\bses\b|sesab|sesap|sesa\b|sesau|ebserh|\bsus\b)",i](${areaVar});
+  nwr["name"~"(clinica.da.familia|clinica.de.familia|beneficencia.portuguesa|santa.casa|misericordia|irmandade)",i](${areaVar});
 );
 out center tags qt;`.trim();
 }
@@ -3157,12 +3228,4 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR Localizador de Unidades de Saúde (versão V+ — dupla query, CF, Assoc. Beneficentes, Beneficências) iniciado.');
-});
-
-document.querySelectorAll('.modal-overlay').forEach(modal => {
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('visible'); });
-});
-</script>
-</body>
-</html>
+    console.log('Saúde-BR Localizador de Unidades de Saúde (versão V+ — dupla query, CF, Assoc. Beneficentes, Be
