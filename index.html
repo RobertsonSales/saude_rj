@@ -1150,7 +1150,7 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (versão 17 — OTIMIZADA)
+//  CONFIGURAÇÃO E CONSTANTES (versão 18 — CORREÇÃO DE FILTRAGEM)
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1207,6 +1207,37 @@ const EXCLUIR_PALAVRAS_NOME = [
     'cinema', 'museu', 'biblioteca', 'templo', 'igreja', 'catedral',
     'capella', 'sinagoga', 'mesquita', 'terreiro', 'convento', 'mosteiro',
     'paroquia', 'santuario', 'ministerio da educacao'
+];
+
+// Lista de termos que indicam escritórios públicos (não unidades de saúde)
+const EXCLUIR_ESCRITORIOS_PUBLICOS = [
+    'prefeitura', 'camara municipal', 'câmara municipal', 'palácio', 'governo',
+    'secretaria municipal de saúde', 'secretaria de saúde' // atenção: pode ser um órgão, mas sem atendimento direto
+];
+
+// Lista de hospitais/planos privados conhecidos
+const EXCLUIR_PRIVADOS = [
+    'unimed', 'amil', 'bradesco saude', 'sulamerica', 'notredame',
+    'hapvida', 'prevent senior', 'clinipam', 'golden cross', 'mediservice',
+    'sompo', 'care plus', 'assim saude', 'omint', 'saude caixa', 'cassi',
+    'postal saude', 'petrobras saude', 'eletros',
+    'hospital são luiz', 'hospital sao luiz',
+    'hospital albert einstein', 'hospital sírio libanês', 'hospital sirio libanes',
+    'hospital israelita', 'hospital alemão', 'hospital alemao',
+    'hospital samaritano', 'hospital mater dei', 'hospital nove de julho',
+    'hospital total cor', 'hospital leforte', 'hospital pro matre',
+    'hospital são camilo', 'hospital sao camilo', 'hospital santa catarina',
+    'hospital santa catarina', 'hospital são lucas', 'hospital sao lucas',
+    'hospital são francisco', 'hospital sao francisco', 'hospital são joão',
+    'hospital sao joao', 'hospital são vicente', 'hospital sao vicente',
+    'hospital santa catarina', 'hospital santa maria', 'hospital santa joana',
+    'hospital santa isabel', 'hospital santa rosa', 'hospital santa paula',
+    'hospital santa rita', 'hospital santa margarida', 'hospital santa teresa',
+    'hospital santa helena', 'hospital santa genoveva', 'hospital santa mônica',
+    'hospital santa monica', 'hospital santa rita', 'hospital santa eliza',
+    'hospital santa izabel', 'hospital santa emilia', 'hospital santa ines',
+    'hospital santa inês', 'hospital santa clara', 'hospital santa catarina',
+    'hospital santa luzia', 'hospital santa marcelina', 'hospital santa maria'
 ];
 
 const NOME_REGEX_AUX = [
@@ -1279,6 +1310,8 @@ const NOME_REGEX_PROX = [
 
 // --- REGEX COMPILADAS GLOBAIS ---
 const EXCLUIR_PALAVRAS_NOME_REGEX = new RegExp(EXCLUIR_PALAVRAS_NOME.join('|'), 'i');
+const EXCLUIR_ESCRITORIOS_PUBLICOS_REGEX = new RegExp(EXCLUIR_ESCRITORIOS_PUBLICOS.join('|'), 'i');
+const EXCLUIR_PRIVADOS_REGEX = new RegExp(EXCLUIR_PRIVADOS.join('|'), 'i');
 const NOME_REGEX_AUX_REGEX = new RegExp(NOME_REGEX_AUX, 'i');
 const OPERADOR_REGEX_REGEX = new RegExp(OPERADOR_REGEX, 'i');
 const NOME_REGEX_PROX_REGEX = new RegExp(NOME_REGEX_PROX, 'i');
@@ -1484,7 +1517,7 @@ out center tags qt;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS — OTIMIZADO (verificações mais baratas primeiro, regex compiladas)
+//  VÍNCULO SUS — VERSÃO REFORÇADA (exclui escritórios públicos e privados sem tag de saúde)
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
     const nomeNorm   = norm(nome);
@@ -1495,16 +1528,51 @@ function isVinculadoSUS(tags, nome) {
     const amenity    = (tags.amenity    || '').toLowerCase().trim();
     const healthcare = (tags.healthcare || '').toLowerCase().trim();
 
-    // 0. EXCLUSÕES ABSOLUTAS — mais rápidas
+    // 1. EXCLUSÕES ABSOLUTAS POR TAG
     if (amenity === 'cemetery' || amenity === 'grave_yard' || amenity === 'place_of_worship' ||
         healthcare === 'cemetery' || healthcare === 'grave_yard') return false;
     if (EXCLUIR_PALAVRAS_NOME_REGEX.test(nomeNorm)) return false;
     if (amenity === 'pharmacy') return false;
     if (healthcare === 'veterinary' || amenity === 'veterinary') return false;
 
-    // 1. INCLUSÕES INCONDICIONAIS (CNES, operador público, siglas)
-    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
+    // 2. VERIFICAR SE É UM ESCRITÓRIO PÚBLICO SEM TAG DE SAÚDE
+    if (EXCLUIR_ESCRITORIOS_PUBLICOS_REGEX.test(nomeNorm) && !amenity && !healthcare) {
+        return false;
+    }
 
+    // 3. VERIFICAR SE TEM TAG DE SAÚDE VÁLIDA
+    const temTagSaude = (amenity && (INCLUIR_TIPOS_REGEX.test(amenity) || HEALTHCARE_GENERICOS.includes(amenity))) ||
+                        (healthcare && (INCLUIR_TIPOS_REGEX.test(healthcare) || HEALTHCARE_GENERICOS.includes(healthcare)));
+
+    // 4. VERIFICAR SE O NOME INDICA SAÚDE
+    const nomeIndicaSaude = NOME_REGEX_AUX_REGEX.test(nomeNorm) || NOME_REGEX_AUX_REGEX.test(desc);
+
+    // Se não tem tag de saúde nem nome de saúde, rejeitar imediatamente
+    if (!temTagSaude && !nomeIndicaSaude) {
+        return false;
+    }
+
+    // 5. AGORA APLICAR EXCLUSÕES ADICIONAIS BASEADAS EM OPERADOR/NOME
+
+    // Excluir privados conhecidos (hospitais/planos)
+    if (EXCLUIR_PRIVADOS_REGEX.test(op) || EXCLUIR_PRIVADOS_REGEX.test(brand) || EXCLUIR_PRIVADOS_REGEX.test(nomeNorm)) {
+        return false;
+    }
+
+    // Excluir militares (a menos que seja hospital militar? mas optamos por excluir)
+    const militares = ['exercito', 'marinha', 'aeronautica', 'forcas armadas', 'forca aerea', 'policia militar', 'bombeiro militar'];
+    for (let m of militares) {
+        if (op.includes(m) || nomeNorm.includes(m) || tags['operator:type'] === 'military') return false;
+    }
+
+    // Excluir religiosos genéricos (igreja, capela, etc.) – mas manter santas casas e católicos com hospital
+    const religiousWords = ['igreja', 'capela', 'templo', 'convento', 'mosteiro', 'paroquia', 'catedral', 'santuario'];
+    for (let w of religiousWords) {
+        if (nomeNorm.includes(w) || op.includes(w) || desc.includes(w)) return false;
+    }
+
+    // 6. INCLUSÕES ESPECIAIS (CNES, operador público, etc.)
+    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
     if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
     if (tags.ownership === 'public' || tags.government) return true;
     if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
@@ -1513,17 +1581,12 @@ function isVinculadoSUS(tags, nome) {
     for (let p of operadorPublico) { if (op.includes(p)) return true; }
     if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
 
-    // 2. SIGLAS E EXPRESSÕES SUS
+    // 7. SIGLAS E EXPRESSÕES SUS (já verificamos nome, mas reforçar)
     const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/, /\bcf\b/, /\bnucleo\b.*\bsaude\b/, /\bpacs\b/, /\bcras\b.*\bsaude\b/];
     for (let r of siglas) { if (r.test(nomeNorm)) return true; }
 
-    // 3. NOMES PÚBLICOS E FILANTRÓPICOS (regex compilada)
-    if (NOME_REGEX_AUX_REGEX.test(nomeNorm) || NOME_REGEX_AUX_REGEX.test(desc)) return true;
-    if (OPERADOR_REGEX_REGEX.test(op) || OPERADOR_REGEX_REGEX.test(brand) || OPERADOR_REGEX_REGEX.test(funding)) return true;
-
-    // 4. FALLBACK PARA HOSPITAIS E TIPOS DE SAÚDE
-    if (amenity && (INCLUIR_TIPOS_REGEX.test(amenity) || HEALTHCARE_GENERICOS.includes(amenity))) return true;
-    if (healthcare && (INCLUIR_TIPOS_REGEX.test(healthcare) || HEALTHCARE_GENERICOS.includes(healthcare))) return true;
+    // 8. FALLBACK: se tem tag de saúde, aceitar
+    if (temTagSaude) return true;
 
     return false;
 }
@@ -2668,7 +2731,7 @@ function updateDashboard() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  EXPORTAÇÃO EXCEL (idêntica ao original)
+//  EXPORTAÇÃO EXCEL, PDF, PIX (idênticos ao original)
 // ════════════════════════════════════════════════════════════════════════════
 function exportToExcel() {
     if (filteredUnits.length === 0) {
@@ -2701,9 +2764,7 @@ function exportToExcel() {
     showNotification(`Arquivo Excel exportado: ${fileName}`, 'success');
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  PDF (idêntico ao original)
-// ════════════════════════════════════════════════════════════════════════════
+// PDF
 const pdfStyles = `
     <style>
         .pdf-unit-card {
@@ -2975,9 +3036,7 @@ async function compartilharPDFWhatsApp() {
     }
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  MODAL PIX
-// ════════════════════════════════════════════════════════════════════════════
+// PIX
 function abrirModalPix() {
     document.getElementById('pixModal').classList.add('visible');
 }
