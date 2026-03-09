@@ -1131,7 +1131,7 @@
         >
       </div>
       <div class="pix-key-box">
-        <span class="pix-key-value" id="pixKeyText">robertguima@gmail.com</span>
+        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bac8d5d8dfc8ceddcfd3d7dbfaddd7dbd3d694d9d5d7">[email&#160;protected]</a></span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -1148,9 +1148,9 @@
   Dados obtidos via <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> e <a href="https://nominatim.org" target="_blank">Nominatim</a> — Fonte pública colaborativa &nbsp;|&nbsp; Saúde-BR - Localizador de Unidades SUS )
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (versão otimizada com unificação de queries)
+//  CONFIGURAÇÃO E CONSTANTES (versão 13 — query ampliada: healthcare+amenity+nome+operador)
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1187,18 +1187,18 @@ const EXCLUIR_TIPOS = 'cemetery|pharmacy|school|optometrist|laboratory|sample_co
 
 // Regex para nomes/operadores de unidades filantrópicas/públicas (busca auxiliar)
 const NOME_REGEX_AUX = [
-    'clinica.da.familia', 'clinica.de.familia', 'familia',
+    'clinica.da.familia', 'clinica.de.familia', 'clinica.familia',
     'beneficencia.portuguesa', 'beneficencia', 'beneficente',
-    'associacao.brasileira.beneficente', 'associacao.de.saude', 'associacao.assistencia',
+    'associacao.beneficente', 'associacao.de.saude', 'associacao.assistencia',
     'liga.de.saude', 'liga.beneficente', 'obra.social',
-    'pastoral.da.saude', 'santa.casa.de', 'misericordia', 'irmandade',
+    'pastoral.da.saude', 'santa.casa', 'misericordia', 'irmandade',
     'hospital.comunitario', 'hospital.popular', 'unidade.de.saude',
     'nucleo.de.saude', 'centro.de.saude', 'posto.de.saude',
     'policlinica', 'pronto.atendimento', 'pronto.socorro',
     'hemocentro', 'banco.de.sangue', 'ambulatorio'
 ].join('|');
 
-const OPERADOR_REGEX = '(beneficente|beneficencia|santa.casa.de|misericordia|irmandade|prefeitura|secretaria|municipal|estadual|federal|sus|ebserh)';
+const OPERADOR_REGEX = '(beneficente|beneficencia|santa.casa|misericordia|irmandade|prefeitura|secretaria|municipal|estadual|federal|sus|ebserh)';
 
 // Lista de tipos de saúde para verificação rápida
 const HEALTH_TAGS = INCLUIR_TIPOS.split('|');
@@ -1282,7 +1282,7 @@ function sleep(ms) {
 // ════════════════════════════════════════════════════════════════════════════
 //  CONSULTA OVERPASS UNIFICADA (com cache e fallback) - VERSÃO OTIMIZADA
 // ════════════════════════════════════════════════════════════════════════════
-async function consultarOverpass(query, timeoutMs = 45000) { // timeout aumentado para 45s
+async function consultarOverpass(query, timeoutMs = 60000) { // timeout aumentado para 60s
     // Cache simples
     if (overpassCache.has(query)) {
         return overpassCache.get(query);
@@ -1318,8 +1318,8 @@ async function consultarOverpass(query, timeoutMs = 45000) { // timeout aumentad
 
 /**
  * Gera uma única query Overpass que combina busca por tags healthcare/amenity,
- * SEM as cláusulas de regex em nome e operador (que eram extremamente lentas).
- * A filtragem por nome/operador será feita no cliente.
+ * por nome (regex) e por operador (regex) — para máxima cobertura de unidades SUS.
+ * A filtragem fina é feita no cliente via isVinculadoSUS().
  * Para proximidade (around), deve-se passar o parâmetro aroundStr no formato "around:Raio,lat,lon".
  */
 function buildUnifiedQuery(areaCondition) {
@@ -1339,7 +1339,7 @@ function buildUnifiedQuery(areaCondition) {
     }
 
     const query = `
-[out:json][timeout:30][maxsize:10000000];
+[out:json][timeout:45];
 ${escopo}
 (
   // healthcare tags (excluindo tipos indesejados)
@@ -1349,8 +1349,16 @@ ${escopo}
   // amenity tags (tipos inclusos)
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
+
+  // nome com regex (filantrópicas, Clínicas da Família, Assoc. Beneficentes, etc.)
+  node["name"~"${NOME_REGEX_AUX}",i](${filtroArea});
+  way["name"~"${NOME_REGEX_AUX}",i](${filtroArea});
+
+  // operador com regex (público/filantrópico)
+  node["operator"~"${OPERADOR_REGEX}",i](${filtroArea});
+  way["operator"~"${OPERADOR_REGEX}",i](${filtroArea});
 );
-out center qt 5000;  // limitar a 5000 resultados para evitar respostas gigantescas
+out center tags qt;
     `.trim();
 
     return query;
@@ -1999,7 +2007,7 @@ async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
 
     let elementos = [];
     try {
-        const dados = await consultarOverpass(query, 45000); // timeout de 45s
+        const dados = await consultarOverpass(query, 60000); // timeout de 60s
         elementos = dados.elements || [];
     } catch (error) {
         console.error('Erro no Overpass:', error);
@@ -2185,7 +2193,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         const query = buildUnifiedQuery(`area(${areaId})`);
         updateSearchProgress(28, 'Consultando área municipal...', `Relação OSM #${osmIdNum}`);
         try {
-            const dados = await consultarOverpass(query, 45000);
+            const dados = await consultarOverpass(query, 60000);
             elementos = dados.elements || [];
             if (elementos.length > 0) {
                 updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
@@ -2215,7 +2223,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         const bboxStr = `${sul},${oeste},${norte},${leste}`;
         const query = buildUnifiedQuery(bboxStr);
         try {
-            const dados = await consultarOverpass(query, 45000);
+            const dados = await consultarOverpass(query, 60000);
             elementos = dados.elements || [];
             if (elementos.length > 0) {
                 updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
@@ -3106,11 +3114,7 @@ function showNotification(message, type = 'info') {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR Localizador (versão otimizada — query unificada, PIX corrigido, filtro de tipos) iniciado.');
-});
-
-document.querySelectorAll('.modal-overlay').forEach(modal => {
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('visible'); });
+    console.log('Saúde-BR Localizador de unidades SUS.');
 });
 </script>
 </body>
