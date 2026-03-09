@@ -1150,7 +1150,7 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (versão 18 — CORREÇÃO DE FILTRAGEM)
+//  CONFIGURAÇÃO E CONSTANTES (versão 19 — FILTRAGEM PRIVADA REFORÇADA)
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1240,6 +1240,22 @@ const EXCLUIR_PRIVADOS = [
     'hospital santa luzia', 'hospital santa marcelina', 'hospital santa maria'
 ];
 
+// Lista de tags de saúde tipicamente privadas (excluir a menos que haja indicação de público)
+const HEALTHCARE_PRIVADO = [
+    'dentist', 'optometrist', 'audiologist', 'physiotherapist', 'psychotherapist',
+    'chiropractor', 'alternative', 'beauty', 'cosmetic', 'nutritionist',
+    'podiatrist', 'speech_therapist', 'occupational_therapist', 'counselling'
+];
+
+// Palavras no nome que indicam serviço privado (excluir se presentes, a menos que haja indicação de público)
+const EXCLUIR_PALAVRAS_PRIVADO = [
+    'particular', 'privado', 'convênio', 'plano de saúde', 'odontoprev',
+    'sorridents', 'odontocompany', 'clínica odontológica', 'consultório odontológico',
+    'dentista', 'ortodontia', 'implante dentário', 'prótese dentária', 'endodontia',
+    'periodontia', 'estética', 'cirurgia plástica', 'dermatologia', 'ginecologia',
+    'obstetrícia', 'oftalmologia', 'otorrinolaringologia', 'cardiologia' // cuidado: cardiologia pode ser pública
+].filter(v => v); // manter como está
+
 const NOME_REGEX_AUX = [
     'clinica.da.familia', 'clinica.de.familia', 'clinica.familia', 'clinica.familiar',
     'clinica.municipal.de.saude', 'clinica.popular.de.saude',
@@ -1312,6 +1328,7 @@ const NOME_REGEX_PROX = [
 const EXCLUIR_PALAVRAS_NOME_REGEX = new RegExp(EXCLUIR_PALAVRAS_NOME.join('|'), 'i');
 const EXCLUIR_ESCRITORIOS_PUBLICOS_REGEX = new RegExp(EXCLUIR_ESCRITORIOS_PUBLICOS.join('|'), 'i');
 const EXCLUIR_PRIVADOS_REGEX = new RegExp(EXCLUIR_PRIVADOS.join('|'), 'i');
+const EXCLUIR_PALAVRAS_PRIVADO_REGEX = new RegExp(EXCLUIR_PALAVRAS_PRIVADO.join('|'), 'i');
 const NOME_REGEX_AUX_REGEX = new RegExp(NOME_REGEX_AUX, 'i');
 const OPERADOR_REGEX_REGEX = new RegExp(OPERADOR_REGEX, 'i');
 const NOME_REGEX_PROX_REGEX = new RegExp(NOME_REGEX_PROX, 'i');
@@ -1517,7 +1534,7 @@ out center tags qt;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  VÍNCULO SUS — VERSÃO REFORÇADA (exclui escritórios públicos e privados sem tag de saúde)
+//  VÍNCULO SUS — VERSÃO REFORÇADA (exclusão rigorosa de privados)
 // ════════════════════════════════════════════════════════════════════════════
 function isVinculadoSUS(tags, nome) {
     const nomeNorm   = norm(nome);
@@ -1535,31 +1552,29 @@ function isVinculadoSUS(tags, nome) {
     if (amenity === 'pharmacy') return false;
     if (healthcare === 'veterinary' || amenity === 'veterinary') return false;
 
-    // 2. VERIFICAR SE É UM ESCRITÓRIO PÚBLICO SEM TAG DE SAÚDE
-    if (EXCLUIR_ESCRITORIOS_PUBLICOS_REGEX.test(nomeNorm) && !amenity && !healthcare) {
-        return false;
-    }
+    // 2. INCLUSÕES FORTES (unidades inequivocamente públicas/filantrópicas)
+    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
+    if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
+    if (tags.ownership === 'public' || tags.government) return true;
+    if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
 
-    // 3. VERIFICAR SE TEM TAG DE SAÚDE VÁLIDA
-    const temTagSaude = (amenity && (INCLUIR_TIPOS_REGEX.test(amenity) || HEALTHCARE_GENERICOS.includes(amenity))) ||
-                        (healthcare && (INCLUIR_TIPOS_REGEX.test(healthcare) || HEALTHCARE_GENERICOS.includes(healthcare)));
+    const operadorPublico = ['prefeitura', 'secretaria', 'ministerio', 'governo do estado', 'governo municipal', 'governo federal', 'municipio de', 'estado de', 'autarquia', 'fundacao', 'sus', 'datasus', 'ebserh', 'sms', 'ses', 'sesab', 'sesa', 'sesap', 'sesau'];
+    for (let p of operadorPublico) { if (op.includes(p)) return true; }
+    if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
 
-    // 4. VERIFICAR SE O NOME INDICA SAÚDE
-    const nomeIndicaSaude = NOME_REGEX_AUX_REGEX.test(nomeNorm) || NOME_REGEX_AUX_REGEX.test(desc);
+    // Siglas e expressões SUS
+    const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/, /\bcf\b/, /\bnucleo\b.*\bsaude\b/, /\bpacs\b/, /\bcras\b.*\bsaude\b/];
+    for (let r of siglas) { if (r.test(nomeNorm)) return true; }
 
-    // Se não tem tag de saúde nem nome de saúde, rejeitar imediatamente
-    if (!temTagSaude && !nomeIndicaSaude) {
-        return false;
-    }
+    // Nomes públicos/filantrópicos (regex)
+    if (NOME_REGEX_AUX_REGEX.test(nomeNorm) || NOME_REGEX_AUX_REGEX.test(desc)) return true;
+    if (OPERADOR_REGEX_REGEX.test(op) || OPERADOR_REGEX_REGEX.test(brand) || OPERADOR_REGEX_REGEX.test(funding)) return true;
 
-    // 5. AGORA APLICAR EXCLUSÕES ADICIONAIS BASEADAS EM OPERADOR/NOME
+    // 3. EXCLUSÕES FORTES (unidades inequivocamente privadas)
+    if (tags['operator:type'] === 'private') return false;
+    if (EXCLUIR_PRIVADOS_REGEX.test(op) || EXCLUIR_PRIVADOS_REGEX.test(brand) || EXCLUIR_PRIVADOS_REGEX.test(nomeNorm)) return false;
 
-    // Excluir privados conhecidos (hospitais/planos)
-    if (EXCLUIR_PRIVADOS_REGEX.test(op) || EXCLUIR_PRIVADOS_REGEX.test(brand) || EXCLUIR_PRIVADOS_REGEX.test(nomeNorm)) {
-        return false;
-    }
-
-    // Excluir militares (a menos que seja hospital militar? mas optamos por excluir)
+    // Excluir militares
     const militares = ['exercito', 'marinha', 'aeronautica', 'forcas armadas', 'forca aerea', 'policia militar', 'bombeiro militar'];
     for (let m of militares) {
         if (op.includes(m) || nomeNorm.includes(m) || tags['operator:type'] === 'military') return false;
@@ -1571,21 +1586,20 @@ function isVinculadoSUS(tags, nome) {
         if (nomeNorm.includes(w) || op.includes(w) || desc.includes(w)) return false;
     }
 
-    // 6. INCLUSÕES ESPECIAIS (CNES, operador público, etc.)
-    if (tags['ref:CNES'] || tags['ref:cnes']) return true;
-    if (tags['operator:type'] === 'public' || tags['operator:type'] === 'government') return true;
-    if (tags.ownership === 'public' || tags.government) return true;
-    if (funding === 'public' || funding === 'government' || funding === 'sus') return true;
+    // 4. VERIFICAR TAGS DE SAÚDE TIPICAMENTE PRIVADAS
+    if (HEALTHCARE_PRIVADO.includes(healthcare)) {
+        // Se a tag é privada e não há evidência de público, excluir
+        return false;
+    }
 
-    const operadorPublico = ['prefeitura', 'secretaria', 'ministerio', 'governo do estado', 'governo municipal', 'governo federal', 'municipio de', 'estado de', 'autarquia', 'fundacao', 'sus', 'datasus', 'ebserh', 'sms', 'ses', 'sesab', 'sesa', 'sesap', 'sesau'];
-    for (let p of operadorPublico) { if (op.includes(p)) return true; }
-    if (op.includes('municipal') || op.includes('estadual') || op.includes('federal')) return true;
+    // 5. VERIFICAR PALAVRAS NO NOME QUE INDICAM PRIVADO
+    if (EXCLUIR_PALAVRAS_PRIVADO_REGEX.test(nomeNorm) || EXCLUIR_PALAVRAS_PRIVADO_REGEX.test(desc)) {
+        return false;
+    }
 
-    // 7. SIGLAS E EXPRESSÕES SUS (já verificamos nome, mas reforçar)
-    const siglas = [/\bubs\b/, /\bupa\b/, /\bcaps\b/, /\bcms\b/, /\besf\b/, /\bpsf\b/, /\bceo\b/, /\bcer\b/, /\bame\b/, /\bsamu\b/, /\bcafs\b/, /\bpam\b/, /\bscm\b/, /\bnasf\b/, /\bcf\b/, /\bnucleo\b.*\bsaude\b/, /\bpacs\b/, /\bcras\b.*\bsaude\b/];
-    for (let r of siglas) { if (r.test(nomeNorm)) return true; }
-
-    // 8. FALLBACK: se tem tag de saúde, aceitar
+    // 6. FALLBACK: SE TEM TAG DE SAÚDE GENÉRICA, CONSIDERAR
+    const temTagSaude = (amenity && (INCLUIR_TIPOS_REGEX.test(amenity) || HEALTHCARE_GENERICOS.includes(amenity))) ||
+                        (healthcare && (INCLUIR_TIPOS_REGEX.test(healthcare) || HEALTHCARE_GENERICOS.includes(healthcare)));
     if (temTagSaude) return true;
 
     return false;
