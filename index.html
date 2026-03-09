@@ -1125,13 +1125,13 @@
       <div class="pix-qr-wrap">
         <img
           src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=robertguima%40gmail.com&bgcolor=ffffff&color=0B1F3A&margin=8"
-          alt="QR Code PIX — robertguima@gmail.com"
+          alt="QR Code PIX"
           loading="lazy"
           onerror="this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=robertguima%40gmail.com&choe=UTF-8'"
         >
       </div>
       <div class="pix-key-box">
-        <span class="pix-key-value" id="pixKeyText"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bac8d5d8dfc8ceddcfd3d7dbfaddd7dbd3d694d9d5d7">[email&#160;protected]</a></span>
+        <span class="pix-key-value" id="pixKeyText"></span>
         <button class="pix-copy-btn" id="pixCopyBtn" onclick="copiarChavePix()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -1317,51 +1317,71 @@ async function consultarOverpass(query, timeoutMs = 60000) { // timeout aumentad
 }
 
 /**
- * Gera uma única query Overpass que combina busca por tags healthcare/amenity,
- * por nome (regex) e por operador (regex) — para máxima cobertura de unidades SUS.
- * A filtragem fina é feita no cliente via isVinculadoSUS().
- * Para proximidade (around), deve-se passar o parâmetro aroundStr no formato "around:Raio,lat,lon".
+ * Resolve o escopo (área administrativa, bbox ou around) e retorna { escopo, filtroArea }.
  */
-function buildUnifiedQuery(areaCondition) {
-    // areaCondition pode ser: área administrativa (ex: "area(3600000000)->.a;") ou bbox (ex: "sul,oeste,norte,leste")
-    // ou uma string "around:Raio,lat,lon" para proximidade
+function _resolverEscopo(areaCondition) {
     let escopo = '';
     let filtroArea = areaCondition;
     if (areaCondition.startsWith('area(')) {
-        // Se for área administrativa, precisamos do escopo para definir a área
         escopo = `${areaCondition}->.a;\n`;
         filtroArea = 'area.a';
-    } else if (areaCondition.includes(',')) {
-        // É um bbox ou around, usar diretamente
-        filtroArea = areaCondition;
-    } else {
-        filtroArea = areaCondition; // fallback
     }
+    // bbox ("sul,oeste,norte,leste") e around ("around:R,lat,lon") são usados diretamente
+    return { escopo, filtroArea };
+}
 
-    const query = `
-[out:json][timeout:45];
+/**
+ * QUERY RÁPIDA — usada na busca por PROXIMIDADE (around).
+ * Consulta apenas healthcare e amenity (sem regex de nome/operador),
+ * o que evita varredura massiva e mantém resposta em poucos segundos.
+ * Inclui também a regex de NOME para capturar Clínicas da Família,
+ * Beneficências, Santas Casas etc. que não possuem tag healthcare/amenity.
+ * NÃO inclui operator regex (muito lento com around).
+ */
+function buildQueryRapida(areaCondition) {
+    const { escopo, filtroArea } = _resolverEscopo(areaCondition);
+    return `
+[out:json][timeout:30];
 ${escopo}
 (
-  // healthcare tags (excluindo tipos indesejados)
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
-
-  // amenity tags (tipos inclusos)
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
-
-  // nome com regex (filantrópicas, Clínicas da Família, Assoc. Beneficentes, etc.)
-  node["name"~"${NOME_REGEX_AUX}",i](${filtroArea});
-  way["name"~"${NOME_REGEX_AUX}",i](${filtroArea});
-
-  // operador com regex (público/filantrópico)
-  node["operator"~"${OPERADOR_REGEX}",i](${filtroArea});
-  way["operator"~"${OPERADOR_REGEX}",i](${filtroArea});
+  node["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship)$"](${filtroArea});
+  way["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship)$"](${filtroArea});
 );
 out center tags qt;
     `.trim();
+}
 
-    return query;
+/**
+ * QUERY AMPLIADA — usada na busca por MUNICÍPIO (area/bbox).
+ * Inclui healthcare, amenity, nome regex E operador regex para máxima cobertura.
+ * Exclusões de cemitério e outros tipos indesejados aplicadas diretamente na query.
+ */
+function buildQueryAmpliada(areaCondition) {
+    const { escopo, filtroArea } = _resolverEscopo(areaCondition);
+    return `
+[out:json][timeout:45];
+${escopo}
+(
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  node["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
+  way["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
+  node["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship)$"](${filtroArea});
+  way["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship)$"](${filtroArea});
+  node["operator"~"${OPERADOR_REGEX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship|school|pharmacy)$"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  way["operator"~"${OPERADOR_REGEX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship|school|pharmacy)$"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+);
+out center tags qt;
+    `.trim();
+}
+
+// Alias de compatibilidade (município usa ampliada por padrão)
+function buildUnifiedQuery(areaCondition) {
+    return buildQueryAmpliada(areaCondition);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1383,6 +1403,21 @@ function isVinculadoSUS(tags, nome) {
     if (healthcare && !HEALTH_TAGS.includes(healthcare) && healthcare !== 'clinic' && !HEALTH_TAGS.includes(amenity)) {
         return false;
     }
+
+    // 0. EXCLUSÕES ABSOLUTAS — verificadas ANTES de qualquer inclusão
+    // Cemitérios e locais de culto (ex: "Cemitério da Santa Casa" não é unidade de saúde)
+    if (amenity === 'cemetery' || amenity === 'grave_yard' || amenity === 'place_of_worship' ||
+        healthcare === 'cemetery' || healthcare === 'grave_yard') return false;
+    const cemWords = ['cemiterio', 'cemitério', 'sepultamento', 'ossuario', 'necrópole', 'necropole'];
+    for (const w of cemWords) { if (nomeNorm.includes(w)) return false; }
+
+    // Veterinários / pet
+    if (healthcare === 'veterinary' || amenity === 'veterinary') return false;
+    const vetWords0 = ['veterinario', 'veterinária', ' pet ', 'clinica pet', 'hospital pet', 'bicho', 'cachorro', 'gato'];
+    for (const w of vetWords0) { if (nomeNorm.includes(w) || op.includes(w)) return false; }
+
+    // Farmácias e lojas (operador regex pode capturar farmácias da prefeitura)
+    if (amenity === 'pharmacy') return false;
 
     // 1. INCLUSÕES INCONDICIONAIS (filantrópicas, associações e clínicas da família)
     const filantropiasNome = [
@@ -1434,22 +1469,14 @@ function isVinculadoSUS(tags, nome) {
     // 2. CNES
     if (tags['ref:CNES'] || tags['ref:cnes']) return true;
 
-    // 3. EXCLUSÕES IMEDIATAS
-    if (healthcare === 'veterinary' || amenity === 'veterinary') return false;
-    const vetWords = ['veterinario', 'veterinária', 'pet', 'animal', 'bicho', 'cachorro', 'gato'];
-    for (let w of vetWords) {
-        if (nomeNorm.includes(w) || op.includes(w) || desc.includes(w)) return false;
-    }
-
-    if (amenity === 'place_of_worship' || amenity === 'grave_yard' || amenity === 'cemetery' ||
-        healthcare === 'place_of_worship' || healthcare === 'grave_yard' || healthcare === 'cemetery') return false;
-    const religiousWords = ['igreja', 'capela', 'templo', 'convento', 'mosteiro', 'paroquia', 'catedral', 'santuário', 'cemitério', 'cemiterio', 'sepultamento', 'ossuario'];
+    // 3. EXCLUSÕES COMPLEMENTARES (militares, planos privados, religiosas genéricas)
+    const religiousWords = ['igreja', 'capela', 'templo', 'convento', 'mosteiro', 'paroquia', 'catedral', 'santuario'];
     for (let w of religiousWords) {
         if (nomeNorm.includes(w) || op.includes(w) || desc.includes(w)) return false;
     }
 
     const militares = [
-        'exercito', 'marinha', 'aeronautica', 'forças armadas', 'forca aerea',
+        'exercito', 'marinha', 'aeronautica', 'forcas armadas', 'forca aerea',
         'policia militar', 'bombeiro militar', 'hospital militar', 'policial'
     ];
     for (let m of militares) {
@@ -2001,13 +2028,13 @@ async function usarGeolocalizacao() {
 
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const around = `around:${Math.round(raioKm * 1000)},${lat},${lon}`;
-    const query = buildUnifiedQuery(around); // agora passamos diretamente o around
+    const query = buildQueryRapida(around); // query rápida (sem operator regex) para proximidade
 
-    updateSearchProgress(40, 'Consultando OpenStreetMap (query unificada)...', 'Aguarde');
+    updateSearchProgress(40, 'Consultando OpenStreetMap...', 'Aguarde');
 
     let elementos = [];
     try {
-        const dados = await consultarOverpass(query, 60000); // timeout de 60s
+        const dados = await consultarOverpass(query, 35000); // 35s suficiente para query rápida
         elementos = dados.elements || [];
     } catch (error) {
         console.error('Erro no Overpass:', error);
@@ -3114,7 +3141,14 @@ function showNotification(message, type = 'info') {
 // ════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     carregarEstados();
-    console.log('Saúde-BR Localizador de unidades SUS.');
+    // Injetar chave PIX via JS para evitar ofuscação Cloudflare
+    const pixEl = document.getElementById('pixKeyText');
+    if (pixEl) {
+        const u = 'robertguima';
+        const d = 'gmail.com';
+        pixEl.textContent = u + '@' + d;
+    }
+    console.log('Saúde-BR Localizador v14 — query ampliada com cobertura máxima, busca por proximidade restaurada, cemitérios excluídos.');
 });
 </script>
 </body>
