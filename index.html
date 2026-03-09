@@ -1161,11 +1161,12 @@ const CONFIG = {
     OVERPASS_MIRRORS: [
         'https://overpass-api.de/api/interpreter',
         'https://overpass.kumi.systems/api/interpreter',
-        'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+        'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+        'https://overpass.openstreetmap.ru/api/interpreter'
     ]
 };
 
-// Lista unificada de tipos de healthcare/amenity considerados (inclusões)
+// Lista unificada de tipos de healthcare/amenity considerados (inclusões) — ampla, para busca por município
 const INCLUIR_TIPOS = [
     'hospital', 'clinic', 'health_post', 'health_centre',
     'polyclinic', 'birthing_center', 'maternity',
@@ -1175,15 +1176,42 @@ const INCLUIR_TIPOS = [
     'hospice', 'rehabilitation', 'physiotherapy', 'mental_health',
     'occupational_medicine', 'public_health', 'child_health',
     'midwife', 'clinic_abortion', 'blood_donation', 'health_visitor',
-    'family_practice', 'family_health', 'community_centre',
-    'social_facility', 'charitable', 'ngo',
+    'family_practice', 'family_health',
     'dialysis', 'sample_collection_centre', 'health_care',
     'women_health', 'sexual_health', 'geriatric',
     'palliative', 'wound_care', 'addiction', 'dentist'
 ].filter((v, i, a) => a.indexOf(v) === i).join('|');
 
-// Exclusões (não-SUS) — VERSÃO 15 OTIMIZADA
-const EXCLUIR_TIPOS = 'cemetery|pharmacy|school|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|veterinary|cosmetics|beauty|park|plaza|square|playground|sports_centre|gym|swimming_pool|parking|fuel|car_wash|restaurant|cafe|bar|library|museum|theatre|cinema|hotel|hostel|police|fire_station|post_office|bank|atm|shop|supermarket|market|office|government|courthouse|prison|military|industrial|warehouse|factory|construction|landfill|waste|quarry|mine|power_plant|water_treatment|sewage';
+// Lista de amenity/healthcare estritamente ligados à saúde — usada na busca por PROXIMIDADE (around)
+// Mais restrita para evitar falsos positivos e timeout no Overpass
+const INCLUIR_AMENITY_SAUDE = [
+    'hospital', 'clinic', 'health_post', 'health_centre',
+    'polyclinic', 'birthing_center', 'maternity',
+    'urgent_care', 'emergency_ward', 'health_center', 'health_station',
+    'primary_healthcare', 'community_health_worker', 'phc',
+    'outpatient', 'doctors', 'doctor', 'nursing_home',
+    'hospice', 'rehabilitation', 'mental_health',
+    'public_health', 'blood_donation',
+    'family_practice', 'family_health',
+    'dialysis', 'health_care',
+    'women_health', 'geriatric', 'addiction'
+].filter((v, i, a) => a.indexOf(v) === i).join('|');
+
+// Exclusões (não-SUS) — VERSÃO 16 APRIMORADA
+const EXCLUIR_TIPOS = 'cemetery|grave_yard|pharmacy|school|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|veterinary|cosmetics|beauty|park|plaza|square|playground|sports_centre|gym|swimming_pool|parking|fuel|car_wash|restaurant|cafe|bar|library|museum|theatre|cinema|hotel|hostel|police|fire_station|post_office|bank|atm|shop|supermarket|market|office|government|courthouse|prison|military|industrial|warehouse|factory|construction|landfill|waste|quarry|mine|power_plant|water_treatment|sewage|place_of_worship|kindergarten|university|college|language_school|driving_school|music_school';
+
+// Palavras no NOME que caracterizam estabelecimentos NÃO relacionados à saúde/SUS
+const EXCLUIR_PALAVRAS_NOME = [
+    'praca', 'escola', 'colegio', 'cemiterio', 'cemitério', 'parque', 'jardim',
+    'academia', 'gym', 'farmacia', 'drogaria', 'laboratorio de analises',
+    'clinica veterinaria', 'pet shop', 'pet hospital', 'hospital veterinario',
+    'posto de gasolina', 'supermercado', 'mercado', 'hipermercado',
+    'delegacia', 'policia', 'bombeiro', 'quartel', 'tribunal', 'forum',
+    'cartorio', 'banco', 'agencia bancaria', 'correio', 'teatro',
+    'cinema', 'museu', 'biblioteca', 'templo', 'igreja', 'catedral',
+    'capella', 'sinagoga', 'mesquita', 'terreiro', 'convento', 'mosteiro',
+    'paroquia', 'santuario', 'ministerio da educacao'
+];
 
 // Regex para nomes/operadores de unidades filantrópicas/públicas (busca auxiliar) — VERSÃO 15 AMPLIADA
 const NOME_REGEX_AUX = [
@@ -1258,47 +1286,65 @@ const NOME_REGEX_AUX = [
     'programa.saude.da.familia', 'saude.da.familia', 'esf', 'psf'
 ].join('|');
 
-// Regex para operadores — VERSÃO 15 AMPLIADA com mais variações de beneficências
+// Regex para operadores — VERSÃO 16 AMPLIADA com mais variações de beneficências
 const OPERADOR_REGEX = '(beneficente|beneficencia|beneficencia.portuguesa|santa.casa|misericordia|irmandade|associacao.beneficente|associacao.de.saude|liga.de.saude|obra.social|fundacao.beneficente|fundacao.assistencial|instituto.beneficente|prefeitura|secretaria|municipal|estadual|federal|sus|ebserh|governo|autarquia|fundacao.publica|empresa.publica)';
+
+// Regex CURTA — exclusivamente para busca por PROXIMIDADE (around).
+// Apenas termos altamente específicos de saúde pública para evitar timeout no Overpass.
+const NOME_REGEX_PROX = [
+    // Clínica da Família (Rio de Janeiro)
+    'clinica.da.familia', 'clinica.familia', 'clinica.de.familia',
+    // Beneficências e Filantrópicas
+    'beneficencia.portuguesa', 'beneficencia', 'beneficente',
+    'santa.casa', 'misericordia', 'irmandade',
+    // Unidades básicas
+    'unidade.basica.de.saude', 'posto.de.saude',
+    'centro.de.saude', 'centro.municipal.de.saude',
+    // Urgência
+    'pronto.atendimento', 'pronto.socorro', 'unidade.de.pronto.atendimento',
+    // Maternidade e especialidades
+    'maternidade', 'hemocentro', 'banco.de.sangue',
+    // Associações e Obras
+    'associacao.beneficente', 'obra.social', 'liga.de.saude',
+    'pastoral.da.saude', 'casa.de.caridade',
+].join('|');
 
 // Lista de tipos de saúde para verificação rápida
 const HEALTH_TAGS = INCLUIR_TIPOS.split('|');
 
 
 // ════════════════════════════════════════════════════════════════════════════
-//  OTIMIZAÇÕES VERSÃO 15
+//  OTIMIZAÇÕES VERSÃO 16
 // ════════════════════════════════════════════════════════════════════════════
-// ✓ AMPLIAÇÃO DE UNIDADES DE SAÚDE:
-//   • Clínicas da Família (CF): +4 variações (familiar, municipal, popular, etc.)
-//   • Associações Beneficentes: +10 variações (comunitária, médica, filantropa, etc.)
-//   • Beneficências Portuguesas: +3 variações (de saúde, médica, hospitalar)
-//   • Ligas de Saúde: +6 variações (combate, pública, comunitária, etc.)
-//   • Obras Sociais: +4 variações (de saúde, assistencial, etc.)
-//   • Instituições Filantrópicas: +8 variações (institutos, fundações, etc.)
-//   • Santas Casas e Misericórdias: +7 variações (irmandades, casas de caridade, etc.)
+// ✓ CORREÇÃO BUSCA POR PROXIMIDADE:
+//   • Causa raiz: NOME_REGEX_AUX (80+ termos) causava timeout no Overpass com around:
+//   • Solução: NOME_REGEX_PROX — regex curto (20 termos específicos de saúde)
+//   • Fallback automático: se query rápida retorna vazio → tenta query mínima (só tags)
+//   • Timeout aumentado: 60s (query rápida) e 90s (query mínima/ampliada)
+//   • 4 mirrors Overpass (adicionado overpass.openstreetmap.ru)
+//
+// ✓ INCLUSÃO DE UNIDADES AMPLIADA:
+//   • Clínicas da Família (CF): variações completas no NOME_REGEX_PROX e AUX
+//   • Associações Beneficentes: 10+ variações em NOME_REGEX_AUX e isVinculadoSUS
+//   • Beneficências Portuguesas: múltiplas variações cobertas
+//   • Ligas de Saúde, Obras Sociais, Instituições Filantrópicas
 //
 // ✓ EXCLUSÕES APRIMORADAS:
-//   • Adicionadas 30+ categorias de não-saúde (praças, escolas, parques, etc.)
-//   • Exclusão de: park, plaza, square, playground, sports_centre, gym, 
-//     swimming_pool, parking, fuel, car_wash, restaurant, cafe, bar, library,
-//     museum, theatre, cinema, hotel, hostel, police, fire_station, post_office,
-//     bank, atm, shop, supermarket, market, office, government, courthouse,
-//     prison, military, industrial, warehouse, factory, construction, landfill,
-//     waste, quarry, mine, power_plant, water_treatment, sewage
+//   • EXCLUIR_PALAVRAS_NOME: lista de 30+ palavras que identificam não-saúde pelo nome
+//   • Aplicada em isVinculadoSUS ANTES das inclusões
+//   • EXCLUIR_TIPOS expandido com school, kindergarten, university, place_of_worship
+//   • buildQueryAmpliada usa lista estendida de exclusões de amenity
 //
-// ✓ OTIMIZAÇÕES DE PERFORMANCE:
-//   • Regex de NOME_REGEX_AUX expandido com 80+ termos específicos
-//   • Regex de OPERADOR_REGEX expandido com 20+ variações de beneficências
-//   • Cache de resultados mantido para buscas repetidas
-//   • Processamento em lotes otimizado (BATCH = 50)
-//   • Deduplicação por CNES e nome normalizado
-//   • Timeout de queries ajustado: 30s (proximidade), 45s (município)
+// ✓ CORREÇÃO isVinculadoSUS:
+//   • healthcare=yes (genérico, comum no Brasil) não é mais rejeitado
+//   • healthcare=health, care, public, service, facility também aceitos
+//   • Lógica: apenas rejeita se AMBAS as tags (amenity + healthcare) indicam não-saúde
 //
-// ✓ MELHORIAS DE BUSCA:
-//   • Busca por proximidade: mantém velocidade com filtros aprimorados
-//   • Busca por município: cobertura ampliada sem perda de performance
-//   • Filtros de exclusão aplicados na query Overpass (reduz transferência de dados)
-//   • Reverse geocoding com cache para acelerar identificação de município/estado
+// ✓ PERFORMANCE:
+//   • INCLUIR_AMENITY_SAUDE: lista restrita para busca por proximidade
+//   • buildQueryMinima: query ultra-simples de fallback
+//   • Detecção de remark (timeout Overpass) com fallback automático
+//   • Cache mantido entre buscas da mesma sessão
 
 let allUnits = [];
 let filteredUnits = [];
@@ -1429,24 +1475,41 @@ function _resolverEscopo(areaCondition) {
 
 /**
  * QUERY RÁPIDA — usada na busca por PROXIMIDADE (around).
- * Consulta apenas healthcare e amenity (sem regex de nome/operador),
- * o que evita varredura massiva e mantém resposta em poucos segundos.
- * Inclui também a regex de NOME para capturar Clínicas da Família,
- * Beneficências, Santas Casas etc. que não possuem tag healthcare/amenity.
- * NÃO inclui operator regex (muito lento com around).
+ * Usa regex curto (NOME_REGEX_PROX) para evitar timeout no Overpass.
+ * Apenas amenity/healthcare estritamente de saúde (INCLUIR_AMENITY_SAUDE).
+ * VERSÃO 16: timeout aumentado para 60s, regex reduzida, exclusões aprimoradas.
  */
 function buildQueryRapida(areaCondition) {
     const { escopo, filtroArea } = _resolverEscopo(areaCondition);
     return `
-[out:json][timeout:30];
+[out:json][timeout:60];
 ${escopo}
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
-  node["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
-  way["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
-  node["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship)$"](${filtroArea});
-  way["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship)$"](${filtroArea});
+  node["amenity"~"^(${INCLUIR_AMENITY_SAUDE})$"](${filtroArea});
+  way["amenity"~"^(${INCLUIR_AMENITY_SAUDE})$"](${filtroArea});
+  node["name"~"${NOME_REGEX_PROX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship|school|pharmacy|parking|fuel)$"](${filtroArea});
+  way["name"~"${NOME_REGEX_PROX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship|school|pharmacy|parking|fuel)$"](${filtroArea});
+);
+out center tags qt;
+    `.trim();
+}
+
+/**
+ * QUERY MÍNIMA — fallback para busca por proximidade quando a rápida retorna vazio.
+ * Usa apenas tags healthcare e amenity (sem regex de nome), mais rápida possível.
+ */
+function buildQueryMinima(areaCondition) {
+    const { escopo, filtroArea } = _resolverEscopo(areaCondition);
+    return `
+[out:json][timeout:90];
+${escopo}
+(
+  node["healthcare"](${filtroArea});
+  way["healthcare"](${filtroArea});
+  node["amenity"~"^(hospital|clinic|health_post|health_centre|polyclinic|urgent_care|emergency_ward|primary_healthcare|maternity|birthing_center|rehabilitation|mental_health|dialysis|blood_donation|family_practice|doctors|nursing_home)$"](${filtroArea});
+  way["amenity"~"^(hospital|clinic|health_post|health_centre|polyclinic|urgent_care|emergency_ward|primary_healthcare|maternity|birthing_center|rehabilitation|mental_health|dialysis|blood_donation|family_practice|doctors|nursing_home)$"](${filtroArea});
 );
 out center tags qt;
     `.trim();
@@ -1455,22 +1518,23 @@ out center tags qt;
 /**
  * QUERY AMPLIADA — usada na busca por MUNICÍPIO (area/bbox).
  * Inclui healthcare, amenity, nome regex E operador regex para máxima cobertura.
- * Exclusões de cemitério e outros tipos indesejados aplicadas diretamente na query.
+ * VERSÃO 16: timeout:90, exclusões aprimoradas para praças, escolas, cemitérios, etc.
  */
 function buildQueryAmpliada(areaCondition) {
     const { escopo, filtroArea } = _resolverEscopo(areaCondition);
+    const EXCLUIR_AMENITY_NOME = 'cemetery|grave_yard|place_of_worship|school|kindergarten|university|college|pharmacy|parking|fuel|restaurant|cafe|bar|library|museum|park|playground|sports_centre|gym|police|fire_station|post_office|bank|hotel|theatre|cinema';
     return `
-[out:json][timeout:45];
+[out:json][timeout:90];
 ${escopo}
 (
   node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
   way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
   node["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
   way["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
-  node["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship)$"](${filtroArea});
-  way["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship)$"](${filtroArea});
-  node["operator"~"${OPERADOR_REGEX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship|school|pharmacy)$"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
-  way["operator"~"${OPERADOR_REGEX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship|school|pharmacy)$"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  node["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(${EXCLUIR_AMENITY_NOME})$"](${filtroArea});
+  way["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(${EXCLUIR_AMENITY_NOME})$"](${filtroArea});
+  node["operator"~"${OPERADOR_REGEX}",i]["amenity"!~"^(${EXCLUIR_AMENITY_NOME}|shop|supermarket|market|office)$"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  way["operator"~"${OPERADOR_REGEX}",i]["amenity"!~"^(${EXCLUIR_AMENITY_NOME}|shop|supermarket|market|office)$"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
 );
 out center tags qt;
     `.trim();
@@ -1493,12 +1557,20 @@ function isVinculadoSUS(tags, nome) {
     const amenity    = (tags.amenity    || '').toLowerCase().trim();
     const healthcare = (tags.healthcare || '').toLowerCase().trim();
 
-    // Se o elemento tem uma tag amenity ou healthcare que não está na lista de saúde, rejeitar imediatamente
-    if (amenity && !HEALTH_TAGS.includes(amenity) && amenity !== 'healthcare' && !HEALTH_TAGS.includes(healthcare)) {
-        return false;
+    // Se o elemento tem amenity que não é de saúde E healthcare também não é de saúde → rejeitar
+    // VERSÃO 16: Permite healthcare=yes, healthcare=health e outros genéricos (comuns no Brasil)
+    const HEALTHCARE_GENERICOS = ['yes', 'health', 'public', 'care', 'service', 'facility'];
+    if (amenity && !HEALTH_TAGS.includes(amenity) && amenity !== 'healthcare') {
+        // Só rejeita se healthcare também não indicar saúde
+        if (!healthcare || (!HEALTH_TAGS.includes(healthcare) && !HEALTHCARE_GENERICOS.includes(healthcare))) {
+            return false;
+        }
     }
-    if (healthcare && !HEALTH_TAGS.includes(healthcare) && healthcare !== 'clinic' && !HEALTH_TAGS.includes(amenity)) {
-        return false;
+    if (healthcare && !HEALTH_TAGS.includes(healthcare) && !HEALTHCARE_GENERICOS.includes(healthcare) && healthcare !== 'clinic') {
+        // Só rejeita se amenity também não indicar saúde
+        if (!amenity || (!HEALTH_TAGS.includes(amenity) && !HEALTHCARE_GENERICOS.includes(amenity))) {
+            return false;
+        }
     }
 
     // 0. EXCLUSÕES ABSOLUTAS — verificadas ANTES de qualquer inclusão
@@ -1507,6 +1579,9 @@ function isVinculadoSUS(tags, nome) {
         healthcare === 'cemetery' || healthcare === 'grave_yard') return false;
     const cemWords = ['cemiterio', 'cemitério', 'sepultamento', 'ossuario', 'necrópole', 'necropole'];
     for (const w of cemWords) { if (nomeNorm.includes(w)) return false; }
+
+    // Escolas, praças, parques e outros não vinculados à saúde — exclusão pelo nome
+    for (const w of EXCLUIR_PALAVRAS_NOME) { if (nomeNorm.includes(w)) return false; }
 
     // Veterinários / pet
     if (healthcare === 'veterinary' || amenity === 'veterinary') return false;
@@ -2153,18 +2228,38 @@ async function usarGeolocalizacao() {
 }
 
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
-    const around = `around:${Math.round(raioKm * 1000)},${lat},${lon}`;
-    const query = buildQueryRapida(around); // query rápida (sem operator regex) para proximidade
+    const aroundStr = `around:${Math.round(raioKm * 1000)},${lat},${lon}`;
 
-    updateSearchProgress(40, 'Consultando OpenStreetMap...', 'Aguarde');
+    updateSearchProgress(35, 'Consultando OpenStreetMap (query rápida)...', 'Aguarde...');
 
     let elementos = [];
+
+    // Tentativa 1: query rápida com regex curto (NOME_REGEX_PROX)
     try {
-        const dados = await consultarOverpass(query, 35000); // 35s suficiente para query rápida
-        elementos = dados.elements || [];
+        const query1 = buildQueryRapida(aroundStr);
+        const dados1 = await consultarOverpass(query1, 65000);
+        elementos = dados1.elements || [];
+        if (dados1.remark) {
+            console.warn('Overpass remark (query rápida):', dados1.remark);
+        }
     } catch (error) {
-        console.error('Erro no Overpass:', error);
-        throw error;
+        console.warn('Query rápida falhou:', error.message);
+    }
+
+    // Tentativa 2: se retornou vazio, usa query mínima (só tags healthcare/amenity, sem regex)
+    if (elementos.length === 0) {
+        updateSearchProgress(50, 'Tentando query simplificada...', 'Buscando apenas por tags de saúde');
+        try {
+            const query2 = buildQueryMinima(aroundStr);
+            const dados2 = await consultarOverpass(query2, 95000);
+            elementos = dados2.elements || [];
+            if (dados2.remark) {
+                console.warn('Overpass remark (query mínima):', dados2.remark);
+            }
+        } catch (error) {
+            console.error('Query mínima falhou:', error);
+            throw error;
+        }
     }
 
     if (!buscaAtiva) return [];
@@ -2346,8 +2441,9 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         const query = buildUnifiedQuery(`area(${areaId})`);
         updateSearchProgress(28, 'Consultando área municipal...', `Relação OSM #${osmIdNum}`);
         try {
-            const dados = await consultarOverpass(query, 60000);
+            const dados = await consultarOverpass(query, 95000);
             elementos = dados.elements || [];
+            if (dados.remark) console.warn('Overpass remark (área):', dados.remark);
             if (elementos.length > 0) {
                 updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
             }
@@ -2376,8 +2472,9 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         const bboxStr = `${sul},${oeste},${norte},${leste}`;
         const query = buildUnifiedQuery(bboxStr);
         try {
-            const dados = await consultarOverpass(query, 60000);
+            const dados = await consultarOverpass(query, 95000);
             elementos = dados.elements || [];
+            if (dados.remark) console.warn('Overpass remark (bbox):', dados.remark);
             if (elementos.length > 0) {
                 updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
             }
@@ -3274,7 +3371,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = 'gmail.com';
         pixEl.textContent = u + '@' + d;
     }
-    console.log('Saúde-BR Localizador v14 — query ampliada com cobertura máxima, busca por proximidade restaurada, cemitérios excluídos.');
+    console.log('Saúde-BR - Localizador de unidades de saúde SUS.');
 });
 </script>
 </body>
