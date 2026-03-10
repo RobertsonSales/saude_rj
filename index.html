@@ -1277,30 +1277,62 @@ const INCLUIR_AMENITY_SAUDE = [
 const EXCLUIR_TIPOS = 'cemetery|grave_yard|pharmacy|school|optometrist|laboratory|sample_collection|physiotherapist|psychotherapist|audiologist|alternative|medical_imaging|veterinary|cosmetics|beauty|park|plaza|square|playground|sports_centre|gym|swimming_pool|parking|fuel|car_wash|restaurant|cafe|bar|library|museum|theatre|cinema|hotel|hostel|police|fire_station|post_office|bank|atm|shop|supermarket|market|office|government|courthouse|prison|military|industrial|warehouse|factory|construction|landfill|waste|quarry|mine|power_plant|water_treatment|sewage|place_of_worship|kindergarten|university|college|language_school|driving_school|music_school';
 
 // Palavras no NOME que caracterizam estabelecimentos NÃO relacionados à saúde/SUS
+// Aplicadas como substring — use apenas termos que NÃO aparecem em nomes legítimos de UBS/hospitais.
 const EXCLUIR_PALAVRAS_NOME = [
     // Praças, parques e áreas verdes
-    'praca', 'parque', 'jardim', 'mirante', 'bosque', 'area verde',
+    'praca', 'pracinha', 'parque', 'jardim', 'mirante', 'bosque', 'area verde',
     'area de preservacao', 'area de protecao', 'area protegida',
     'reserva biologica', 'reserva florestal', 'reserva ambiental',
     'reserva ecologica', 'reserva natural', 'reserva indigena',
     'estacao ecologica', 'parque estadual', 'parque nacional', 'parque municipal',
+    'agrofloresta', 'associacao ambiental',
     // Educação
     'escola', 'colegio', 'creche', 'ministerio da educacao',
-    // Comércio e serviços
+    // Comércio, serviços e logística
     'academia', 'gym', 'farmacia', 'drogaria', 'laboratorio de analises',
     'posto de gasolina', 'supermercado', 'mercado', 'hipermercado',
-    // Serviços públicos não-saúde
-    'delegacia', 'policia', 'bombeiro', 'quartel', 'tribunal', 'forum',
-    'cartorio', 'banco', 'agencia bancaria', 'correio', 'teatro',
-    'cinema', 'museu', 'biblioteca',
+    'livraria', 'lavanderia', 'roupa', 'confeccao',
+    'deposito', 'entreposto', 'garagem', 'oficina',
+    'condominio', 'loteamento',
+    // Infraestrutura e transportes não-saúde
+    'estacao ferroviaria', 'estacao rodoviaria', 'estacao de metro',
+    'estacao de trem', 'estacao de onibus', 'estacao de passageiros',
+    // Esporte, lazer e cultura
+    'estadio', 'arena esportiva', 'ginasio esportivo', 'clube esportivo',
+    'clube de futebol', 'clube atletico', 'esporte clube',
+    'quadra esportiva', 'quadra de futebol', 'quadra poliesportiva',
+    'monumento', 'memorial', 'museu',
+    // Administração pública não-saúde
+    'receita federal', 'receita estadual', 'delegacia', 'policia', 'bombeiro',
+    'quartel', 'tribunal', 'forum', 'cartorio', 'banco', 'agencia bancaria',
+    'correio', 'poupa tempo', 'telefones',
+    // Cultura e entretenimento
+    'teatro', 'cinema', 'biblioteca',
     // Culto
     'templo', 'igreja', 'catedral', 'capella', 'sinagoga', 'mesquita',
     'terreiro', 'convento', 'mosteiro', 'paroquia', 'santuario',
     // Veterinária
     'clinica veterinaria', 'pet shop', 'pet hospital', 'hospital veterinario',
     // Cemitério
-    'cemiterio', 'cemitério', 'necropole'
+    'cemiterio', 'cemiterio', 'necropole',
+    // Militares / policiamento
+    'batalhao', 'grupamento', 'destacamento policial', 'companhia policial',
+    'base aerea', 'base militar', 'base naval',
 ];
+
+// Palavras ambíguas: excluir SOMENTE quando o nome começa com elas e não há
+// nenhum termo de saúde no nome. Evita falsos positivos como "UBS Vila Nova",
+// "Centro de Saúde do Campo" ou "Grupo Hospitalar Conceição".
+const EXCLUIR_INICIO_SEM_SAUDE = [
+    'agrofloresta', 'caminho', 'campo', 'cultura', 'clube',
+    'esportivo', 'estacao', 'estadio', 'feira', 'feirinha',
+    'grupo', 'monitor', 'monumento', 'morro', 'ocupacao',
+    'pedra', 'plano', 'pontal', 'pouso', 'quadra',
+    'vila',
+];
+
+// Regex de termos que caracterizam saúde — usado para guardar palavras ambíguas
+const _SAUDE_GUARD = /saude|sus|ubs|upa|caps|hospital|clinica|unidade|centro|posto|pronto|atendimento|medic|sanitari|enferm|odonto|reabilit|maternidade|ambulatorio|policlinica|dispensario/;
 
 // Regex para nomes/operadores de unidades filantrópicas/públicas (busca auxiliar) — VERSÃO 15 AMPLIADA
 const NOME_REGEX_AUX = [
@@ -1785,8 +1817,14 @@ function isVinculadoSUS(tags, nome) {
     const cemWords = ['cemiterio', 'cemitério', 'sepultamento', 'ossuario', 'necrópole', 'necropole'];
     for (const w of cemWords) { if (nomeNorm.includes(w)) return false; }
 
-    // Escolas, praças, parques e outros não vinculados à saúde — exclusão pelo nome
+    // Escolas, praças, parques e outros não vinculados à saúde — exclusão por substring
     for (const w of EXCLUIR_PALAVRAS_NOME) { if (nomeNorm.includes(w)) return false; }
+
+    // Palavras ambíguas: rejeita somente se o nome COMEÇA com elas e não contém
+    // nenhum termo de saúde — protege "UBS Vila Nova", "Grupo Hospitalar", etc.
+    for (const w of EXCLUIR_INICIO_SEM_SAUDE) {
+        if ((nomeNorm.startsWith(w + ' ') || nomeNorm === w) && !_SAUDE_GUARD.test(nomeNorm)) return false;
+    }
 
     // Veterinários / pet
     if (healthcare === 'veterinary' || amenity === 'veterinary') return false;
@@ -3617,7 +3655,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = 'gmail.com';
         pixEl.textContent = u + '@' + d;
     }
-    console.log('Saúde-BR - Localizador de unidades de saúde SUS.');
+    console.log'Saúde-BR - Localizador de unidades de saúde SUS.';
 });
 </script>
 </body>
