@@ -1150,7 +1150,8 @@
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (versão 15 — OTIMIZADA: ampliação de beneficências, exclusões aprimoradas, performance melhorada)
+//  CONFIGURAÇÃO E CONSTANTES (versão 17 — QUERIES PARALELAS: tags-only + regex em paralelo,
+//  eliminando espera sequencial e reduzindo drasticamente o tempo de resposta)
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1314,37 +1315,30 @@ const HEALTH_TAGS = INCLUIR_TIPOS.split('|');
 
 
 // ════════════════════════════════════════════════════════════════════════════
-//  OTIMIZAÇÕES VERSÃO 16
+//  OTIMIZAÇÕES VERSÃO 17
 // ════════════════════════════════════════════════════════════════════════════
-// ✓ CORREÇÃO BUSCA POR PROXIMIDADE:
-//   • Causa raiz: NOME_REGEX_AUX (80+ termos) causava timeout no Overpass com around:
-//   • Solução: NOME_REGEX_PROX — regex curto (20 termos específicos de saúde)
-//   • Fallback automático: se query rápida retorna vazio → tenta query mínima (só tags)
-//   • Timeout aumentado: 60s (query rápida) e 90s (query mínima/ampliada)
-//   • 4 mirrors Overpass (adicionado overpass.openstreetmap.ru)
+// ✓ QUERIES PARALELAS (principal novidade):
+//   • Cada busca (município e proximidade) agora dispara DUAS queries simultâneas:
+//     – Query A (tags-only): healthcare + amenity, sem regex → rápida (5–15 s)
+//     – Query B (regex-only): name/operator regex, sem tags → mais lenta
+//   • Executadas via Promise.allSettled → tempo total ≈ max(A, B) em vez de A + B
+//   • Cobertura idêntica à v16 (mesmos dados, maior velocidade)
+//   • Falha de uma query não cancela a outra (resultado parcial sempre entregue)
 //
-// ✓ INCLUSÃO DE UNIDADES AMPLIADA:
-//   • Clínicas da Família (CF): variações completas no NOME_REGEX_PROX e AUX
-//   • Associações Beneficentes: 10+ variações em NOME_REGEX_AUX e isVinculadoSUS
-//   • Beneficências Portuguesas: múltiplas variações cobertas
-//   • Ligas de Saúde, Obras Sociais, Instituições Filantrópicas
+// ✓ DEDUPLICAÇÃO DE ELEMENTOS OVERPASS:
+//   • deduplicarElementos() elimina duplicatas por (type, id) antes do processamento
+//   • Evita overhead de isVinculadoSUS/classificarNivel em elementos repetidos
 //
-// ✓ EXCLUSÕES APRIMORADAS:
-//   • EXCLUIR_PALAVRAS_NOME: lista de 30+ palavras que identificam não-saúde pelo nome
-//   • Aplicada em isVinculadoSUS ANTES das inclusões
-//   • EXCLUIR_TIPOS expandido com school, kindergarten, university, place_of_worship
-//   • buildQueryAmpliada usa lista estendida de exclusões de amenity
+// ✓ FALLBACK MANTIDO:
+//   • Proximidade: se ambas as queries paralelas retornam vazio → buildQueryMinima
+//   • Município: se área OSM retorna vazio → bounding box (também com paralelas)
 //
-// ✓ CORREÇÃO isVinculadoSUS:
-//   • healthcare=yes (genérico, comum no Brasil) não é mais rejeitado
-//   • healthcare=health, care, public, service, facility também aceitos
-//   • Lógica: apenas rejeita se AMBAS as tags (amenity + healthcare) indicam não-saúde
-//
-// ✓ PERFORMANCE:
-//   • INCLUIR_AMENITY_SAUDE: lista restrita para busca por proximidade
-//   • buildQueryMinima: query ultra-simples de fallback
-//   • Detecção de remark (timeout Overpass) com fallback automático
-//   • Cache mantido entre buscas da mesma sessão
+// ✓ TIMEOUTS CALIBRADOS:
+//   • Tags-only municipal: 45 s (query simples, Overpass rápido)
+//   • Regex municipal: 75 s (query complexa, server-side timeout=75)
+//   • Tags-only prox: 40 s
+//   • Regex prox: 60 s
+//   • Fallback mínima: 90 s
 
 let allUnits = [];
 let filteredUnits = [];
@@ -1420,6 +1414,17 @@ function deduplicar(unidades) {
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Deduplica elementos Overpass pelo id+tipo antes do processamento
+function deduplicarElementos(elementos) {
+    const seen = new Set();
+    return elementos.filter(el => {
+        const key = `${el.type ?? (el.lat != null ? 'node' : 'way')}:${el.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1510,6 +1515,84 @@ ${escopo}
   way["healthcare"](${filtroArea});
   node["amenity"~"^(hospital|clinic|health_post|health_centre|polyclinic|urgent_care|emergency_ward|primary_healthcare|maternity|birthing_center|rehabilitation|mental_health|dialysis|blood_donation|family_practice|doctors|nursing_home)$"](${filtroArea});
   way["amenity"~"^(hospital|clinic|health_post|health_centre|polyclinic|urgent_care|emergency_ward|primary_healthcare|maternity|birthing_center|rehabilitation|mental_health|dialysis|blood_donation|family_practice|doctors|nursing_home)$"](${filtroArea});
+);
+out center tags qt;
+    `.trim();
+}
+
+// ─── QUERIES PARALELAS — VERSÃO 17 ──────────────────────────────────────────
+// Estratégia: dividir cada consulta em duas partes independentes e executá-las
+// em paralelo via Promise.allSettled. Tempo total ≈ max(tagQuery, regexQuery)
+// em vez de tagQuery + regexQuery. Cobertura idêntica à v16.
+
+/**
+ * QUERY TAGS (municipal) — healthcare + amenity, sem regex. Muito rápida (5–15 s).
+ */
+function buildQueryTagsOnlyMunicipal(areaCondition) {
+    const { escopo, filtroArea } = _resolverEscopo(areaCondition);
+    return `
+[out:json][timeout:45];
+${escopo}
+(
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  node["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
+  way["amenity"~"^(${INCLUIR_TIPOS})$"](${filtroArea});
+);
+out center tags qt;
+    `.trim();
+}
+
+/**
+ * QUERY REGEX (municipal) — apenas nome + operador regex, sem tags. Mais lenta.
+ * Executa em paralelo com buildQueryTagsOnlyMunicipal.
+ */
+function buildQueryNomeRegexMunicipal(areaCondition) {
+    const { escopo, filtroArea } = _resolverEscopo(areaCondition);
+    const EXCLUIR_AMENITY_NOME = 'cemetery|grave_yard|place_of_worship|school|kindergarten|university|college|pharmacy|parking|fuel|restaurant|cafe|bar|library|museum|park|playground|sports_centre|gym|police|fire_station|post_office|bank|hotel|theatre|cinema';
+    return `
+[out:json][timeout:75];
+${escopo}
+(
+  node["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(${EXCLUIR_AMENITY_NOME})$"](${filtroArea});
+  way["name"~"${NOME_REGEX_AUX}",i]["amenity"!~"^(${EXCLUIR_AMENITY_NOME})$"](${filtroArea});
+  node["operator"~"${OPERADOR_REGEX}",i]["amenity"!~"^(${EXCLUIR_AMENITY_NOME}|shop|supermarket|market|office)$"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  way["operator"~"${OPERADOR_REGEX}",i]["amenity"!~"^(${EXCLUIR_AMENITY_NOME}|shop|supermarket|market|office)$"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+);
+out center tags qt;
+    `.trim();
+}
+
+/**
+ * QUERY TAGS (proximidade) — apenas healthcare + amenity para around. Rápida.
+ */
+function buildQueryTagsOnlyProx(areaCondition) {
+    const { escopo, filtroArea } = _resolverEscopo(areaCondition);
+    return `
+[out:json][timeout:40];
+${escopo}
+(
+  node["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  way["healthcare"]["healthcare"!~"^(${EXCLUIR_TIPOS})$"](${filtroArea});
+  node["amenity"~"^(${INCLUIR_AMENITY_SAUDE})$"](${filtroArea});
+  way["amenity"~"^(${INCLUIR_AMENITY_SAUDE})$"](${filtroArea});
+);
+out center tags qt;
+    `.trim();
+}
+
+/**
+ * QUERY REGEX (proximidade) — apenas nome regex para around, sem amenity/healthcare.
+ * Executa em paralelo com buildQueryTagsOnlyProx.
+ */
+function buildQueryNomeRegexProx(areaCondition) {
+    const { escopo, filtroArea } = _resolverEscopo(areaCondition);
+    return `
+[out:json][timeout:60];
+${escopo}
+(
+  node["name"~"${NOME_REGEX_PROX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship|school|pharmacy|parking|fuel)$"](${filtroArea});
+  way["name"~"${NOME_REGEX_PROX}",i]["amenity"!~"^(cemetery|grave_yard|place_of_worship|school|pharmacy|parking|fuel)$"](${filtroArea});
 );
 out center tags qt;
     `.trim();
@@ -2230,37 +2313,44 @@ async function usarGeolocalizacao() {
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const aroundStr = `around:${Math.round(raioKm * 1000)},${lat},${lon}`;
 
-    updateSearchProgress(35, 'Consultando OpenStreetMap (query rápida)...', 'Aguarde...');
+    updateSearchProgress(35, 'Consultando OpenStreetMap (em paralelo)...', 'Tags + regex simultâneos');
 
-    let elementos = [];
+    // ── VERSÃO 17: executa query de tags e query de regex EM PARALELO ──────
+    const [resTags, resRegex] = await Promise.allSettled([
+        consultarOverpass(buildQueryTagsOnlyProx(aroundStr), 45000),
+        consultarOverpass(buildQueryNomeRegexProx(aroundStr), 65000)
+    ]);
 
-    // Tentativa 1: query rápida com regex curto (NOME_REGEX_PROX)
-    try {
-        const query1 = buildQueryRapida(aroundStr);
-        const dados1 = await consultarOverpass(query1, 65000);
-        elementos = dados1.elements || [];
-        if (dados1.remark) {
-            console.warn('Overpass remark (query rápida):', dados1.remark);
-        }
-    } catch (error) {
-        console.warn('Query rápida falhou:', error.message);
+    let elementosBrutos = [];
+    if (resTags.status === 'fulfilled') {
+        const els = resTags.value.elements || [];
+        if (resTags.value.remark) console.warn('Overpass remark (tags-prox):', resTags.value.remark);
+        elementosBrutos.push(...els);
+    } else {
+        console.warn('Query tags-prox falhou:', resTags.reason?.message);
+    }
+    if (resRegex.status === 'fulfilled') {
+        const els = resRegex.value.elements || [];
+        if (resRegex.value.remark) console.warn('Overpass remark (regex-prox):', resRegex.value.remark);
+        elementosBrutos.push(...els);
+    } else {
+        console.warn('Query regex-prox falhou:', resRegex.reason?.message);
     }
 
-    // Tentativa 2: se retornou vazio, usa query mínima (só tags healthcare/amenity, sem regex)
-    if (elementos.length === 0) {
-        updateSearchProgress(50, 'Tentando query simplificada...', 'Buscando apenas por tags de saúde');
+    // Fallback: se ambas falharam ou retornaram vazio, tenta query mínima
+    if (elementosBrutos.length === 0) {
+        updateSearchProgress(55, 'Tentando query simplificada...', 'Buscando apenas por tags de saúde');
         try {
-            const query2 = buildQueryMinima(aroundStr);
-            const dados2 = await consultarOverpass(query2, 95000);
-            elementos = dados2.elements || [];
-            if (dados2.remark) {
-                console.warn('Overpass remark (query mínima):', dados2.remark);
-            }
+            const dados = await consultarOverpass(buildQueryMinima(aroundStr), 90000);
+            elementosBrutos = dados.elements || [];
+            if (dados.remark) console.warn('Overpass remark (mínima):', dados.remark);
         } catch (error) {
-            console.error('Query mínima falhou:', error);
+            console.error('Query mínima (fallback) falhou:', error);
             throw error;
         }
     }
+
+    const elementos = deduplicarElementos(elementosBrutos);
 
     if (!buscaAtiva) return [];
 
@@ -2432,18 +2522,41 @@ async function getMunicipioData(uf, codigoIBGE, nomeMunicipio) {
 }
 
 async function buscarUnidadesNoMunicipio(municipio, uf) {
+
+    // Helper interno: executa as duas queries (tags + regex) em paralelo para um
+    // areaCondition dado e retorna os elementos brutos mesclados e deduplicados.
+    async function consultarParalelo(areaCondition, progressoBase, label) {
+        updateSearchProgress(progressoBase, `Consultando ${label} (tags + regex em paralelo)...`, 'Aguarde...');
+        const [resTags, resRegex] = await Promise.allSettled([
+            consultarOverpass(buildQueryTagsOnlyMunicipal(areaCondition), 50000),
+            consultarOverpass(buildQueryNomeRegexMunicipal(areaCondition), 80000)
+        ]);
+
+        let brutos = [];
+        if (resTags.status === 'fulfilled') {
+            if (resTags.value.remark) console.warn(`Overpass remark (tags-${label}):`, resTags.value.remark);
+            brutos.push(...(resTags.value.elements || []));
+        } else {
+            console.warn(`Query tags-${label} falhou:`, resTags.reason?.message);
+        }
+        if (resRegex.status === 'fulfilled') {
+            if (resRegex.value.remark) console.warn(`Overpass remark (regex-${label}):`, resRegex.value.remark);
+            brutos.push(...(resRegex.value.elements || []));
+        } else {
+            console.warn(`Query regex-${label} falhou:`, resRegex.reason?.message);
+        }
+
+        return deduplicarElementos(brutos);
+    }
+
     let elementos = [];
 
-    // Tenta primeiro usar a relação administrativa (área)
+    // ── Etapa 1: relação administrativa (área) ────────────────────────────
     if (municipio.osmId && municipio.osmType === 'relation') {
         const osmIdNum = parseInt(municipio.osmId, 10);
         const areaId = 3600000000 + osmIdNum;
-        const query = buildUnifiedQuery(`area(${areaId})`);
-        updateSearchProgress(28, 'Consultando área municipal...', `Relação OSM #${osmIdNum}`);
         try {
-            const dados = await consultarOverpass(query, 95000);
-            elementos = dados.elements || [];
-            if (dados.remark) console.warn('Overpass remark (área):', dados.remark);
+            elementos = await consultarParalelo(`area(${areaId})`, 28, 'área municipal');
             if (elementos.length > 0) {
                 updateSearchProgress(50, 'Área municipal OK', `${elementos.length} candidatos`);
             }
@@ -2452,7 +2565,7 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         }
     }
 
-    // Fallback: bounding box
+    // ── Etapa 2: fallback bounding box ───────────────────────────────────
     if (elementos.length === 0) {
         updateSearchProgress(35, 'Usando bounding box...', 'Calculando área do município');
         let sul, norte, oeste, leste;
@@ -2470,11 +2583,8 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
             leste = (lon + dLon).toFixed(6);
         }
         const bboxStr = `${sul},${oeste},${norte},${leste}`;
-        const query = buildUnifiedQuery(bboxStr);
         try {
-            const dados = await consultarOverpass(query, 95000);
-            elementos = dados.elements || [];
-            if (dados.remark) console.warn('Overpass remark (bbox):', dados.remark);
+            elementos = await consultarParalelo(bboxStr, 38, 'bounding box');
             if (elementos.length > 0) {
                 updateSearchProgress(50, 'Candidatos encontrados (bbox)', `${elementos.length} itens`);
             }
@@ -3371,7 +3481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = 'gmail.com';
         pixEl.textContent = u + '@' + d;
     }
-    console.log('Saúde-BR - Localizador de unidades de saúde SUS.');
+    console.log('Saúde-BR - Localizador de unidades de saúde SUS. v17');
 });
 </script>
 </body>
