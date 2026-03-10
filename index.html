@@ -694,18 +694,24 @@
     .search-progress-card {
       background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
       border-radius: var(--radius);
-      padding: 20px 28px;
+      padding: 16px 22px;
       margin-bottom: 20px;
       display: none;
-      align-items: center;
-      gap: 20px;
+      flex-direction: column;
+      gap: 12px;
       border: 1px solid rgba(0,168,120,0.25);
       box-shadow: var(--shadow-md);
       animation: slideDown 0.3s ease;
     }
     .search-progress-card.visible { display: flex; }
+    /* Linha superior: spinner + texto + botão cancelar */
+    .search-progress-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
     .search-progress-spinner {
-      width: 36px; height: 36px;
+      width: 32px; height: 32px;
       border: 3px solid rgba(0,200,150,0.25);
       border-top-color: var(--teal-light);
       border-radius: 50%;
@@ -716,25 +722,49 @@
     .search-progress-title {
       font-family: 'Outfit', sans-serif;
       font-weight: 700;
-      font-size: 0.92rem;
+      font-size: 0.9rem;
       color: #fff;
-      margin-bottom: 4px;
-      white-space: nowrap;
+      margin-bottom: 2px;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .search-progress-hint {
-      font-size: 0.75rem;
+      font-size: 0.73rem;
       color: rgba(255,255,255,0.5);
-      min-height: 16px;
+      min-height: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .search-progress-cancel {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: rgba(255,255,255,0.7);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .search-progress-cancel:hover { background: rgba(229,57,53,0.35); border-color: rgba(229,57,53,0.5); color: #fff; }
+    /* Linha inferior: barra + timer + contador */
+    .search-progress-bottom {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
     .search-progress-bar-wrap {
       flex: 1;
-      max-width: 260px;
       background: rgba(255,255,255,0.12);
       border-radius: 10px;
       height: 6px;
       overflow: hidden;
+      min-width: 0;
     }
     .search-progress-bar {
       height: 100%;
@@ -742,36 +772,42 @@
       border-radius: 10px;
       transition: width 0.4s ease;
     }
-    .search-progress-count {
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      font-size: 1.3rem;
-      color: var(--teal-light);
-      min-width: 48px;
-      text-align: right;
+    .search-progress-stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
       flex-shrink: 0;
     }
-    .search-progress-timer-container {
+    .search-progress-stat {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
-      min-width: 80px;
-      flex-shrink: 0;
+      gap: 1px;
     }
-    .search-progress-timer {
+    .search-progress-stat-value {
       font-family: 'Outfit', sans-serif;
       font-weight: 700;
-      font-size: 0.9rem;
-      color: rgba(255,255,255,0.7);
-      text-align: center;
+      font-size: 1.1rem;
+      color: var(--teal-light);
+      line-height: 1;
     }
-    .search-progress-timer-label {
-      font-size: 0.65rem;
+    .search-progress-stat-label {
+      font-size: 0.62rem;
       color: rgba(255,255,255,0.4);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
     }
+    .search-progress-divider {
+      width: 1px;
+      height: 28px;
+      background: rgba(255,255,255,0.15);
+      flex-shrink: 0;
+    }
+    /* Aliases para manter compatibilidade com JS */
+    .search-progress-timer { display: none; }
+    .search-progress-timer-container { display: none; }
+    .search-progress-count { display: none; }
 
     /* ─── PDF PREVIEW MODAL ─── */
     .modal-overlay {
@@ -1023,19 +1059,34 @@
 
   <!-- ─── SEARCH PROGRESS CARD ─── -->
   <div class="search-progress-card" id="searchProgressCard">
-    <div class="search-progress-spinner"></div>
-    <div class="search-progress-info">
-      <div class="search-progress-title" id="spTitle">Consultando OpenStreetMap...</div>
-      <div class="search-progress-hint" id="spHint">Iniciando conexão...</div>
+    <!-- Linha 1: spinner + título + hint + botão cancelar -->
+    <div class="search-progress-top">
+      <div class="search-progress-spinner"></div>
+      <div class="search-progress-info">
+        <div class="search-progress-title" id="spTitle">Consultando OpenStreetMap...</div>
+        <div class="search-progress-hint" id="spHint">Iniciando conexão...</div>
+      </div>
+      <button class="search-progress-cancel" onclick="cancelarBusca()" title="Cancelar busca">✕ Cancelar</button>
     </div>
-    <div class="search-progress-bar-wrap">
-      <div class="search-progress-bar" id="spBar" style="width:5%"></div>
+    <!-- Linha 2: barra de progresso + timer + contador -->
+    <div class="search-progress-bottom">
+      <div class="search-progress-bar-wrap">
+        <div class="search-progress-bar" id="spBar" style="width:5%"></div>
+      </div>
+      <div class="search-progress-stats">
+        <div class="search-progress-stat">
+          <span class="search-progress-stat-value" id="spTimer">00:00</span>
+          <span class="search-progress-stat-label">Tempo</span>
+        </div>
+        <div class="search-progress-divider"></div>
+        <div class="search-progress-stat">
+          <span class="search-progress-stat-value" id="spCount">0</span>
+          <span class="search-progress-stat-label">Unidades</span>
+        </div>
+      </div>
     </div>
-    <div class="search-progress-timer-container">
-      <div class="search-progress-timer" id="spTimer">00:00</div>
-      <div class="search-progress-timer-label">Tempo</div>
-    </div>
-    <div class="search-progress-count" id="spCount">0</div>
+    <!-- Aliases ocultos para compatibilidade com funções JS existentes -->
+    <div style="display:none" id="spTimerCompat"></div>
   </div>
 
   <!-- ─── DASHBOARD ─── -->
@@ -1557,7 +1608,7 @@ function sleep(ms) {
 // ════════════════════════════════════════════════════════════════════════════
 //  CONSULTA OVERPASS UNIFICADA (com cache e fallback) - VERSÃO OTIMIZADA
 // ════════════════════════════════════════════════════════════════════════════
-async function consultarOverpass(query, timeoutMs = 60000) { // timeout aumentado para 60s
+async function consultarOverpass(query, timeoutMs = 60000, maxAttempts = 2) { // timeout aumentado para 60s
     // Cache simples
     if (overpassCache.has(query)) {
         console.log('Cache hit para Overpass query');
@@ -1568,10 +1619,11 @@ async function consultarOverpass(query, timeoutMs = 60000) { // timeout aumentad
     const mirrors = [...CONFIG.OVERPASS_MIRRORS];
     
     // Tentar mirrors em ordem com retry inteligente
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
         for (const endpoint of mirrors) {
+            if (!buscaAtiva) throw new Error('Busca cancelada pelo usuário');
             const controller = new AbortController();
-            const adjustedTimeout = timeoutMs + (attempt * 15000); // Aumentar timeout em retry
+            const adjustedTimeout = timeoutMs + (attempt * 10000); // Aumentar timeout em retry
             const timer = setTimeout(() => controller.abort(), adjustedTimeout);
             
             try {
@@ -1595,12 +1647,13 @@ async function consultarOverpass(query, timeoutMs = 60000) { // timeout aumentad
             } catch (e) {
                 clearTimeout(timer);
                 lastErr = e;
+                if (e.message === 'Busca cancelada pelo usuário') throw e;
                 console.warn(`Overpass ${endpoint} falhou (tentativa ${attempt + 1}):`, e.message || e);
             }
         }
         
         // Se primeira tentativa falhou, aguardar um pouco antes de retry
-        if (attempt === 0) {
+        if (attempt === 0 && maxAttempts > 1) {
             await sleep(500);
         }
     }
@@ -2364,17 +2417,21 @@ async function usarGeolocalizacao() {
             }
         },
         (error) => {
+            buscaAtiva = false;
             showSearchProgress(false);
             let msg = 'Erro ao obter localização';
-            if (error.code === error.PERMISSION_DENIED) msg = 'Permissão de localização negada';
-            else if (error.code === error.POSITION_UNAVAILABLE) msg = 'Localização indisponível';
-            else if (error.code === error.TIMEOUT) msg = 'Tempo esgotado ao obter localização';
+            if (error.code === error.PERMISSION_DENIED)
+                msg = 'Permissão de localização negada pelo navegador';
+            else if (error.code === error.POSITION_UNAVAILABLE)
+                msg = 'Localização GPS indisponível. Verifique se o GPS está ativo.';
+            else if (error.code === error.TIMEOUT)
+                msg = 'GPS demorou demais. Tente novamente ou verifique as permissões do navegador.';
             showNotification(msg, 'error');
         },
         {
             enableHighAccuracy: false,
-            timeout: 8000,
-            maximumAge: 120000
+            timeout: 30000,
+            maximumAge: 300000
         }
     );
 }
@@ -2386,29 +2443,40 @@ async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
 
     let elementos = [];
 
+    // Timeout global de 90s para toda a busca por proximidade
+    const globalTimeoutMs = 90000;
+    const globalStart = Date.now();
+    const timeLeft = () => Math.max(5000, globalTimeoutMs - (Date.now() - globalStart));
+
     // Tentativa 1: query rápida com regex curto (NOME_REGEX_PROX)
+    // maxAttempts=1: apenas 1 tentativa por mirror para não bloquear indefinidamente
     try {
         const query1 = buildQueryRapida(aroundStr);
-        const dados1 = await consultarOverpass(query1, 65000);
+        const dados1 = await consultarOverpass(query1, Math.min(40000, timeLeft()), 1);
         elementos = dados1.elements || [];
         if (dados1.remark) {
             console.warn('Overpass remark (query rápida):', dados1.remark);
         }
     } catch (error) {
+        if (error.message === 'Busca cancelada pelo usuário') throw error;
         console.warn('Query rápida falhou:', error.message);
     }
 
     // Tentativa 2: se retornou vazio, usa query mínima (só tags healthcare/amenity, sem regex)
     if (elementos.length === 0) {
+        if (Date.now() - globalStart > globalTimeoutMs - 5000) {
+            throw new Error('Tempo total de busca por proximidade esgotado. Tente um raio menor.');
+        }
         updateSearchProgress(50, 'Tentando query simplificada...', 'Buscando apenas por tags de saúde');
         try {
             const query2 = buildQueryMinima(aroundStr);
-            const dados2 = await consultarOverpass(query2, 95000);
+            const dados2 = await consultarOverpass(query2, Math.min(45000, timeLeft()), 1);
             elementos = dados2.elements || [];
             if (dados2.remark) {
                 console.warn('Overpass remark (query mínima):', dados2.remark);
             }
         } catch (error) {
+            if (error.message === 'Busca cancelada pelo usuário') throw error;
             console.error('Query mínima falhou:', error);
             throw error;
         }
@@ -3492,6 +3560,12 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 //  FUNÇÕES DE PROGRESSO E NOTIFICAÇÃO (mantidas)
 // ════════════════════════════════════════════════════════════════════════════
+function cancelarBusca() {
+    buscaAtiva = false;
+    showSearchProgress(false);
+    showNotification('Busca cancelada.', 'info');
+}
+
 function showSearchProgress(visible) {
     const card = document.getElementById('searchProgressCard');
     if (visible) {
