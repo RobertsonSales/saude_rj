@@ -1514,23 +1514,38 @@ async function getMunicipioDataOptimized(uf, codigoIBGE, nomeMunicipio) {
 
     try {
         const nomeBusca = encodeURIComponent(`${nomeMunicipio}, ${uf}, Brasil`);
-        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br&polygon_geojson=0&addressdetails=1`;
+        // polygon_geojson=0 mantido (não precisamos do polígono completo, apenas osmId/osmType para area())
+        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=3&countrycodes=br&polygon_geojson=0&addressdetails=1`;
         
         const resp = await fetch(url, {
-            headers: { 'User-Agent': 'Saude-BR-Localizador' }
+            headers: { 'User-Agent': `SaudeBR-Localizador/4.6 (${CONFIG.NOMINATIM.EMAIL})` }
         });
         
         if (resp.ok) {
             const data = await resp.json();
             if (data && data.length > 0) {
+                // Prioriza resultados cujo place_id corresponda a um município (osm_type relation ou node de nível administrative)
+                const candidato = data.find(d => d.osm_type === 'relation' && d.type === 'administrative')
+                               || data.find(d => d.osm_type === 'relation')
+                               || data[0];
                 const result = {
-                    id: codigoIBGE,
-                    nome: nomeMunicipio,
-                    latitude: parseFloat(data[0].lat),
-                    longitude: parseFloat(data[0].lon),
-                    bbox: data[0].boundingbox
+                    id:        codigoIBGE,
+                    nome:      nomeMunicipio,
+                    latitude:  parseFloat(candidato.lat),
+                    longitude: parseFloat(candidato.lon),
+                    // osmId e osmType são essenciais para a query area() no Overpass
+                    // (sem eles o código sempre cai no fallback de bbox, incluindo municípios vizinhos)
+                    osmId:    candidato.osm_id   ? String(candidato.osm_id)   : null,
+                    osmType:  candidato.osm_type || null,
+                    // bbox como floats, na ordem que Nominatim retorna: [sul, norte, oeste, leste]
+                    bbox: candidato.boundingbox ? candidato.boundingbox.map(parseFloat) : null
                 };
                 municipioGeoCache.set(cacheKey, result);
+                // Sincroniza também com municipiosPorEstado para consistência
+                if (municipiosPorEstado[uf]) {
+                    const idx = municipiosPorEstado[uf].findIndex(m => m.id === codigoIBGE);
+                    if (idx >= 0) Object.assign(municipiosPorEstado[uf][idx], result);
+                }
                 return result;
             }
         }
@@ -2711,14 +2726,18 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
         updateSearchProgress(35, 'Usando bounding box...', 'Calculando área do município');
         let sul, norte, oeste, leste;
         if (municipio.bbox && municipio.bbox.length === 4) {
+            // bbox vinda do Nominatim: [sul, norte, oeste, leste]
             [sul, norte, oeste, leste] = municipio.bbox;
         } else {
+            // Bbox artificial quando Nominatim não retornou boundingbox.
+            // Usamos um raio conservador de 15 km para evitar capturar
+            // municípios vizinhos (25 km era excessivo para municípios pequenos).
             const lat = municipio.latitude;
             const lon = municipio.longitude;
-            const raio = 25;
+            const raio = 15;
             const dLat = raio / 111;
             const dLon = raio / (111 * Math.cos(lat * Math.PI / 180));
-            sul = (lat - dLat).toFixed(6);
+            sul   = (lat - dLat).toFixed(6);
             norte = (lat + dLat).toFixed(6);
             oeste = (lon - dLon).toFixed(6);
             leste = (lon + dLon).toFixed(6);
@@ -2741,6 +2760,20 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
 
     updateSearchProgress(55, 'Filtrando e classificando...', `${elementos.length} candidatos`);
 
+    // Quando a busca usou bounding box (e não relação administrativa),
+    // elementos de municípios vizinhos podem ter sido capturados.
+    // Filtramos pelo tag addr:city quando disponível: se o elemento
+    // declara explicitamente uma cidade diferente do município pesquisado,
+    // ele é descartado. Elementos sem addr:city são mantidos (dado incompleto).
+    const nomeMunNorm = norm(municipio.nome);
+    const usouBbox   = !(municipio.osmId && municipio.osmType === 'relation');
+
+    // Normaliza o bbox para verificar se lat/lon está dentro dos limites quando disponível
+    let bboxSul = null, bboxNorte = null, bboxOeste = null, bboxLeste = null;
+    if (usouBbox && municipio.bbox && municipio.bbox.length === 4) {
+        [bboxSul, bboxNorte, bboxOeste, bboxLeste] = municipio.bbox.map(parseFloat);
+    }
+
     const unidades = [];
     const BATCH = 50;
     for (let i = 0; i < elementos.length; i += BATCH) {
@@ -2751,6 +2784,33 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
             const elLat = el.lat ?? el.center?.lat;
             const elLon = el.lon ?? el.center?.lon;
             if (!elLat || !elLon) continue;
+
+            // ── FILTRO ANTI-VIZINHOS (somente quando usou bbox) ──
+            if (usouBbox) {
+                // 1. Se o elemento tem addr:city declarado e é diferente do município → rejeitar
+                const addrCity = norm(tags['addr:city'] || tags['is_in:city'] || '');
+                if (addrCity && addrCity !== nomeMunNorm) {
+                    // Tolerância: prefixos e sufixos comuns (ex: "São Paulo" vs "Municipio de São Paulo")
+                    const cityMunMatch = addrCity.includes(nomeMunNorm) || nomeMunNorm.includes(addrCity);
+                    if (!cityMunMatch) continue;
+                }
+
+                // 2. Se o elemento tem addr:municipality ou place declarado diferente → rejeitar
+                const addrMun = norm(tags['addr:municipality'] || '');
+                if (addrMun && addrMun !== nomeMunNorm) {
+                    const munMatch = addrMun.includes(nomeMunNorm) || nomeMunNorm.includes(addrMun);
+                    if (!munMatch) continue;
+                }
+
+                // 3. Se há bbox preciso do município, rejeita elementos geograficamente fora dele
+                if (bboxSul !== null) {
+                    const lat = parseFloat(elLat);
+                    const lon = parseFloat(elLon);
+                    if (lat < bboxSul || lat > bboxNorte || lon < bboxOeste || lon > bboxLeste) continue;
+                }
+            }
+            // ──────────────────────────────────────────────────────
+
             const u = montarUnidade(tags, elLat, elLon, el.id,
                 el.type === 'node' ? 'node' : (el.type === 'relation' ? 'relation' : 'way'),
                 uf, municipio.nome);
