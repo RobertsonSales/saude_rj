@@ -1278,15 +1278,28 @@ const EXCLUIR_TIPOS = 'cemetery|grave_yard|pharmacy|school|optometrist|laborator
 
 // Palavras no NOME que caracterizam estabelecimentos NÃO relacionados à saúde/SUS
 const EXCLUIR_PALAVRAS_NOME = [
-    'praca', 'escola', 'colegio', 'cemiterio', 'cemitério', 'parque', 'jardim',
+    // Praças, parques e áreas verdes
+    'praca', 'parque', 'jardim', 'mirante', 'bosque', 'area verde',
+    'area de preservacao', 'area de protecao', 'area protegida',
+    'reserva biologica', 'reserva florestal', 'reserva ambiental',
+    'reserva ecologica', 'reserva natural', 'reserva indigena',
+    'estacao ecologica', 'parque estadual', 'parque nacional', 'parque municipal',
+    // Educação
+    'escola', 'colegio', 'creche', 'ministerio da educacao',
+    // Comércio e serviços
     'academia', 'gym', 'farmacia', 'drogaria', 'laboratorio de analises',
-    'clinica veterinaria', 'pet shop', 'pet hospital', 'hospital veterinario',
     'posto de gasolina', 'supermercado', 'mercado', 'hipermercado',
+    // Serviços públicos não-saúde
     'delegacia', 'policia', 'bombeiro', 'quartel', 'tribunal', 'forum',
     'cartorio', 'banco', 'agencia bancaria', 'correio', 'teatro',
-    'cinema', 'museu', 'biblioteca', 'templo', 'igreja', 'catedral',
-    'capella', 'sinagoga', 'mesquita', 'terreiro', 'convento', 'mosteiro',
-    'paroquia', 'santuario', 'ministerio da educacao'
+    'cinema', 'museu', 'biblioteca',
+    // Culto
+    'templo', 'igreja', 'catedral', 'capella', 'sinagoga', 'mesquita',
+    'terreiro', 'convento', 'mosteiro', 'paroquia', 'santuario',
+    // Veterinária
+    'clinica veterinaria', 'pet shop', 'pet hospital', 'hospital veterinario',
+    // Cemitério
+    'cemiterio', 'cemitério', 'necropole'
 ];
 
 // Regex para nomes/operadores de unidades filantrópicas/públicas (busca auxiliar) — VERSÃO 15 AMPLIADA
@@ -1608,57 +1621,46 @@ function sleep(ms) {
 // ════════════════════════════════════════════════════════════════════════════
 //  CONSULTA OVERPASS UNIFICADA (com cache e fallback) - VERSÃO OTIMIZADA
 // ════════════════════════════════════════════════════════════════════════════
-async function consultarOverpass(query, timeoutMs = 60000, maxAttempts = 2) { // timeout aumentado para 60s
-    // Cache simples
+async function consultarOverpass(query, timeoutMs = 55000, maxAttempts = 1) {
+    if (!buscaAtiva) throw new Error('Busca cancelada pelo usuário');
     if (overpassCache.has(query)) {
-        console.log('Cache hit para Overpass query');
+        console.log('Cache hit Overpass');
         return overpassCache.get(query);
     }
 
-    let lastErr;
     const mirrors = [...CONFIG.OVERPASS_MIRRORS];
-    
-    // Tentar mirrors em ordem com retry inteligente
+
+    // Tenta um mirror individualmente
+    const tryMirror = (endpoint, tMs) => new Promise((resolve, reject) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => { controller.abort(); reject(new Error(`timeout:${endpoint}`)); }, tMs);
+        fetch(endpoint, {
+            method: 'POST', body: query,
+            signal: controller.signal,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        }).then(resp => {
+            clearTimeout(timer);
+            if (!resp.ok) { reject(new Error(`HTTP ${resp.status} em ${endpoint}`)); return; }
+            return resp.json();
+        }).then(json => {
+            if (json) { resolve(json); }
+            else { reject(new Error(`JSON vazio de ${endpoint}`)); }
+        }).catch(e => { clearTimeout(timer); reject(e); });
+    });
+
+    // ESTRATÉGIA PARALELA: todos os mirrors competem simultaneamente → ganha o mais rápido
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        for (const endpoint of mirrors) {
-            if (!buscaAtiva) throw new Error('Busca cancelada pelo usuário');
-            const controller = new AbortController();
-            const adjustedTimeout = timeoutMs + (attempt * 10000); // Aumentar timeout em retry
-            const timer = setTimeout(() => controller.abort(), adjustedTimeout);
-            
-            try {
-                const resp = await fetch(endpoint, {
-                    method: 'POST',
-                    body: query,
-                    signal: controller.signal,
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                });
-                clearTimeout(timer);
-                
-                if (resp.ok) {
-                    const json = await resp.json();
-                    overpassCache.set(query, json);
-                    console.log(`Sucesso no Overpass ${endpoint}`);
-                    return json;
-                }
-                
-                const txt = await resp.text().catch(() => resp.status);
-                lastErr = new Error(`HTTP ${resp.status}: ${String(txt).slice(0, 120)}`);
-            } catch (e) {
-                clearTimeout(timer);
-                lastErr = e;
-                if (e.message === 'Busca cancelada pelo usuário') throw e;
-                console.warn(`Overpass ${endpoint} falhou (tentativa ${attempt + 1}):`, e.message || e);
-            }
-        }
-        
-        // Se primeira tentativa falhou, aguardar um pouco antes de retry
-        if (attempt === 0 && maxAttempts > 1) {
-            await sleep(500);
+        if (!buscaAtiva) throw new Error('Busca cancelada pelo usuário');
+        try {
+            const json = await Promise.any(mirrors.map(m => tryMirror(m, timeoutMs)));
+            overpassCache.set(query, json);
+            return json;
+        } catch (aggErr) {
+            console.warn(`Todos os mirrors falharam (tentativa ${attempt + 1}):`, aggErr);
+            if (attempt < maxAttempts - 1) await sleep(800);
         }
     }
-    
-    throw lastErr || new Error('Todos os servidores Overpass falharam');
+    throw new Error('Todos os servidores Overpass estão indisponíveis. Tente novamente em instantes.');
 }
 
 /**
@@ -1699,19 +1701,20 @@ out center tags qt;
 }
 
 /**
- * QUERY MÍNIMA — fallback para busca por proximidade quando a rápida retorna vazio.
- * Usa apenas tags healthcare e amenity (sem regex de nome), mais rápida possível.
+ * QUERY MÍNIMA — usada na busca por PROXIMIDADE.
+ * Apenas tags healthcare/amenity: sem regex de nome, query ultra-leve.
+ * Timeout servidor 25s (abaixo dos 30s HTTP) para garantir resposta parcial.
  */
 function buildQueryMinima(areaCondition) {
     const { escopo, filtroArea } = _resolverEscopo(areaCondition);
     return `
-[out:json][timeout:90];
+[out:json][timeout:25];
 ${escopo}
 (
   node["healthcare"](${filtroArea});
   way["healthcare"](${filtroArea});
-  node["amenity"~"^(hospital|clinic|health_post|health_centre|polyclinic|urgent_care|emergency_ward|primary_healthcare|maternity|birthing_center|rehabilitation|mental_health|dialysis|blood_donation|family_practice|doctors|nursing_home)$"](${filtroArea});
-  way["amenity"~"^(hospital|clinic|health_post|health_centre|polyclinic|urgent_care|emergency_ward|primary_healthcare|maternity|birthing_center|rehabilitation|mental_health|dialysis|blood_donation|family_practice|doctors|nursing_home)$"](${filtroArea});
+  node["amenity"~"^(hospital|clinic|health_post|health_centre|polyclinic|urgent_care|emergency_ward|primary_healthcare|maternity|birthing_center|rehabilitation|mental_health|dialysis|blood_donation|family_practice|doctors|nursing_home|health_center|health_station|phc|outpatient|geriatric|addiction|women_health)$"](${filtroArea});
+  way["amenity"~"^(hospital|clinic|health_post|health_centre|polyclinic|urgent_care|emergency_ward|primary_healthcare|maternity|birthing_center|rehabilitation|mental_health|dialysis|blood_donation|family_practice|doctors|nursing_home|health_center|health_station|phc|outpatient|geriatric|addiction|women_health)$"](${filtroArea});
 );
 out center tags qt;
     `.trim();
@@ -1792,6 +1795,21 @@ function isVinculadoSUS(tags, nome) {
 
     // Farmácias e lojas (operador regex pode capturar farmácias da prefeitura)
     if (amenity === 'pharmacy') return false;
+
+    // Nomes que são logradouros (rua, avenida, estrada…) sem ser nome de unidade
+    // Ex: "Rua das Flores" ou "Av. Central 1500" como nome do node
+    if (/^(rua |avenida |av\. |av |estrada |rodovia |travessa |alameda |viela |beco |largo )/.test(nomeNorm)) return false;
+    // Nome com padrão "palavra + número + sufixo de via" → provavelmente endereço
+    if (/\b(km|s\/n|sn)\b/.test(nomeNorm) && !/saude|ubs|upa|caps|hospital|clinica|centro|unidade/.test(nomeNorm)) return false;
+
+    // Secretarias que NÃO são de saúde
+    if (nomeNorm.includes('secretaria') &&
+        !nomeNorm.includes('saude') && !nomeNorm.includes('health') && !nomeNorm.includes('sus') &&
+        !op.includes('saude') && !op.includes('health')) return false;
+
+    // Reservas ambientais / ambientes naturais que não sejam unidades de saúde
+    if (/\b(reserva|area de preserva|mirante|bosque ecologico|parque estadual|parque nacional)\b/.test(nomeNorm) &&
+        !/saude|ubs|upa|caps|hospital|clinica|centro de saude/.test(nomeNorm)) return false;
 
     // 1. INCLUSÕES INCONDICIONAIS (filantrópicas, associações e clínicas da família)
     const filantropiasNome = [
@@ -2439,47 +2457,20 @@ async function usarGeolocalizacao() {
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const aroundStr = `around:${Math.round(raioKm * 1000)},${lat},${lon}`;
 
-    updateSearchProgress(35, 'Consultando OpenStreetMap (query rápida)...', 'Aguarde...');
+    updateSearchProgress(35, 'Consultando OpenStreetMap...', 'Todos os servidores em paralelo');
 
+    // Query de proximidade: apenas tags healthcare/amenity, SEM regex de nome.
+    // Mais leve = menos chance de timeout no servidor Overpass.
+    // Timeout por mirror: 30s. Promise.any → o mirror mais rápido responde.
     let elementos = [];
-
-    // Timeout global de 90s para toda a busca por proximidade
-    const globalTimeoutMs = 90000;
-    const globalStart = Date.now();
-    const timeLeft = () => Math.max(5000, globalTimeoutMs - (Date.now() - globalStart));
-
-    // Tentativa 1: query rápida com regex curto (NOME_REGEX_PROX)
-    // maxAttempts=1: apenas 1 tentativa por mirror para não bloquear indefinidamente
     try {
-        const query1 = buildQueryRapida(aroundStr);
-        const dados1 = await consultarOverpass(query1, Math.min(40000, timeLeft()), 1);
-        elementos = dados1.elements || [];
-        if (dados1.remark) {
-            console.warn('Overpass remark (query rápida):', dados1.remark);
-        }
+        const query = buildQueryMinima(aroundStr);
+        const dados = await consultarOverpass(query, 30000, 1);
+        elementos = dados.elements || [];
+        if (dados.remark) console.warn('Overpass remark:', dados.remark);
     } catch (error) {
         if (error.message === 'Busca cancelada pelo usuário') throw error;
-        console.warn('Query rápida falhou:', error.message);
-    }
-
-    // Tentativa 2: se retornou vazio, usa query mínima (só tags healthcare/amenity, sem regex)
-    if (elementos.length === 0) {
-        if (Date.now() - globalStart > globalTimeoutMs - 5000) {
-            throw new Error('Tempo total de busca por proximidade esgotado. Tente um raio menor.');
-        }
-        updateSearchProgress(50, 'Tentando query simplificada...', 'Buscando apenas por tags de saúde');
-        try {
-            const query2 = buildQueryMinima(aroundStr);
-            const dados2 = await consultarOverpass(query2, Math.min(45000, timeLeft()), 1);
-            elementos = dados2.elements || [];
-            if (dados2.remark) {
-                console.warn('Overpass remark (query mínima):', dados2.remark);
-            }
-        } catch (error) {
-            if (error.message === 'Busca cancelada pelo usuário') throw error;
-            console.error('Query mínima falhou:', error);
-            throw error;
-        }
+        throw new Error('Nenhum servidor OSM respondeu a tempo. Verifique sua conexão ou tente um raio menor.');
     }
 
     if (!buscaAtiva) return [];
@@ -2487,7 +2478,7 @@ async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     updateSearchProgress(60, 'Processando resultados...', `${elementos.length} candidatos encontrados`);
 
     const unidades = [];
-    const BATCH = 50;
+    const BATCH = 100;
     for (let i = 0; i < elementos.length; i += BATCH) {
         if (!buscaAtiva) return unidades;
         const batch = elementos.slice(i, i + BATCH);
