@@ -2730,11 +2730,11 @@ async function buscarUnidadesNoMunicipio(municipio, uf) {
             [sul, norte, oeste, leste] = municipio.bbox;
         } else {
             // Bbox artificial quando Nominatim não retornou boundingbox.
-            // Usamos um raio conservador de 15 km para evitar capturar
+            // Usamos um raio conservador de 20 km para evitar capturar
             // municípios vizinhos (25 km era excessivo para municípios pequenos).
             const lat = municipio.latitude;
             const lon = municipio.longitude;
-            const raio = 15;
+            const raio = 20;
             const dLat = raio / 111;
             const dLon = raio / (111 * Math.cos(lat * Math.PI / 180));
             sul   = (lat - dLat).toFixed(6);
