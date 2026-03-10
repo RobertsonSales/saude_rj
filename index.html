@@ -1285,9 +1285,9 @@ const EXCLUIR_PALAVRAS_NOME = [
     'reserva biologica', 'reserva florestal', 'reserva ambiental',
     'reserva ecologica', 'reserva natural', 'reserva indigena',
     'estacao ecologica', 'parque estadual', 'parque nacional', 'parque municipal',
-    'agrofloresta', 'associacao ambiental',
+    'agrofloresta', 'associacao ambiental',"Araruama','apa',
     // Educação
-    'escola', 'colegio', 'creche', 'ministerio da educacao',
+    'escola', 'colegio', 'creche', 'ministerio da educacao','secretaria
     // Comércio, serviços e logística
     'academia', 'gym', 'farmacia', 'drogaria', 'laboratorio de analises',
     'posto de gasolina', 'supermercado', 'mercado', 'hipermercado',
@@ -1299,7 +1299,7 @@ const EXCLUIR_PALAVRAS_NOME = [
     'estacao de trem', 'estacao de onibus', 'estacao de passageiros',
     // Esporte, lazer e cultura
     'estadio', 'arena esportiva', 'ginasio esportivo', 'clube esportivo',
-    'clube de futebol', 'clube atletico', 'esporte clube',
+    'clube de futebol', 'clube atletico', 'esporte clube','clube',
     'quadra esportiva', 'quadra de futebol', 'quadra poliesportiva',
     'monumento', 'memorial', 'museu',
     // Administração pública não-saúde
@@ -1317,7 +1317,7 @@ const EXCLUIR_PALAVRAS_NOME = [
     'cemiterio', 'cemiterio', 'necropole',
     // Militares / policiamento
     'batalhao', 'grupamento', 'destacamento policial', 'companhia policial',
-    'base aerea', 'base militar', 'base naval',
+    'base aerea', 'base militar', 'base naval','cbmerj', 'marinha', 'exercito','aeronautica',
 ];
 
 // Palavras ambíguas: excluir SOMENTE quando o nome começa com elas e não há
@@ -1338,7 +1338,7 @@ const _SAUDE_GUARD = /saude|sus|ubs|upa|caps|hospital|clinica|unidade|centro|pos
 const NOME_REGEX_AUX = [
     // Clínicas da Família (CF) — múltiplas variações
     'clinica.da.familia', 'clinica.de.familia', 'clinica.familia', 'clinica.familiar',
-    'clinica.municipal.de.saude', 'clinica.popular.de.saude',
+    'clinica.municipal.de.saude', 'clinica.popular.de.saude','usf',
     // Beneficências Portuguesas e variações
     'beneficencia.portuguesa', 'beneficencia.portugues', 'beneficencia', 'beneficente',
     'beneficencia.de.saude', 'beneficencia.medica', 'beneficencia.hospitalar',
@@ -1390,11 +1390,10 @@ const NOME_REGEX_AUX = [
     'laboratorio.municipal.de.saude',
     // Maternidades
     'maternidade.municipal', 'maternidade.estadual', 'maternidade.federal',
-    'maternidade.escola', 'maternidade.publica',
+    'maternidade.escola', 'maternidade.publica','hospital.maternidade'
     // CAPS e Saúde Mental
     'centro.de.atencao.psicossocial', 'caps', 'caps.ad', 'caps.ad.ii', 'caps.ad.iii',
     // Serviços de Urgência
-    'servico.de.atendimento.movel.de.urgencia', 'samu',
     'coordenacao.regional.de.emergencia', 'coordenacao.de.emergencia.regional',
     // Complexos Hospitalares
     'complexo.hospitalar', 'hospital.geral.do.sus',
@@ -1404,7 +1403,7 @@ const NOME_REGEX_AUX = [
     'nucleo.de.saude.da.familia', 'nasf', 'nasf.ab',
     // Estratégia de Saúde da Família
     'equipe.de.saude.da.familia', 'estrategia.de.saude.da.familia',
-    'programa.saude.da.familia', 'saude.da.familia', 'esf', 'psf'
+    'programa.saude.da.familia', 'saude.da.familia', 'esf', 'psf','usf',
 ].join('|');
 
 // Regex para operadores — VERSÃO 16 AMPLIADA com mais variações de beneficências
@@ -3655,7 +3654,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = 'gmail.com';
         pixEl.textContent = u + '@' + d;
     }
-    console.log('Saúde-BR - Localizador de unidades de saúde SUS.');
+    console.log('Saúde-BR - Localizador de unidades de saúde (SUS');
 });
 </script>
 </body>
