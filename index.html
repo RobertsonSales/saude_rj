@@ -751,20 +751,26 @@
       text-align: right;
       flex-shrink: 0;
     }
-    .search-progress-meta {
+    .search-progress-timer-container {
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
-      gap: 3px;
+      align-items: center;
+      gap: 6px;
+      min-width: 80px;
       flex-shrink: 0;
     }
     .search-progress-timer {
       font-family: 'Outfit', sans-serif;
-      font-weight: 500;
-      font-size: 0.72rem;
-      color: rgba(255,255,255,0.38);
-      letter-spacing: 0.4px;
-      white-space: nowrap;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.7);
+      text-align: center;
+    }
+    .search-progress-timer-label {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     /* ─── PDF PREVIEW MODAL ─── */
@@ -1025,10 +1031,11 @@
     <div class="search-progress-bar-wrap">
       <div class="search-progress-bar" id="spBar" style="width:5%"></div>
     </div>
-    <div class="search-progress-meta">
-      <div class="search-progress-count" id="spCount">0</div>
-      <div class="search-progress-timer" id="spTimer">0s</div>
+    <div class="search-progress-timer-container">
+      <div class="search-progress-timer" id="spTimer">00:00</div>
+      <div class="search-progress-timer-label">Tempo</div>
     </div>
+    <div class="search-progress-count" id="spCount">0</div>
   </div>
 
   <!-- ─── DASHBOARD ─── -->
@@ -1168,9 +1175,7 @@
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ════════════════════════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO E CONSTANTES (versão 18 — MIRRORS EM CORRIDA: Promise.any()
-//  dispara a query para todos os 4 servidores Overpass simultaneamente e usa
-//  o mais rápido; cobertura v16 restaurada; cronômetro no painel de progresso)
+//  CONFIGURAÇÃO E CONSTANTES (versão 15 — OTIMIZADA: ampliação de beneficências, exclusões aprimoradas, performance melhorada)
 // ════════════════════════════════════════════════════════════════════════════
 const CONFIG = {
     NOMINATIM: {
@@ -1334,31 +1339,37 @@ const HEALTH_TAGS = INCLUIR_TIPOS.split('|');
 
 
 // ════════════════════════════════════════════════════════════════════════════
-//  OTIMIZAÇÕES VERSÃO 18
+//  OTIMIZAÇÕES VERSÃO 16
 // ════════════════════════════════════════════════════════════════════════════
-// ✓ CORRIDA DE MIRRORS (principal novidade):
-//   • consultarOverpass() agora usa Promise.any() em vez de loop sequencial
-//   • A MESMA query unificada é disparada para todos os 4 mirrors ao mesmo tempo
-//   • O primeiro que responder com sucesso vence; os demais são abortados
-//   • Tempo total ≈ tempo do servidor mais rápido naquele momento
-//   • Cobertura 100% preservada (mesma query, mesmo conteúdo)
-//   • Escalonamento leve nos timeouts (+2 s por mirror) para não sobrecarregar
+// ✓ CORREÇÃO BUSCA POR PROXIMIDADE:
+//   • Causa raiz: NOME_REGEX_AUX (80+ termos) causava timeout no Overpass com around:
+//   • Solução: NOME_REGEX_PROX — regex curto (20 termos específicos de saúde)
+//   • Fallback automático: se query rápida retorna vazio → tenta query mínima (só tags)
+//   • Timeout aumentado: 60s (query rápida) e 90s (query mínima/ampliada)
+//   • 4 mirrors Overpass (adicionado overpass.openstreetmap.ru)
 //
-// ✓ COBERTURA RESTAURADA (regressão v17 corrigida):
-//   • Queries voltaram ao modelo unificado da v16 (buildQueryAmpliada e buildQueryRapida)
-//   • A divisão tags/regex da v17 causava timeout da parte regex por falta de
-//     filtro pré-seletivo → zero resultados do componente de nome/operador
+// ✓ INCLUSÃO DE UNIDADES AMPLIADA:
+//   • Clínicas da Família (CF): variações completas no NOME_REGEX_PROX e AUX
+//   • Associações Beneficentes: 10+ variações em NOME_REGEX_AUX e isVinculadoSUS
+//   • Beneficências Portuguesas: múltiplas variações cobertas
+//   • Ligas de Saúde, Obras Sociais, Instituições Filantrópicas
 //
-// ✓ CRONÔMETRO NO PAINEL DE PROGRESSO:
-//   • showSearchProgress(true) inicia contador de segundos (atualiza a cada 1 s)
-//   • showSearchProgress(false) para o contador e exibe tempo total
-//   • Exibido abaixo do contador de unidades encontradas
+// ✓ EXCLUSÕES APRIMORADAS:
+//   • EXCLUIR_PALAVRAS_NOME: lista de 30+ palavras que identificam não-saúde pelo nome
+//   • Aplicada em isVinculadoSUS ANTES das inclusões
+//   • EXCLUIR_TIPOS expandido com school, kindergarten, university, place_of_worship
+//   • buildQueryAmpliada usa lista estendida de exclusões de amenity
 //
-// ✓ DEMAIS MELHORIAS DA v16/v17 MANTIDAS:
-//   • Cache em memória entre buscas da sessão
-//   • CNES estático + Nominatim em paralelo via Promise.all
-//   • EXCLUIR_TIPOS, EXCLUIR_PALAVRAS_NOME, NOME_REGEX_PROX, deduplicar()
-//   • 4 mirrors Overpass disponíveis
+// ✓ CORREÇÃO isVinculadoSUS:
+//   • healthcare=yes (genérico, comum no Brasil) não é mais rejeitado
+//   • healthcare=health, care, public, service, facility também aceitos
+//   • Lógica: apenas rejeita se AMBAS as tags (amenity + healthcare) indicam não-saúde
+//
+// ✓ PERFORMANCE:
+//   • INCLUIR_AMENITY_SAUDE: lista restrita para busca por proximidade
+//   • buildQueryMinima: query ultra-simples de fallback
+//   • Detecção de remark (timeout Overpass) com fallback automático
+//   • Cache mantido entre buscas da mesma sessão
 
 let allUnits = [];
 let filteredUnits = [];
@@ -1368,6 +1379,113 @@ let municipiosPorEstado = {};
 let buscaAtiva = false;
 let reverseGeocodeCache = new Map();
 let overpassCache = new Map(); // cache simples em memória
+let searchStartTime = null;
+let searchTimerInterval = null;
+let requestQueue = [];
+let isProcessingQueue = false;
+
+
+// ════════════════════════════════════════════════════════════════════════════
+//  OTIMIZAÇÕES DE PERFORMANCE - DEBOUNCE E CACHE AVANÇADO
+// ════════════════════════════════════════════════════════════════════════════
+let debounceTimers = {};
+let municipioGeoCache = new Map(); // Cache de coordenadas de municípios
+
+function debounceRequest(key, fn, delay = 300) {
+    if (debounceTimers[key]) clearTimeout(debounceTimers[key]);
+    debounceTimers[key] = setTimeout(fn, delay);
+}
+
+async function getMunicipioDataOptimized(uf, codigoIBGE, nomeMunicipio) {
+    const cacheKey = `${uf}_${codigoIBGE}`;
+    
+    // Verificar cache local
+    if (municipioGeoCache.has(cacheKey)) {
+        console.log('Cache hit para município:', cacheKey);
+        return municipioGeoCache.get(cacheKey);
+    }
+    
+    // Tentar dados já carregados
+    if (municipiosPorEstado[uf]) {
+        const mun = municipiosPorEstado[uf].find(m => m.id === codigoIBGE);
+        if (mun && mun.latitude && mun.longitude) {
+            municipioGeoCache.set(cacheKey, mun);
+            return mun;
+        }
+    }
+
+    try {
+        const nomeBusca = encodeURIComponent(`${nomeMunicipio}, ${uf}, Brasil`);
+        const url = `${CONFIG.NOMINATIM.ENDPOINT}/search?q=${nomeBusca}&format=json&limit=1&countrycodes=br&polygon_geojson=0&addressdetails=1`;
+        
+        const resp = await fetch(url, {
+            headers: { 'User-Agent': 'Saude-BR-Localizador' }
+        });
+        
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.length > 0) {
+                const result = {
+                    id: codigoIBGE,
+                    nome: nomeMunicipio,
+                    latitude: parseFloat(data[0].lat),
+                    longitude: parseFloat(data[0].lon),
+                    bbox: data[0].boundingbox
+                };
+                municipioGeoCache.set(cacheKey, result);
+                return result;
+            }
+        }
+    } catch (e) {
+        console.warn('Erro ao buscar coordenadas do município:', e.message);
+    }
+    
+    return null;
+}
+
+// Pré-processar dados para busca rápida
+function buildSearchIndex(units) {
+    const index = {
+        byNome: new Map(),
+        byNivel: { primaria: [], secundaria: [], terciaria: [] },
+        byAcolhimento: {},
+        byGestao: {}
+    };
+    
+    units.forEach(u => {
+        // Índice por nome normalizado
+        const nomeNorm = norm(u.nome);
+        if (!index.byNome.has(nomeNorm)) {
+            index.byNome.set(nomeNorm, []);
+        }
+        index.byNome.get(nomeNorm).push(u);
+        
+        // Índice por nível
+        if (u.nivel && index.byNivel[u.nivel]) {
+            index.byNivel[u.nivel].push(u);
+        }
+        
+        // Índice por acolhimento
+        if (u.acolhimento) {
+            if (!index.byAcolhimento[u.acolhimento]) {
+                index.byAcolhimento[u.acolhimento] = [];
+            }
+            index.byAcolhimento[u.acolhimento].push(u);
+        }
+        
+        // Índice por gestão
+        if (u.gestao) {
+            if (!index.byGestao[u.gestao]) {
+                index.byGestao[u.gestao] = [];
+            }
+            index.byGestao[u.gestao].push(u);
+        }
+    });
+    
+    return index;
+}
+
+let searchIndex = null;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FUNÇÕES AUXILIARES (mantidas iguais)
@@ -1437,45 +1555,57 @@ function sleep(ms) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CONSULTA OVERPASS — VERSÃO 18: corrida entre todos os mirrors (Promise.any)
-//  Tempo total ≈ tempo do mirror mais rápido disponível no momento.
-//  Cada mirror recebe um AbortController independente; os perdedores são
-//  cancelados assim que o vencedor retorna resultado válido.
+//  CONSULTA OVERPASS UNIFICADA (com cache e fallback) - VERSÃO OTIMIZADA
 // ════════════════════════════════════════════════════════════════════════════
-async function consultarOverpass(query, timeoutMs = 90000) {
-    if (overpassCache.has(query)) return overpassCache.get(query);
-
-    const controllers = CONFIG.OVERPASS_MIRRORS.map(() => new AbortController());
-    const timers = controllers.map((ctrl, i) => setTimeout(() => ctrl.abort(), timeoutMs + i * 2000)); // escalonamento leve para não sobrecarregar
-
-    const tentativas = CONFIG.OVERPASS_MIRRORS.map((endpoint, i) =>
-        fetch(endpoint, {
-            method: 'POST',
-            body: query,
-            signal: controllers[i].signal,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        }).then(async resp => {
-            clearTimeout(timers[i]);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status} em ${endpoint}`);
-            const json = await resp.json();
-            // Cancela os demais mirrors assim que um vencer
-            controllers.forEach((c, j) => { if (j !== i) { clearTimeout(timers[j]); c.abort(); } });
-            return json;
-        }).catch(err => {
-            clearTimeout(timers[i]);
-            throw err;
-        })
-    );
-
-    try {
-        const json = await Promise.any(tentativas);
-        overpassCache.set(query, json);
-        return json;
-    } catch (aggregateErr) {
-        // Todas falharam — lança o erro da primeira tentativa que retornou motivo
-        const erros = aggregateErr.errors || [];
-        throw erros[0] || new Error('Todos os servidores Overpass falharam');
+async function consultarOverpass(query, timeoutMs = 60000) { // timeout aumentado para 60s
+    // Cache simples
+    if (overpassCache.has(query)) {
+        console.log('Cache hit para Overpass query');
+        return overpassCache.get(query);
     }
+
+    let lastErr;
+    const mirrors = [...CONFIG.OVERPASS_MIRRORS];
+    
+    // Tentar mirrors em ordem com retry inteligente
+    for (let attempt = 0; attempt < 2; attempt++) {
+        for (const endpoint of mirrors) {
+            const controller = new AbortController();
+            const adjustedTimeout = timeoutMs + (attempt * 15000); // Aumentar timeout em retry
+            const timer = setTimeout(() => controller.abort(), adjustedTimeout);
+            
+            try {
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    body: query,
+                    signal: controller.signal,
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                clearTimeout(timer);
+                
+                if (resp.ok) {
+                    const json = await resp.json();
+                    overpassCache.set(query, json);
+                    console.log(`Sucesso no Overpass ${endpoint}`);
+                    return json;
+                }
+                
+                const txt = await resp.text().catch(() => resp.status);
+                lastErr = new Error(`HTTP ${resp.status}: ${String(txt).slice(0, 120)}`);
+            } catch (e) {
+                clearTimeout(timer);
+                lastErr = e;
+                console.warn(`Overpass ${endpoint} falhou (tentativa ${attempt + 1}):`, e.message || e);
+            }
+        }
+        
+        // Se primeira tentativa falhou, aguardar um pouco antes de retry
+        if (attempt === 0) {
+            await sleep(500);
+        }
+    }
+    
+    throw lastErr || new Error('Todos os servidores Overpass falharam');
 }
 
 /**
@@ -1537,7 +1667,7 @@ out center tags qt;
 /**
  * QUERY AMPLIADA — usada na busca por MUNICÍPIO (area/bbox).
  * Inclui healthcare, amenity, nome regex E operador regex para máxima cobertura.
- * Cobertura idêntica à v16; velocidade aumentada pela corrida de mirrors (v18).
+ * VERSÃO 16: timeout:90, exclusões aprimoradas para praças, escolas, cemitérios, etc.
  */
 function buildQueryAmpliada(areaCondition) {
     const { escopo, filtroArea } = _resolverEscopo(areaCondition);
@@ -1559,7 +1689,7 @@ out center tags qt;
     `.trim();
 }
 
-// Alias (município usa ampliada por padrão)
+// Alias de compatibilidade (município usa ampliada por padrão)
 function buildUnifiedQuery(areaCondition) {
     return buildQueryAmpliada(areaCondition);
 }
@@ -2185,7 +2315,7 @@ async function usarGeolocalizacao() {
 
                 const raio = parseFloat(document.getElementById('geoRaio').value) || 10;
 
-                // Obter cidade/UF via reverse geocode
+                // Obter cidade/UF via reverse geocode (com cache)
                 const location = await reverseGeocode(currentGeoPosition.lat, currentGeoPosition.lon).catch(() => null);
                 const cidade = location?.cidade || 'sua localização';
                 const uf = location?.uf || '';
@@ -2198,7 +2328,7 @@ async function usarGeolocalizacao() {
 
                 if (!buscaAtiva) return;
 
-                // Calcular distância de cada unidade em relação ao usuário
+                // Calcular distância de cada unidade em relação ao usuário (otimizado)
                 units.forEach(u => {
                     if (u.lat && u.lon) {
                         u.distancia = calcularDistancia(
@@ -2213,6 +2343,9 @@ async function usarGeolocalizacao() {
 
                 allUnits = units;
                 if (!buscaAtiva) return;
+                
+                // Construir índice de busca para filtros mais rápidos
+                searchIndex = buildSearchIndex(allUnits);
                 applyLocalFilters();
 
                 updateSearchProgress(100, 'Concluído!', `${allUnits.length} unidades no raio de ${raio}km`);
@@ -2249,26 +2382,32 @@ async function usarGeolocalizacao() {
 async function buscarUnidadesProximas(lat, lon, raioKm, uf, cidade) {
     const aroundStr = `around:${Math.round(raioKm * 1000)},${lat},${lon}`;
 
-    updateSearchProgress(35, 'Consultando OpenStreetMap...', 'Conectando ao servidor mais rápido...');
+    updateSearchProgress(35, 'Consultando OpenStreetMap (query rápida)...', 'Aguarde...');
 
     let elementos = [];
 
-    // Tentativa 1: query rápida (tags + NOME_REGEX_PROX curto)
+    // Tentativa 1: query rápida com regex curto (NOME_REGEX_PROX)
     try {
-        const dados1 = await consultarOverpass(buildQueryRapida(aroundStr), 65000);
+        const query1 = buildQueryRapida(aroundStr);
+        const dados1 = await consultarOverpass(query1, 65000);
         elementos = dados1.elements || [];
-        if (dados1.remark) console.warn('Overpass remark (query rápida):', dados1.remark);
+        if (dados1.remark) {
+            console.warn('Overpass remark (query rápida):', dados1.remark);
+        }
     } catch (error) {
         console.warn('Query rápida falhou:', error.message);
     }
 
-    // Tentativa 2: fallback — apenas tags healthcare/amenity, sem regex
+    // Tentativa 2: se retornou vazio, usa query mínima (só tags healthcare/amenity, sem regex)
     if (elementos.length === 0) {
-        updateSearchProgress(55, 'Tentando query simplificada...', 'Buscando apenas por tags de saúde');
+        updateSearchProgress(50, 'Tentando query simplificada...', 'Buscando apenas por tags de saúde');
         try {
-            const dados2 = await consultarOverpass(buildQueryMinima(aroundStr), 90000);
+            const query2 = buildQueryMinima(aroundStr);
+            const dados2 = await consultarOverpass(query2, 95000);
             elementos = dados2.elements || [];
-            if (dados2.remark) console.warn('Overpass remark (query mínima):', dados2.remark);
+            if (dados2.remark) {
+                console.warn('Overpass remark (query mínima):', dados2.remark);
+            }
         } catch (error) {
             console.error('Query mínima falhou:', error);
             throw error;
@@ -2344,11 +2483,11 @@ async function buscarPorMunicipio() {
     buscaAtiva = true;
 
     try {
-        // Carrega CNES estático em paralelo com obtenção de coordenadas do município
+        // Carrega CNES estático em paralelo com obtenção de coordenadas do município (otimizado)
         updateSearchProgress(10, 'Carregando registro CNES oficial...', `data/cnes/${uf}.json`);
         const [unitsCNES, municipio] = await Promise.all([
             buscarCNESEstatico(uf, codigoIBGE, nomeMunicipio),
-            getMunicipioData(uf, codigoIBGE, nomeMunicipio),
+            getMunicipioDataOptimized(uf, codigoIBGE, nomeMunicipio),
         ]);
         if (!buscaAtiva) return;
 
@@ -2377,6 +2516,9 @@ async function buscarPorMunicipio() {
 
         allUnits = deduplicar(todasUnidades);
         if (!buscaAtiva) return;
+        
+        // Construir índice de busca para filtros mais rápidos
+        searchIndex = buildSearchIndex(allUnits);
         applyLocalFilters();
 
         const nCNES = allUnits.filter(u => u.fonte === 'CNES').length;
@@ -3350,27 +3492,14 @@ async function copiarChavePix() {
 // ════════════════════════════════════════════════════════════════════════════
 //  FUNÇÕES DE PROGRESSO E NOTIFICAÇÃO (mantidas)
 // ════════════════════════════════════════════════════════════════════════════
-let _spTimerInterval = null;
-let _spTimerStart = 0;
-
 function showSearchProgress(visible) {
     const card = document.getElementById('searchProgressCard');
     if (visible) {
         card.classList.add('visible');
-        // inicia cronômetro
-        _spTimerStart = Date.now();
-        document.getElementById('spTimer').textContent = '0s';
-        if (_spTimerInterval) clearInterval(_spTimerInterval);
-        _spTimerInterval = setInterval(() => {
-            const sec = Math.floor((Date.now() - _spTimerStart) / 1000);
-            document.getElementById('spTimer').textContent = `${sec}s`;
-        }, 1000);
+        startSearchTimer();
     } else {
         card.classList.remove('visible');
-        // para cronômetro e mostra tempo final brevemente
-        if (_spTimerInterval) { clearInterval(_spTimerInterval); _spTimerInterval = null; }
-        const totalSec = Math.floor((Date.now() - _spTimerStart) / 1000);
-        document.getElementById('spTimer').textContent = `${totalSec}s`;
+        stopSearchTimer();
     }
 }
 
@@ -3379,6 +3508,27 @@ function updateSearchProgress(percent, title, hint) {
     document.getElementById('spTitle').textContent = title;
     document.getElementById('spHint').textContent = hint;
     document.getElementById('spCount').textContent = filteredUnits.length;
+}
+
+function startSearchTimer() {
+    searchStartTime = Date.now();
+    if (searchTimerInterval) clearInterval(searchTimerInterval);
+    searchTimerInterval = setInterval(() => {
+        if (!searchStartTime) return;
+        const elapsed = Math.floor((Date.now() - searchStartTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        document.getElementById('spTimer').textContent = 
+            `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }, 100);
+}
+
+function stopSearchTimer() {
+    if (searchTimerInterval) {
+        clearInterval(searchTimerInterval);
+        searchTimerInterval = null;
+    }
+    searchStartTime = null;
 }
 
 function showNotification(message, type = 'info') {
